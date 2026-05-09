@@ -1,0 +1,103 @@
+"""
+INTEGRASI KE MAIN APP
+=====================
+Tambahkan ke backend/main.py atau backend/router.py:
+
+    from backend.data.promo.route import promo_router
+
+    app.include_router(promo_router, prefix="")
+
+
+STRUKTUR FILE YANG DIBUAT
+==========================
+backend/data/promo/
+├── __init__.py
+├── model.py          ← SUDAH ADA (Promo, PromoItem, PromoUsage + enums)
+├── promo_model.py    ← BARU (PromoTransaction, PromoTransactionItem)
+├── schema.py         ← BARU (semua Pydantic schemas)
+├── service.py        ← BARU (PromoService, PromoCheckoutService, PromoCalculator)
+└── route.py          ← BARU (FastAPI router)
+
+
+PERUBAHAN MODEL YANG DIPERLUKAN
+================================
+
+1. backend/data/ongkir/model.py — Tambah field ke Shipment:
+
+    promo_transaction_uuid: Optional[UUID] = Field(
+        default=None,
+        sa_column=Column(
+            pg.UUID(as_uuid=True),
+            ForeignKey("promo_transaction.uuid", ondelete="SET NULL"),
+            nullable=True,
+            index=True,
+        )
+    )
+    # Tambah ke __table_args__:
+    Index("idx_shipment_promo_trx", "promo_transaction_uuid"),
+
+
+2. backend/data/promo/model.py — Pastikan PromoUsage punya field order_id
+   (sudah ada di model, tinggal pastikan nullable):
+
+    order_id: Optional[str] = Field(
+        default=None,
+        sa_column=Column(pg.VARCHAR(100), nullable=True, index=True)
+    )
+
+
+ALEMBIC MIGRATION
+==================
+Buat migration baru:
+
+    alembic revision --autogenerate -m "add_promo_transaction_tables"
+
+Atau manual:
+
+    op.create_table('promo_transaction', ...)
+    op.create_table('promo_transaction_item', ...)
+    op.add_column('shipment', sa.Column('promo_transaction_uuid', ...))
+
+
+ENDPOINT SUMMARY
+================
+
+PUBLIC:
+  GET  /promos                     — list promo aktif
+  GET  /promos/flash-sale          — list flash sale
+  GET  /promos/{slug}              — detail promo
+  POST /promos/validate            — preview harga (no commit)
+  POST /promos/checkout            — checkout + Midtrans
+  POST /promos/webhook/midtrans    — Midtrans callback
+  GET  /promos/my-orders           — riwayat order promo user
+  GET  /promos/order/{order_id}    — detail order promo
+
+ADMIN:
+  POST   /admin/promos             — buat promo (status DRAFT)
+  GET    /admin/promos             — list semua promo
+  GET    /admin/promos/{uuid}      — detail promo
+  PATCH  /admin/promos/{uuid}      — update metadata
+  POST   /admin/promos/{uuid}/publish   — publish
+  POST   /admin/promos/{uuid}/pause     — pause
+  DELETE /admin/promos/{uuid}      — soft delete/arsip
+  POST   /admin/promos/{uuid}/items     — tambah item
+  DELETE /admin/promos/{uuid}/items/{item_uuid}  — hapus item
+  GET    /admin/promos/stats       — statistik
+
+
+PROMO TYPE & BEHAVIOR
+=====================
+PERCENTAGE  : disc_value% dari harga, dibatasi max_discount
+FIXED       : potongan flat Rp disc_value per item
+BOGO        : beli buy_quantity gratis get_quantity (hitung per item)
+BUNDLE_DISC : disc_value% dari total bundle (cocok untuk paket jasa)
+FLASH_SALE  : seperti PERCENTAGE + flash_sale_quota terpisah
+
+PROMO TARGET:
+  STOCK           : hanya berlaku untuk produk (Stock)
+  SERVICE_PACKAGE : hanya untuk paket jasa
+  ALL             : berlaku untuk semua item
+
+Jika ada PromoItem spesifik → hanya item terdaftar yang dapat diskon.
+Jika tidak ada PromoItem → semua item sesuai target mendapat diskon.
+"""

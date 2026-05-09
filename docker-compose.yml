@@ -1,0 +1,103 @@
+version: '3.8'
+
+services:
+  # 🔥 DragonflyDB: Pengganti Redis yang jauh lebih cepat & multi-threaded
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: cloudflared
+    restart: always
+    command: tunnel run fastapi-cctv
+    volumes:
+      - ./cloudflared:/etc/cloudflared
+    depends_on:
+      - backend
+  celery_worker:
+    build: .
+    container_name: celery_worker
+    restart: always
+    depends_on:
+      - dragonfly
+      - db
+    env_file:
+      - ./backend/.env
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://user_admin:password_rahasia@db:5432/marketplace_db
+      - REDIS_HOST=dragonfly
+      - REDIS_PORT=6379
+    command: celery -A backend.celery_app.celery_app worker -l info -Q default,email,auth --concurrency=4
+  dragonfly:
+    image: 'docker.dragonflydb.io/dragonflydb/dragonfly'
+    container_name: dragonfly_service
+    ports:
+      - "6379:6379"
+    ulimits:
+      memlock: -1
+    restart: always
+    # Batasi memori jika dijalankan di laptop (opsional)
+    # command: ["--memlimit=512MB"]
+
+  # 🐘 PostgreSQL: Database utama dengan fitur Healthcheck
+  db:
+    image: postgres:15-alpine
+    container_name: postgres_db
+    restart: always
+    environment:
+      POSTGRES_USER: user_admin
+      POSTGRES_PASSWORD: password_rahasia
+      POSTGRES_DB: marketplace_db
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    # 🔥 Memastikan container sehat hanya jika Postgres benar-benar siap menerima koneksi
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U user_admin -d marketplace_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # ⚡ FastAPI Backend
+  backend:
+    build: .
+    container_name: fastapi_backend
+    restart: always
+    depends_on:
+      db:
+        condition: service_healthy  # 🔥 Tunggu DB sampai benar-benar siap
+      dragonfly:
+        condition: service_started
+      elasticsearch:
+        condition: service_started  # 🔥 Pastikan backend menunggu ES nyala
+    # 🔥 Membaca variabel dari backend/.env
+    env_file:
+      - ./backend/.env
+    # 🔥 Sinkronisasi file untuk Auto-Update (Hot Reload)
+    volumes:
+      - ./backend:/app/backend
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://user_admin:password_rahasia@db:5432/marketplace_db
+      - REDIS_HOST=dragonfly
+      - REDIS_PORT=6379
+      - ELASTICSEARCH_URL=http://elasticsearch:9200 # Tambahkan env variable untuk ES
+    ports:
+      - "8000:8000"
+    # 🔥 Mode Development dengan auto-reload
+    command: uvicorn backend:app --host 0.0.0.0 --port 8000 --reload
+
+  # 🔥 Elasticsearch DIPINDAHKAN KE DALAM SERVICES
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.11.3
+    container_name: elasticsearch_db
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false # Set True di production + konfigurasi password
+      - ES_JAVA_OPTS=-Xms512m -Xmx512m
+    ports:
+      - "9200:9200"
+    volumes:
+      - es_data:/usr/share/elasticsearch/data
+    restart: always
+    
+volumes:
+  postgres_data:
+  es_data:
