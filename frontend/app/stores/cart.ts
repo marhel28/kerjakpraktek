@@ -14,6 +14,7 @@ export interface CartItem {
   quantity: number
   image: string
   weight?: number
+  options?: any
 }
 
 // =========================
@@ -42,13 +43,25 @@ export const useCartStore = defineStore('cart', {
       state.items.reduce((acc, item) => acc + item.quantity, 0),
 
     totalHarga: (state) =>
-      state.items.reduce((acc, item) => acc + item.price * item.quantity, 0),
+      state.items.reduce((acc, item) => {
+        const basePrice = item.price * item.quantity
+        // Options structure: { addons: [ { price, quantity }, ... ] }
+        const addonsPrice = (item.options?.addons || []).reduce(
+          (aAcc: number, a: any) => aAcc + (Number(a.price || 0) * Number(a.quantity || 1)),
+          0
+        )
+        return acc + basePrice + (addonsPrice * item.quantity)
+      }, 0),
 
     totalWeight: (state) =>
-      state.items.reduce(
-        (acc, item) => acc + (item.weight || 0) * item.quantity,
-        0
-      ),
+      state.items.reduce((acc, item) => {
+        const baseWeight = (item.weight || 0) * item.quantity
+        const addonsWeight = (item.options?.addons || []).reduce(
+          (wAcc: number, a: any) => wAcc + (Number(a.weight || 0) * Number(a.quantity || 1)),
+          0
+        )
+        return acc + baseWeight + (addonsWeight * item.quantity)
+      }, 0),
 
     isLoggedIn: () => !!useCookie('token').value,
   },
@@ -91,6 +104,7 @@ export const useCartStore = defineStore('cart', {
             image: item.stock.cover_image_url,
             quantity: Math.max(1, Number(item.quantity) || 1),
             weight: item.stock.weight,
+            options: item.options,
           })
         )
 
@@ -130,7 +144,9 @@ export const useCartStore = defineStore('cart', {
 
         const tasks = this.items.map(async (localItem) => {
           const exist = backendItems.find(
-            (b: any) => b.stock.uuid === localItem.stock_uuid
+            (b: any) => 
+              b.stock.uuid === localItem.stock_uuid && 
+              JSON.stringify(b.options) === JSON.stringify(localItem.options)
           )
 
           if (exist) {
@@ -153,6 +169,7 @@ export const useCartStore = defineStore('cart', {
             body: {
               stock_uuid: localItem.stock_uuid,
               quantity: localItem.quantity,
+              options: localItem.options
             },
           }).catch(() => {})
         })
@@ -203,6 +220,7 @@ export const useCartStore = defineStore('cart', {
         image: product.image || product.cover_image_url,
         quantity: qty,
         weight: product.weight,
+        options: product.options,
       }
 
       this.items.push(newItem)
@@ -221,6 +239,7 @@ export const useCartStore = defineStore('cart', {
             body: {
               stock_uuid: uuid,
               quantity: qty,
+              options: product.options
             },
           }
         )

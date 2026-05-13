@@ -61,7 +61,7 @@ const displayBrandLogo = computed(() => brandProfile.value?.brand_logo || '')
 const totalFromProfile = computed(() => brandProfile.value?.total_items || 0)
 
 useSeoMeta({
-  title: () => `${displayBrandName.value} Official Store — Padjajaran CCTV`,
+  title: () => `${displayBrandName.value} Official Store — PasarCctv`,
   description: () => `Katalog produk resmi ${displayBrandName.value}. Harga terbaik, garansi resmi, tersedia pengiriman seluruh Indonesia.`,
   ogTitle: () => `${displayBrandName.value} Official Store`,
   ogImage: displayBrandLogo,

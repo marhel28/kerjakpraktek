@@ -5,8 +5,7 @@ import axios from 'axios';
 // MAIN API (pakai interceptor)
 // ============================
 const api = axios.create({
-  // baseURL : 'http://127.0.0.1:8000',
-  baseURL: 'https://cctv-api.desa-sidomukti.com',
+  baseURL: 'http://localhost:8000',
   headers: {
     'Content-Type': 'application/json',
   },
@@ -16,7 +15,7 @@ const api = axios.create({
 // REFRESH CLIENT (NO interceptor)
 // ============================
 const refreshClient = axios.create({
-  baseURL: 'https://cctv-api.desa-sidomukti.com',
+  baseURL: 'http://localhost:8000',
 });
 
 // ============================
@@ -170,5 +169,11 @@ api.interceptors.response.use(
     }
   }
 );
+
+export const get = (url, config = {}) => api.get(url, config);
+export const post = (url, data = {}, config = {}) => api.post(url, data, config);
+export const put = (url, data = {}, config = {}) => api.put(url, data, config);
+export const patch = (url, data = {}, config = {}) => api.patch(url, data, config);
+export const del = (url, config = {}) => api.delete(url, config);
 
 export default api;

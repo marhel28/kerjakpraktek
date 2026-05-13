@@ -107,3 +107,21 @@ export const couponApi = {
     return api.post('/stok/public/coupon/validate', body);
   },
 };
+
+// ── Addon API ───────────────────────────────────────────────────
+export const addonApi = {
+  /** GET /admin/addons/groups */
+  listGroups() {
+    return api.get('/admin/addons/groups');
+  },
+  
+  /** GET /admin/addons/stock/:uuid */
+  listStockMappings(uuid) {
+    return api.get(`/admin/addons/stock/${uuid}`);
+  },
+
+  /** POST /admin/addons/stock/:uuid/sync */
+  syncStockMappings(uuid, data) {
+    return api.post(`/admin/addons/stock/${uuid}/sync`, data);
+  }
+};

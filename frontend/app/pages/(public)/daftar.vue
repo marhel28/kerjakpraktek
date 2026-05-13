@@ -5,20 +5,24 @@
     <div
       class="w-full h-[100dvh] sm:h-auto max-w-5xl sm:max-h-[95vh] bg-white sm:border border-gray-200 sm:shadow-xl sm:rounded-xl overflow-hidden flex flex-col lg:flex-row relative"
     >
+      <!-- ═══════════════════════════════════════════════════════════
+           LEFT PANEL — hanya tampil di lg+
+      ════════════════════════════════════════════════════════════ -->
       <div class="hidden lg:block lg:w-5/12 bg-black relative">
         <img
           src="https://static.jakmall.id/2023/12/images/products/e92af9/original/xiaomi-kamera-cctv-smart-google-home-alexa-360-rotation-full-hd-c200.png"
-          alt="Padjajaran CCTV Security"
+          alt="PasarCctv Security"
           class="w-full h-full object-cover opacity-50 mix-blend-luminosity grayscale"
         />
         <div
           class="absolute inset-0 bg-gradient-to-tr from-black via-black/60 to-transparent"
         ></div>
 
+        <!-- Logo -->
         <div class="absolute top-12 left-12">
           <div class="flex flex-col leading-none">
             <span class="text-3xl font-black text-white tracking-tighter uppercase italic"
-              >Padjajaran</span
+              >PasarCctv</span
             >
             <span class="text-lg font-light text-gray-400 tracking-[0.3em] uppercase mt-1"
               >CCTV</span
@@ -26,6 +30,7 @@
           </div>
         </div>
 
+        <!-- Deskripsi + Steps -->
         <div class="absolute bottom-16 left-12 right-12 text-white">
           <div class="barcode-element-white mb-6"></div>
           <h1 class="text-4xl font-black uppercase tracking-tighter leading-[1.1] mb-5">
@@ -64,13 +69,17 @@
         </div>
       </div>
 
+      <!-- ═══════════════════════════════════════════════════════════
+           RIGHT PANEL — form utama
+      ════════════════════════════════════════════════════════════ -->
       <div class="w-full lg:w-7/12 flex flex-col h-full overflow-hidden bg-white">
+        <!-- Mobile header -->
         <div
           class="lg:hidden sticky top-0 z-20 bg-white/85 backdrop-blur-md border-b border-gray-100 px-5 py-4 flex items-center justify-between shrink-0"
         >
           <div class="flex flex-col leading-none">
             <span class="text-xl font-black text-black tracking-tighter uppercase italic"
-              >Padjajaran</span
+              >PasarCctv</span
             >
             <span
               class="text-[10px] font-light text-gray-500 tracking-[0.3em] uppercase mt-1"
@@ -84,11 +93,14 @@
           </span>
         </div>
 
+        <!-- Scrollable form area -->
         <div class="flex-1 overflow-y-auto px-5 py-8 sm:p-14 custom-scrollbar relative">
+          <!-- Barcode dekorasi (desktop) -->
           <div class="absolute top-8 right-10 hidden sm:block">
             <div class="barcode-element-black"></div>
           </div>
 
+          <!-- Heading -->
           <div class="mb-8">
             <div class="flex items-center gap-3 mb-1">
               <h2
@@ -109,11 +121,15 @@
             </p>
           </div>
 
+          <!-- ══════════════════════════════════════
+               STEP 0 — Register
+          ═══════════════════════════════════════ -->
           <form
             v-if="currentStep === 0"
             @submit.prevent="handleRegister"
             class="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5"
           >
+            <!-- Error banner -->
             <div
               v-if="errorMsg"
               class="md:col-span-2 bg-red-50 border border-red-200 p-4 rounded-lg sm:rounded-none"
@@ -123,6 +139,7 @@
               </p>
             </div>
 
+            <!-- Username -->
             <div class="group md:col-span-2">
               <label class="custom-label"
                 >Username <span class="text-red-600">*</span></label
@@ -142,6 +159,7 @@
               </p>
             </div>
 
+            <!-- Email -->
             <div class="group md:col-span-2">
               <label class="custom-label"
                 >Email Korespondensi <span class="text-red-600">*</span></label
@@ -156,6 +174,7 @@
               />
             </div>
 
+            <!-- Password -->
             <div class="group">
               <label class="custom-label"
                 >Buat Password <span class="text-red-600">*</span></label
@@ -174,6 +193,7 @@
               </p>
             </div>
 
+            <!-- Konfirmasi Password -->
             <div class="group">
               <label class="custom-label"
                 >Konfirmasi Password <span class="text-red-600">*</span></label
@@ -194,6 +214,7 @@
               </p>
             </div>
 
+            <!-- Submit -->
             <div class="md:col-span-2 mt-4 sm:mt-6">
               <button
                 type="submit"
@@ -218,6 +239,7 @@
               </button>
             </div>
 
+            <!-- Info box -->
             <div
               class="md:col-span-2 bg-gray-50 border border-gray-200 p-4 text-center rounded-lg sm:rounded-none"
             >
@@ -232,11 +254,15 @@
             </div>
           </form>
 
+          <!-- ══════════════════════════════════════
+               STEP 1 — Profil & Lokasi
+          ═══════════════════════════════════════ -->
           <form
             v-if="currentStep === 1"
             @submit.prevent="handleProfileUpdate"
             class="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5"
           >
+            <!-- Error banner -->
             <div
               v-if="errorMsg"
               class="md:col-span-2 bg-red-50 border border-red-200 p-4 rounded-lg sm:rounded-none"
@@ -246,6 +272,7 @@
               </p>
             </div>
 
+            <!-- Sukses banner -->
             <div
               class="md:col-span-2 bg-green-50 border border-green-300 p-4 rounded-lg sm:rounded-none"
             >
@@ -261,6 +288,7 @@
               </p>
             </div>
 
+            <!-- Tipe Akun -->
             <div class="md:col-span-2 group">
               <label class="custom-label">Tipe Akun</label>
               <select class="custom-select" v-model="profile.user_type">
@@ -271,6 +299,7 @@
               </select>
             </div>
 
+            <!-- Nomor WA -->
             <div class="group md:col-span-2">
               <label class="custom-label">Nomor WhatsApp (Aktif)</label>
               <div class="relative">
@@ -289,6 +318,7 @@
               </div>
             </div>
 
+            <!-- Divider Lokasi -->
             <div class="md:col-span-2 mt-2 mb-1">
               <div class="flex items-center gap-4">
                 <span
@@ -299,6 +329,7 @@
               </div>
             </div>
 
+            <!-- Provinsi -->
             <div class="group">
               <label class="custom-label">Provinsi</label>
               <select
@@ -313,6 +344,7 @@
               </select>
             </div>
 
+            <!-- Kota / Kabupaten -->
             <div class="group">
               <label class="custom-label">Kota / Kabupaten</label>
               <select
@@ -328,6 +360,7 @@
               </select>
             </div>
 
+            <!-- Kecamatan -->
             <div class="group md:col-span-2">
               <label class="custom-label">Kecamatan</label>
               <select
@@ -342,6 +375,7 @@
               </select>
             </div>
 
+            <!-- Alamat -->
             <div class="group md:col-span-2">
               <label class="custom-label"
                 >Alamat Lengkap (Detail Jalan / No. Rumah)</label
@@ -353,6 +387,7 @@
               ></textarea>
             </div>
 
+            <!-- Actions -->
             <div class="md:col-span-2 mt-4 flex flex-col-reverse sm:flex-row gap-3">
               <button
                 type="button"
@@ -379,6 +414,7 @@
             </div>
           </form>
 
+          <!-- Link login -->
           <p
             class="text-center text-gray-500 mt-10 text-[11px] font-bold uppercase tracking-wider pb-6 sm:pb-0"
           >
@@ -402,21 +438,25 @@ import axios from "axios";
 
 // ─── SEO ──────────────────────────────────────────────────────────
 useHead({
-  title: "Daftar Akun - Padjajaran CCTV",
+  title: "Daftar Akun - PasarCctv",
   meta: [
     {
       name: "description",
       content:
-        "Daftar akun Padjajaran CCTV untuk kemudahan belanja produk keamanan, pengadaan proyek, dan jasa instalasi.",
+        "Daftar akun PasarCctv untuk kemudahan belanja produk keamanan, pengadaan proyek, dan jasa instalasi.",
     },
   ],
 });
+
+// ─── Runtime Config ───────────────────────────────────────────────
+const config = useRuntimeConfig();
+const BASE_URL = config.public.apiBase || "http://127.0.0.1:8000";
 
 // ─── State Wizard ─────────────────────────────────────────────────
 const steps = ["Data Akun", "Profil & Lokasi"];
 const currentStep = ref(0);
 
-// ─── Step 1: Register (UserCreate) ────────────────────────────────
+// ─── Step 1: Register ─────────────────────────────────────────────
 const form = ref({
   username: "",
   email: "",
@@ -424,7 +464,7 @@ const form = ref({
   confirmPassword: "",
 });
 
-// ─── Step 2: Profile Update (UserProfileUpdate) ───────────────────
+// ─── Step 2: Profile ──────────────────────────────────────────────
 const profile = ref({
   user_type: "biasa",
   nomertlp: "",
@@ -519,27 +559,27 @@ const onRegencyChange = async () => {
 
 onMounted(() => fetchProvinces());
 
-// ─── STEP 1: Register → POST /auth/register ───────────────────────
+// ─── STEP 1: Register → POST /auth/user/auth/register ─────────────
 const handleRegister = async () => {
   errorMsg.value = "";
   if (passwordMismatch.value) return;
 
   loading.value = true;
   try {
-    await axios.post("/api/auth/register", {
+    await axios.post(`${BASE_URL}/auth/user/auth/register`, {
       username: form.value.username,
       email: form.value.email,
       password: form.value.password,
     });
 
-    const loginRes = await axios.post("/api/auth/login", {
+    // Auto-login setelah register berhasil
+    const loginRes = await axios.post(`${BASE_URL}/auth/user/auth/login`, {
       email: form.value.email,
       password: form.value.password,
     });
     accessToken.value = loginRes.data.access_token;
 
     currentStep.value = 1;
-    // Scroll ke atas saat pindah step di mobile
     window.scrollTo({ top: 0, behavior: "smooth" });
   } catch (err) {
     const detail = err.response?.data?.detail;
@@ -555,11 +595,12 @@ const handleRegister = async () => {
   }
 };
 
-// ─── STEP 2: Update Profil → PATCH /users/me ──────────────────────
+// ─── STEP 2: Update Profil → PATCH /auth/user/users/me ────────────
 const handleProfileUpdate = async () => {
   errorMsg.value = "";
   loadingProfile.value = true;
 
+  // Hanya kirim field yang terisi
   const payload = {};
   if (profile.value.nomertlp) payload.nomertlp = profile.value.nomertlp;
   if (profile.value.alamat) payload.alamat = profile.value.alamat;
@@ -569,7 +610,7 @@ const handleProfileUpdate = async () => {
 
   try {
     if (Object.keys(payload).length > 0) {
-      await axios.patch("/api/users/me", payload, {
+      await axios.patch(`${BASE_URL}/auth/user/users/me`, payload, {
         headers: { Authorization: `Bearer ${accessToken.value}` },
       });
     }
@@ -603,7 +644,7 @@ const skipToLogin = () => navigateTo("/login?registered=1");
   padding: 14px 16px;
   background-color: #f8fafc;
   border: 1px solid #e5e7eb;
-  border-radius: 12px; /* Lebih halus di mobile */
+  border-radius: 12px;
   font-size: 13px;
   font-weight: 600;
   color: #000000;
@@ -613,7 +654,7 @@ const skipToLogin = () => navigateTo("/login?registered=1");
 @media (min-width: 640px) {
   .custom-input,
   .custom-select {
-    border-radius: 0; /* Kembali ke gaya edge kotak di desktop */
+    border-radius: 0;
   }
 }
 

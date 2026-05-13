@@ -73,6 +73,7 @@ export const usePesanStore = defineStore('pesan', () => {
 
   let pollTimer: ReturnType<typeof setTimeout> | null = null
   let isPopupOpen = false
+  let pollCycleCount = 0 // Untuk rotasi antara polling pesan baru vs sync status
 
   // ── Computed ─────────────────────────────────────────────────────
   const sortedMessages = computed(() =>
@@ -198,8 +199,21 @@ export const usePesanStore = defineStore('pesan', () => {
 
   async function _doPoll() {
     try {
-      // Fetch 30 pesan terbaru untuk memantau pembaruan status pesan lama
-      const res = await $fetch<ChatMessage[]>('/api/pesan?action=history&limit=30')
+      pollCycleCount++
+      
+      // ROTASI OPTIMASI:
+      // - Tiap 5x poll (15 detik), ambil 30 pesan terakhir untuk sync status (sent -> read)
+      // - Selain itu, cukup ambil pesan baru saja (action=poll) -> SANGAT RINGAN
+      const isSyncCycle = pollCycleCount % 5 === 0
+      const hasMessages = messages.value.length > 0
+      
+      let endpoint = '/api/pesan?action=history&limit=30'
+      
+      if (!isSyncCycle && hasMessages && lastSentAt.value) {
+        endpoint = `/api/pesan?action=poll&after_sent_at=${encodeURIComponent(lastSentAt.value)}`
+      }
+
+      const res = await $fetch<ChatMessage[]>(endpoint)
 
       if (res.length) {
         const added = _mergeMessages(res)

@@ -2,6 +2,7 @@
 service.py — Business Logic: PricingEngine, BookingService, PackageService, PaymentService
 Sistem: Padjajaran CCTV, Cimahi
 """
+from __future__ import annotations
 from sqlalchemy.exc import IntegrityError
 import hashlib
 import hmac
@@ -16,6 +17,7 @@ from uuid import UUID
 from sqlalchemy.orm import selectinload
 from sqlmodel import select
 from backend.data.stock.model import Stock
+from backend.db.cdn import upload_file  # 🆕 Import upload helper
 
 import httpx
 from fastapi import HTTPException
@@ -26,6 +28,7 @@ from .model import (
     ServiceBooking, ServicePricingConfig, ServicePackage,
     ServicePackageItem, ServicePayment,
     BookingStatus, PaymentStatus, PaymentType, ServiceCategory,
+    Technician, ServiceHoliday, ServiceOperationalHours
 )
 from .schema import (
     EstimateRequest, EstimateResponse, EstimateBreakdown,
@@ -42,6 +45,7 @@ from .schema import (
 # 🆕 Import untuk notifikasi
 from backend.auth.model import UserMap
 from backend.db.supabse import SupabaseNotificationService
+from backend.data.activity.service import ActivityService
 
 logger = logging.getLogger(__name__)
 
@@ -350,6 +354,7 @@ class BookingService:
                 "transport_max_fee":     config.transport_max_fee,
                 "max_distance_km":       config.max_distance_km,
                 "addons_config":         config.addons_config,
+                "routes_config":         config.routes_config,
                 "dp_percentage":         config.dp_percentage,
                 "is_active":             config.is_active,
                 "created_at":            config.created_at.isoformat(),
@@ -406,6 +411,9 @@ class BookingService:
             transport_max_fee=config.transport_max_fee,
             max_distance_km=config.max_distance_km,
             dp_percentage=config.dp_percentage,
+            routes=config.routes_config or [],
+            is_active=config.is_active,
+            created_at=config.created_at,
             updated_at=config.updated_at,
         )
 
@@ -562,21 +570,22 @@ class BookingService:
     async def _release_slot_lock(self, lock_key: str) -> None:
         await _get_redis().delete(lock_key)
 
+    async def _get_active_tech_count(self, session: AsyncSession) -> int:
+        from sqlalchemy import func
+        res = await session.exec(select(func.count(Technician.uuid)).where(Technician.is_active == True))
+        count = res.one()
+        return max(1, count) # Minimal 1 sebagai fallback
+
     async def _count_active_slot(
         self, session: AsyncSession, scheduled_date: date, time_slot: str
     ) -> int:
-        result = await session.exec(
-            select(ServiceBooking).where(
-                ServiceBooking.scheduled_date == scheduled_date,
-                ServiceBooking.time_slot      == time_slot,
-                ServiceBooking.status.in_([
-                    BookingStatus.PENDING,
-                    BookingStatus.CONFIRMED,
-                    BookingStatus.DP_PAID,
-                    BookingStatus.PROGRESS,
-                ]),
-            )
+        # Menghitung semua booking yang tidak dibatalkan pada tanggal & slot tersebut
+        stmt = select(ServiceBooking).where(
+            ServiceBooking.scheduled_date == scheduled_date,
+            ServiceBooking.time_slot      == time_slot,
+            ServiceBooking.status != BookingStatus.CANCEL
         )
+        result = await session.exec(stmt)
         return len(result.all())
 
     # ── Submit dari Draft ─────────────────────────────────────────
@@ -607,8 +616,12 @@ class BookingService:
                 f"Jarak {s2['distance_km']:.1f} km melebihi batas layanan {config.max_distance_km:.0f} km"
             )
 
-        if await self._count_active_slot(session, scheduled_date, s2["time_slot"]) >= MAX_BOOKINGS_PER_SLOT:
-            raise HTTPException(409, "Slot ini sudah penuh. Pilih waktu lain.")
+        # 🆕 DYNAMIC CAPACITY CHECK
+        max_capacity = await self._get_active_tech_count(session)
+        current_booked = await self._count_active_slot(session, scheduled_date, s2["time_slot"])
+        
+        if current_booked >= max_capacity:
+            raise HTTPException(409, f"Slot ini sudah penuh ({max_capacity} teknisi sedang bertugas). Pilih waktu lain.")
 
         acquired, lock_key = await self._acquire_slot_lock(scheduled_date, s2["time_slot"])
         if not acquired:
@@ -677,6 +690,19 @@ class BookingService:
             )
 
             session.add(booking)
+            # 📝 Log Activity
+            await ActivityService(session).log_activity(
+                activity_type="booking",
+                title="📅 Booking Baru",
+                description=f"Booking {booking.booking_number} ({booking.category}) dibuat oleh {booking.contact_name}",
+                reference_id=booking.booking_number,
+                user_id=user_uuid,
+                status="pending",
+                amount=int(booking.total_price),
+                icon="i-heroicons-calendar-days",
+                color="blue"
+            )
+
             await session.commit()
             await session.refresh(booking)
             await self.delete_draft(session_id)
@@ -707,7 +733,9 @@ class BookingService:
 
     async def get_booking(self, booking_uuid: UUID, session: AsyncSession) -> ServiceBooking:
         result = await session.exec(
-            select(ServiceBooking).where(ServiceBooking.uuid == booking_uuid)
+            select(ServiceBooking)
+            .where(ServiceBooking.uuid == booking_uuid)
+            .options(selectinload(ServiceBooking.technician))
         )
         b = result.first()
         if not b:
@@ -716,7 +744,9 @@ class BookingService:
 
     async def get_booking_by_number(self, number: str, session: AsyncSession) -> ServiceBooking:
         result = await session.exec(
-            select(ServiceBooking).where(ServiceBooking.booking_number == number)
+            select(ServiceBooking)
+            .where(ServiceBooking.booking_number == number)
+            .options(selectinload(ServiceBooking.technician))
         )
         b = result.first()
         if not b:
@@ -776,12 +806,21 @@ class BookingService:
         new_status: BookingStatus,
         session: AsyncSession,
         notes: Optional[str] = None,
+        technician_uuid: Optional[UUID] = None,
     ) -> ServiceBooking:
-        booking = await self.get_booking(booking_uuid, session)
+        stmt = select(ServiceBooking).where(ServiceBooking.uuid == booking_uuid).options(
+            selectinload(ServiceBooking.technician)
+        )
+        res = await session.exec(stmt)
+        booking = res.first()
+        if not booking:
+            raise HTTPException(404, "Booking tidak ditemukan")
+
         old_status = booking.status
         
+        # 🔄 ALLOW SELF-TRANSITION (Untuk update data lain spt teknisi tanpa ubah status)
         allowed = self.VALID_TRANSITIONS.get(booking.status, [])
-        if new_status not in allowed:
+        if new_status != old_status and new_status not in allowed:
             raise HTTPException(
                 400,
                 f"Transisi tidak valid: '{booking.status}' → '{new_status}'. "
@@ -789,6 +828,34 @@ class BookingService:
             )
         
         booking.status = new_status
+        
+        if technician_uuid:
+            # 🆕 CEK KONFLIK JADWAL TEKNISI
+            check = await self.check_technician_availability(
+                technician_uuid=technician_uuid,
+                target_date=booking.scheduled_date,
+                target_slot=booking.time_slot,
+                exclude_booking_uuid=booking.uuid,
+                session=session
+            )
+            
+            if check["conflict"]:
+                raise HTTPException(409, check["message"])
+                
+            booking.technician_uuid = technician_uuid
+        
+        # 📝 Log Activity Status Update
+        await ActivityService(session).log_activity(
+            activity_type="booking",
+            title=f"🔄 Status Booking: {new_status.value}",
+            description=f"Booking {booking.booking_number} diperbarui ke status {new_status.value}",
+            reference_id=booking.booking_number,
+            user_id=booking.user_uuid,
+            status=new_status.value,
+            amount=int(booking.total_price),
+            icon="i-heroicons-arrow-path",
+            color="orange"
+        )
         
         if new_status in (BookingStatus.CANCEL, BookingStatus.LUNAS):
             if booking.slot_lock_key:
@@ -828,19 +895,54 @@ class BookingService:
     async def get_available_slots(
         self, target_date: date, session: AsyncSession
     ) -> AvailableSlotsResponse:
-        from .model import TimeSlot
+        from .model import TimeSlot, ServiceHoliday, ServiceOperationalHours
+        
+        # 1. Cek apakah tanggal ini hari libur
+        holiday_stmt = select(ServiceHoliday).where(ServiceHoliday.holiday_date == target_date)
+        is_holiday = (await session.exec(holiday_stmt)).first()
+        
+        # 2. Ambil konfigurasi operasional untuk hari tersebut (0=Senin, 6=Minggu)
+        # Note: target_date.weekday() di python 0=Senin, 6=Minggu. 
+        # Kita sesuaikan dengan data seeder (0-6)
+        day_of_week = target_date.weekday()
+        op_stmt = select(ServiceOperationalHours).where(ServiceOperationalHours.day_of_week == day_of_week)
+        op_config = (await session.exec(op_stmt)).first()
+        
+        is_open = True
+        
+        # 🆕 DYNAMIC CAPACITY PER SLOT = JUMLAH TEKNISI AKTIF
+        tech_count = await self._get_active_tech_count(session)
+        limit_per_slot = tech_count
+        
+        if is_holiday:
+            is_open = False
+        elif op_config:
+            is_open = op_config.is_open
+            # Jika admin menset max_bookings di jam operasional, gunakan nilai terkecil 
+            # (Misal: teknisi ada 5, tapi admin ingin batasi max 3 booking per slot)
+            if op_config.max_bookings > 0:
+                limit_per_slot = min(tech_count, op_config.max_bookings)
+
         slots = []
         for slot in TimeSlot:
-            booked    = await self._count_active_slot(session, target_date, slot.value)
-            remaining = max(0, MAX_BOOKINGS_PER_SLOT - booked)
+            booked = 0
+            if is_open:
+                booked = await self._count_active_slot(session, target_date, slot.value)
+            
+            remaining = max(0, limit_per_slot - booked)
             slots.append(SlotInfo(
                 slot      = slot.value,
                 label     = SLOT_LABELS.get(slot.value, slot.value),
-                available = remaining > 0,
-                remaining = remaining,
+                available = is_open and remaining > 0,
+                remaining = remaining if is_open else 0,
                 booked    = booked,
             ))
-        return AvailableSlotsResponse(date=target_date, slots=slots)
+            
+        return AvailableSlotsResponse(
+            date=target_date, 
+            slots=slots,
+            message="Toko Libur" if is_holiday else "Toko Tutup" if not is_open else None
+        )
 
     # ── Stats ─────────────────────────────────────────────────────
 
@@ -872,6 +974,156 @@ class BookingService:
             "avg_order_value": revenue // paid_count if paid_count else 0,
         }
 
+    # ── Technician Management ─────────────────────────────────────
+
+    async def list_technicians(self, session: AsyncSession, active_only: bool = True) -> List[Technician]:
+        stmt = select(Technician)
+        if active_only:
+            stmt = stmt.where(Technician.is_active == True)
+        res = await session.exec(stmt)
+        return list(res.all())
+
+    async def create_technician(self, data: Dict[str, Any], session: AsyncSession) -> Technician:
+        tech = Technician(**data)
+        session.add(tech)
+        await session.commit()
+        await session.refresh(tech)
+        return tech
+
+    async def update_technician(self, uuid: UUID, data: Dict[str, Any], session: AsyncSession) -> Technician:
+        tech = await session.get(Technician, uuid)
+        if not tech: raise HTTPException(404, "Teknisi tidak ditemukan")
+        for k, v in data.items():
+            setattr(tech, k, v)
+        session.add(tech)
+        await session.commit()
+        await session.refresh(tech)
+        return tech
+
+    async def check_technician_availability(
+        self, 
+        technician_uuid: UUID, 
+        target_date: date, 
+        target_slot: str, 
+        exclude_booking_uuid: Optional[UUID],
+        session: AsyncSession
+    ) -> Dict[str, Any]:
+        """
+        Cek apakah teknisi tersedia pada tanggal & slot tersebut.
+        Returns: { "available": bool, "conflict": bool, "tight": bool, "message": str }
+        """
+        # 1. Ambil semua booking teknisi ini pada tanggal tersebut
+        stmt = select(ServiceBooking).where(
+            ServiceBooking.technician_uuid == technician_uuid,
+            ServiceBooking.scheduled_date == target_date,
+            ServiceBooking.status != BookingStatus.CANCEL
+        )
+        if exclude_booking_uuid:
+            stmt = stmt.where(ServiceBooking.uuid != exclude_booking_uuid)
+            
+        result = await session.exec(stmt)
+        existing_bookings = result.all()
+        
+        slot_order = {
+            "08:00-11:00": 0,
+            "11:00-14:00": 1,
+            "14:00-17:00": 2
+        }
+        
+        target_idx = slot_order.get(target_slot)
+        if target_idx is None:
+            return {"available": True, "conflict": False, "tight": False, "message": "Slot tidak valid"}
+
+        conflict = False
+        tight = False
+        conflict_booking = None
+        
+        for b in existing_bookings:
+            b_idx = slot_order.get(b.time_slot)
+            if b_idx == target_idx:
+                conflict = True
+                conflict_booking = b.booking_number
+                break
+            elif abs(b_idx - target_idx) == 1:
+                tight = True
+                conflict_booking = b.booking_number
+        
+        if conflict:
+            return {
+                "available": False, 
+                "conflict": True, 
+                "tight": False, 
+                "message": f"Teknisi sudah ditugaskan pada {target_slot} (Booking {conflict_booking})"
+            }
+        
+        if tight:
+            return {
+                "available": True, 
+                "conflict": False, 
+                "tight": True, 
+                "message": f"Jadwal mepet dengan Booking {conflict_booking} (selisih < 2 jam)"
+            }
+            
+        return {"available": True, "conflict": False, "tight": False, "message": "Tersedia"}
+
+    async def get_technician_detail(self, uuid: UUID, session: AsyncSession) -> Technician:
+        stmt = select(Technician).where(Technician.uuid == uuid).options(
+            selectinload(Technician.bookings)
+        )
+        res = await session.exec(stmt)
+        tech = res.first()
+        if not tech:
+            raise HTTPException(404, "Teknisi tidak ditemukan")
+        
+        # Filter bookings yang tidak cancel, urutkan terbaru
+        tech.bookings = sorted(
+            [b for b in tech.bookings if b.status != BookingStatus.CANCEL],
+            key=lambda x: (x.scheduled_date, x.time_slot),
+            reverse=True
+        )
+        return tech
+
+    # ── Holiday & Operational Management ──────────────────────────
+
+    async def list_holidays(self, session: AsyncSession) -> List[ServiceHoliday]:
+        res = await session.exec(select(ServiceHoliday).order_by(ServiceHoliday.holiday_date.asc()))
+        return list(res.all())
+
+    async def create_holiday(self, holiday_date: date, description: str, session: AsyncSession) -> ServiceHoliday:
+        h = ServiceHoliday(holiday_date=holiday_date, description=description)
+        session.add(h)
+        try:
+            await session.commit()
+        except Exception:
+            await session.rollback()
+            raise HTTPException(400, "Tanggal libur sudah ada")
+        await session.refresh(h)
+        return h
+
+    async def delete_holiday(self, uuid: UUID, session: AsyncSession):
+        h = await session.get(ServiceHoliday, uuid)
+        if h:
+            await session.delete(h)
+            await session.commit()
+
+    async def list_operational_hours(self, session: AsyncSession) -> List[ServiceOperationalHours]:
+        res = await session.exec(select(ServiceOperationalHours).order_by(ServiceOperationalHours.day_of_week.asc()))
+        return list(res.all())
+
+    async def update_operational_hours(self, day: int, data: Dict[str, Any], session: AsyncSession) -> ServiceOperationalHours:
+        stmt = select(ServiceOperationalHours).where(ServiceOperationalHours.day_of_week == day)
+        res = await session.exec(stmt)
+        oh = res.first()
+        if not oh:
+            oh = ServiceOperationalHours(day_of_week=day, **data)
+        else:
+            for k, v in data.items():
+                setattr(oh, k, v)
+        session.add(oh)
+        await session.commit()
+        await session.refresh(oh)
+        return oh
+
 
 # ═══════════════════════════════════════════════════════════════════
 # PACKAGE SERVICE
@@ -880,8 +1132,19 @@ class BookingService:
 class PackageService:
 
     async def create_package(
-        self, data: PackageCreate, session: AsyncSession
+        self, data: PackageCreate, session: AsyncSession, image_file: Optional[bytes] = None
     ) -> ServicePackage:
+        thumbnail_url = data.thumbnail_url
+        if image_file:
+            # Upload image to CDN
+            filename = f"{uuid.uuid4()}.webp"
+            thumbnail_url = await upload_file(
+                file=image_file,
+                folder="services/packages",
+                filename=filename,
+                content_type="image/webp"
+            )
+
         pkg = ServicePackage(
             name          = data.name,
             slug          = data.slug,
@@ -889,7 +1152,7 @@ class PackageService:
             category      = data.category,
             camera_count  = data.camera_count,
             default_brand = data.default_brand,
-            thumbnail_url = data.thumbnail_url,
+            thumbnail_url = thumbnail_url,
             highlights    = data.highlights,
             is_active     = data.is_active,
             sort_order    = data.sort_order,
@@ -1037,6 +1300,34 @@ class PackageService:
                 total += unit * item.quantity
 
         pkg.device_price = total
+        session.add(pkg)
+        await session.commit()
+        await session.refresh(pkg)
+        return pkg
+
+    async def update_package(
+        self, pkg_uuid: UUID, updates: dict, session: AsyncSession, image_file: Optional[bytes] = None
+    ) -> ServicePackage:
+        pkg = await self.get_package(pkg_uuid, session)
+        
+        if image_file:
+            # Upload image to CDN
+            filename = f"{uuid.uuid4()}.webp"
+            url = await upload_file(
+                file=image_file,
+                folder="services/packages",
+                filename=filename,
+                content_type="image/webp"
+            )
+            pkg.thumbnail_url = url
+        elif "thumbnail_url" in updates:
+            pkg.thumbnail_url = updates["thumbnail_url"]
+
+        allowed = {"name", "description", "category", "camera_count", "default_brand", "highlights", "is_active", "sort_order", "estimated_service_price"}
+        for k, v in updates.items():
+            if k in allowed:
+                setattr(pkg, k, v)
+        
         session.add(pkg)
         await session.commit()
         await session.refresh(pkg)
@@ -1216,6 +1507,19 @@ class PaymentService:
                 elif payment.payment_type == PaymentType.LUNAS or payment.payment_type == PaymentType.LUNAS.value:
                     booking.status = BookingStatus.LUNAS
                 session.add(booking)
+                
+                # 📝 Log Activity Payment
+                await ActivityService(session).log_activity(
+                    activity_type="booking",
+                    title="💰 Pembayaran Jasa",
+                    description=f"Pembayaran {payment.payment_type} untuk {booking.booking_number} berhasil diterima.",
+                    reference_id=booking.booking_number,
+                    user_id=booking.user_uuid,
+                    status="settlement",
+                    amount=int(payment.gross_amount),
+                    icon="i-heroicons-currency-dollar",
+                    color="green"
+                )
 
         session.add(payment)
         await session.commit()

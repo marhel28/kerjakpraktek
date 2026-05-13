@@ -38,8 +38,26 @@ const handleLogout = async () => {
 
 // 🔥 penting: state mount
 const isMounted = ref(false)
+
+// ─── SCROLL AUTO CLOSE ───────────────────────────────────────────
+const handleScroll = () => {
+  if (isOpen.value) {
+    // Tutup jika scroll lebih dari 30% tinggi layar
+    const threshold = window.innerHeight * 0.3
+    if (window.scrollY > threshold) {
+      isOpen.value = false
+      isHovered.value = false
+    }
+  }
+}
+
 onMounted(() => {
   isMounted.value = true
+  window.addEventListener('scroll', handleScroll, { passive: true })
+})
+
+onBeforeUnmount(() => {
+  window.removeEventListener('scroll', handleScroll)
 })
 
 // ✅ SSR-safe fetch (TANPA await)
@@ -57,7 +75,7 @@ const { data: rawCategories, pending } = useFetch<any[]>('/api/category', {
 })
 
 // 🔒 state harus konsisten SSR & client
-const isOpen = ref(false)
+const isOpen = ref(route.path === '/')
 const isHovered = ref(false)
 const activeMobileCategory = ref<string | null>(null)
 
@@ -80,9 +98,7 @@ const handleToggleMenu = () => {
   isOpen.value = !isOpen.value
 }
 
-// ❗ hanya jalan di client
 watch(() => route.path, (newPath) => {
-  if (!process.client) return
 
   if (newPath !== '/') {
     isOpen.value = false

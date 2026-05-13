@@ -42,7 +42,7 @@ export default defineEventHandler(async (event) => {
         {
           method: "DELETE",
           headers,
-          timeout: 5000,
+          timeout: 10000,
         }
       )
 

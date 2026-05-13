@@ -37,7 +37,7 @@ const whatsappLink = computed(() => {
   const cam = props.cameraCount ? `${props.cameraCount} Titik` : 'Belum tahu'
   const brand = props.brandName || 'Belum ada preferensi'
 
-  const message = `Halo Teknisi Padjajaran CCTV, saya sedang mencoba merakit paket instalasi di website namun butuh bantuan konsultasi:\n\n*Draft Konfigurasi:*\n- Area: ${cat}\n- Kebutuhan: ${cam}\n- Brand: ${brand}\n\nBisa bantu berikan rekomendasi terbaik untuk saya?`
+  const message = `Halo Teknisi PasarCctv, saya sedang mencoba merakit paket instalasi di website namun butuh bantuan konsultasi:\n\n*Draft Konfigurasi:*\n- Area: ${cat}\n- Kebutuhan: ${cam}\n- Brand: ${brand}\n\nBisa bantu berikan rekomendasi terbaik untuk saya?`
   
   // Ganti dengan nomor WhatsApp CS / Sales asli
   const phoneNumber = '6281234567890' 

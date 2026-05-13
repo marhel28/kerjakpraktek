@@ -3,31 +3,43 @@ import { ref, computed, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useWishlistStore } from "~/stores/wishlist";
 import { useCheckoutStore } from "~/stores/checkout";
-import { usePesanStore } from "~/stores/usePesanStore";
+import { usePesanStore } from "~/stores/UsePesanStore";
+import { useCompareStore } from "~/stores/compare";
 import AddChartButton from "~/components/AddChartButton.vue";
+import AddonPicker from "~/components/product/AddonPicker.vue";
 import ProductRecommendation from "~/components/ProductRecommendation.vue";
 
 const route = useRoute();
 const router = useRouter();
 const wishlist = useWishlistStore();
 const checkout = useCheckoutStore();
-const pesanStore = usePesanStore(); // ✅ import store pesan
+const pesanStore = usePesanStore();
+const compareStore = useCompareStore();
 const uuid = route.params.id as string;
 
 // ─── Parallel fetch ───────────────────────────────────────────────
+// ✅ FIX: Hapus getCachedData — cachedEventHandler di server sudah handle caching.
+//         getCachedData menyebabkan Nuxt menulis payload file ke disk
+//         → ENOENT error di Windows karena path terlalu panjang.
+// ✅ FIX: Key diperpendek agar konsisten dengan server cache key.
 const [{ data: apiResponse, pending, error }, { data: recResponse }] = await Promise.all([
   useFetch("/api/peritems", {
     query: { uuid },
-    key: `product:${uuid}`,
-    getCachedData: (key, nuxtApp) =>
-      nuxtApp.payload.data[key] ?? nuxtApp.static.data[key],
+    key: `p_${uuid.slice(0, 8)}`,
   }),
   useFetch("/api/recommendations", {
     query: { uuid },
-    key: `rec:${uuid}`,
+    key: `r_${uuid.slice(0, 8)}`,
     lazy: true,
   }),
 ]);
+
+// ─── Fetch Addons (Dependent on apiResponse) ──────────────────────
+const { data: addonResponse } = await useFetch(() => `/api/addons/bundle/${uuid}`, {
+  query: { category_slug: apiResponse.value?.data?.category },
+  key: `addons_${uuid.slice(0, 8)}`,
+  immediate: !!apiResponse.value?.data?.category,
+});
 
 // ─── 404 guard ───────────────────────────────────────────────────
 if (!apiResponse.value?.data && !pending.value) {
@@ -266,10 +278,26 @@ const handleMouseLeave = () => {
 const quantity = ref(1);
 const selectedHdd = ref({ label: "Tanpa HDD", price: 0 });
 const isPaket = computed(() => product.value?.category === "paket-cctv");
+const selectedAddons = ref<Record<string, { uuid: string; quantity: number; price: number; name: string; weight: number }>>({});
+
 const unitPrice = computed(
   () => (product.value?.price ?? 0) + (isPaket.value ? selectedHdd.value.price : 0)
 );
-const totalPrice = computed(() => unitPrice.value * quantity.value);
+
+const addonTotalPrice = computed(() => {
+  return Object.values(selectedAddons.value).reduce((acc, curr) => acc + (curr.price * curr.quantity), 0);
+});
+
+const totalWeight = computed(() => {
+  const baseWeight = (product.value?.weight ?? 0) * quantity.value;
+  const addonWeight = Object.values(selectedAddons.value).reduce(
+    (acc, curr) => acc + (curr.weight * curr.quantity), 
+    0
+  );
+  return baseWeight + addonWeight;
+});
+
+const totalPrice = computed(() => (unitPrice.value * quantity.value) + addonTotalPrice.value);
 
 function formatPrice(value: number) {
   return new Intl.NumberFormat("id-ID", {
@@ -304,6 +332,27 @@ function toggleWishlist() {
     originalPrice: p.originalPrice,
     soldCount: p.sold,
     weight: p.weight,
+  });
+}
+
+// ─── Compare ─────────────────────────────────────────────────────
+const isCompare = computed(() =>
+  product.value ? compareStore.isInCompare(product.value.id) : false
+);
+
+function toggleCompare() {
+  if (!product.value) return;
+  const p = product.value;
+  compareStore.toggle({
+    id: p.id,
+    image: p.images[0],
+    brand: p.brand,
+    title: p.title,
+    price: p.price,
+    type: p.type,
+    originalPrice: p.originalPrice,
+    soldCount: p.sold,
+    specs: p.specs,
   });
 }
 
@@ -342,8 +391,11 @@ const cartItem = computed(() => {
     price: unitPrice.value,
     image: p.images[0],
     quantity: quantity.value,
-    weight: p.weight,
-    options: { hdd: isPaket.value ? selectedHdd.value.label : null },
+    weight: totalWeight.value,
+    options: { 
+      hdd: isPaket.value ? selectedHdd.value.label : null,
+      addons: Object.values(selectedAddons.value)
+    },
     stock_uuid: p.stockUuid,
   };
 });
@@ -356,35 +408,20 @@ function beliLangsung() {
   router.push("/payment");
 }
 
-// ─── ✅ Chat — the real implementation ───────────────────────────
-/**
- * Klik "Chat" di halaman produk:
- *  1. Simpan konteks produk ke pesanStore.pendingContext
- *  2. Navigate ke home
- *  3. FloatingChat (di layout) mendeteksi perubahan pendingContext
- *     → auto-open dengan banner produk
- *
- * Kenapa navigate ke home?
- *  FloatingChat ada di layouts/default.vue (bukan di halaman ini).
- *  Saat masih di /product/[uuid], component sudah ada tapi
- *  dengan navigate ke home kita memastikan user fokus ke chat
- *  dan tidak ada scroll conflic dengan halaman produk.
- */
+// ─── Chat ────────────────────────────────────────────────────────
 function openChat() {
   if (!product.value) return;
   const p = product.value;
 
-  // 1. Set konteks produk ke store — persist lintas navigasi
   pesanStore.setPendingContext({
     uuid: p.id,
     title: p.title,
     url: canonicalUrl.value,
     image: p.images[0],
-    price: unitPrice.value, // pakai unitPrice (sudah include HDD jika paket)
+    price: unitPrice.value,
     brand: p.brand,
   });
 
-  // 2. Navigasi ke home — FloatingChat di layout akan auto-open via watch
   router.push("/");
 }
 </script>
@@ -501,6 +538,7 @@ function openChat() {
               width="600"
               height="600"
               format="webp"
+              sizes="(max-width: 768px) 100vw, 600px"
               quality="85"
               loading="eager"
               fetchpriority="high"
@@ -586,10 +624,10 @@ function openChat() {
               <meta itemprop="bestRating" content="5" />
             </div>
             <div class="w-1 h-1 bg-gray-300 rounded-full" aria-hidden="true" />
-            <span class="text-gray-500"
-              >Terjual
-              <span class="text-gray-900 font-bold">{{ product.sold }}</span></span
-            >
+            <span class="text-gray-500">
+              Terjual
+              <span class="text-gray-900 font-bold">{{ product.sold }}</span>
+            </span>
           </div>
 
           <!-- Harga -->
@@ -616,11 +654,12 @@ function openChat() {
             >
               <span
                 class="bg-red-100 text-red-600 text-xs font-black px-2 py-0.5 rounded-md"
-                >Diskon {{ product.discountPercentage }}%</span
               >
-              <span class="text-sm font-semibold text-gray-400 line-through">{{
-                formatPrice(product.originalPrice)
-              }}</span>
+                Diskon {{ product.discountPercentage }}%
+              </span>
+              <span class="text-sm font-semibold text-gray-400 line-through">
+                {{ formatPrice(product.originalPrice) }}
+              </span>
             </div>
             <p
               class="text-4xl font-black tracking-tight"
@@ -656,10 +695,20 @@ function openChat() {
                 <span
                   v-if="opt.price > 0"
                   class="block text-[10px] font-medium mt-0.5 opacity-70"
-                  >+ {{ formatPrice(opt.price) }}</span
                 >
+                  + {{ formatPrice(opt.price) }}
+                </span>
               </button>
             </div>
+          </div>
+
+          <!-- ── Dynamic Addons ────────────────────────────────── -->
+          <div v-if="addonResponse?.data?.length" class="mb-10 border-t border-gray-100 pt-8">
+            <h2 class="text-lg font-black text-gray-900 tracking-tight mb-6 flex items-center gap-2">
+              Lengkapi Kebutuhan Anda
+              <span class="px-2 py-0.5 bg-green-50 text-green-600 text-[10px] font-black rounded uppercase tracking-widest">Bundling Hemat</span>
+            </h2>
+            <AddonPicker v-model="selectedAddons" :bundle="addonResponse.data" />
           </div>
 
           <!-- Spesifikasi & Deskripsi -->
@@ -778,12 +827,15 @@ function openChat() {
               </div>
               <p class="text-[13px] text-gray-500 font-medium">
                 Stok:
-                <span v-if="product.stock > 0" class="font-black text-gray-900">{{
-                  product.stock
-                }}</span>
-                <span v-else class="font-black text-red-600 bg-red-50 px-2 py-0.5 rounded"
-                  >Habis</span
+                <span v-if="product.stock > 0" class="font-black text-gray-900">
+                  {{ product.stock }}
+                </span>
+                <span
+                  v-else
+                  class="font-black text-red-600 bg-red-50 px-2 py-0.5 rounded"
                 >
+                  Habis
+                </span>
               </p>
             </div>
 
@@ -791,9 +843,9 @@ function openChat() {
               class="flex justify-between items-center mb-6 pt-4 border-t border-gray-100"
             >
               <span class="text-gray-500 text-sm font-bold">Subtotal</span>
-              <span class="text-xl font-black text-gray-900">{{
-                formatPrice(totalPrice)
-              }}</span>
+              <span class="text-xl font-black text-gray-900">
+                {{ formatPrice(totalPrice) }}
+              </span>
             </div>
 
             <div class="space-y-3 mb-6">
@@ -805,8 +857,8 @@ function openChat() {
               />
               <button
                 :disabled="product.stock === 0"
-                @click="beliLangsung"
                 class="w-full border border-black text-white bg-black font-bold py-3 rounded-xl hover:bg-gray-800 transition-all text-sm disabled:bg-gray-200 disabled:text-gray-400 disabled:border-gray-200 disabled:cursor-not-allowed"
+                @click="beliLangsung"
               >
                 Beli Langsung
               </button>
@@ -815,7 +867,6 @@ function openChat() {
             <div
               class="flex justify-around pt-4 text-xs font-bold text-gray-500 border-t border-gray-100"
             >
-              <!-- ✅ Chat button — set context + navigate ke home -->
               <button
                 class="flex flex-col items-center gap-1.5 hover:text-green-600 transition-colors group"
                 aria-label="Chat dengan penjual tentang produk ini"
@@ -827,7 +878,6 @@ function openChat() {
                     class="w-5 h-5"
                     aria-hidden="true"
                   />
-                  <!-- dot indicator — ada unread -->
                   <span
                     v-if="pesanStore.unreadCount > 0"
                     class="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full border border-white"
@@ -858,6 +908,21 @@ function openChat() {
                 <UIcon name="i-heroicons-share" class="w-5 h-5" aria-hidden="true" />
                 Share
               </button>
+
+              <button
+                class="flex flex-col items-center gap-1.5 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                :class="isCompare ? 'text-green-600' : 'hover:text-green-600'"
+                :aria-label="isCompare ? 'Hapus dari perbandingan' : 'Bandingkan produk'"
+                :disabled="compareStore.isFull && !isCompare"
+                @click="toggleCompare"
+              >
+                <UIcon
+                  name="i-heroicons-arrows-right-left"
+                  class="w-5 h-5"
+                  aria-hidden="true"
+                />
+                Compare
+              </button>
             </div>
           </div>
         </div>
@@ -873,6 +938,7 @@ function openChat() {
 
 <style scoped>
 @import url("https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&display=swap");
+
 .font-jakarta {
   font-family: "Plus Jakarta Sans", sans-serif;
 }

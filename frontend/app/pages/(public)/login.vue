@@ -9,7 +9,7 @@
       <div class="hidden lg:block lg:w-1/2 bg-black relative">
         <img
           src="https://daganghalal.blob.core.windows.net/44641/Product/cctv-installation-services-1745476968100.jpg"
-          alt="Padjajaran CCTV Security"
+          alt="PasarCctv Security"
           width="720"
           height="900"
           class="w-full h-full object-cover opacity-40 grayscale"
@@ -24,7 +24,7 @@
         <div class="absolute bottom-16 left-12 right-12 text-white">
           <div class="flex flex-col leading-none mb-6">
             <span class="text-4xl font-black text-white tracking-tighter uppercase italic"
-              >Padjajaran</span
+              >PasarCctv</span
             >
             <span class="text-xl font-light text-gray-400 tracking-[0.3em] uppercase mt-1"
               >CCTV</span
@@ -54,7 +54,7 @@
         <div class="mb-10 text-center lg:text-left">
           <div class="flex flex-col leading-none mb-6 lg:hidden items-center">
             <span class="text-3xl font-black text-black tracking-tighter uppercase italic"
-              >Padjajaran</span
+              >PasarCctv</span
             >
             <span class="text-base font-light text-gray-500 tracking-[0.3em] uppercase"
               >CCTV</span
@@ -257,16 +257,16 @@
 </template>
 
 <script setup lang="ts">
-import { usePesanStore } from "~/stores/usePesanStore";
+import { usePesanStore } from "~/stores/UsePesanStore";
 const pesanStore = usePesanStore();
 import { ref, onMounted, onBeforeUnmount } from "vue";
 const { setSupabaseSession } = useAuth();
 
 // ─── SEO ─────────────────────────────────────────────────────────
 useSeoMeta({
-  title: "Login — Padjajaran CCTV",
+  title: "Login — PasarCctv",
   description:
-    "Masuk ke akun Padjajaran CCTV untuk akses produk original dan layanan garansi resmi.",
+    "Masuk ke akun PasarCctv untuk akses produk original dan layanan garansi resmi.",
   robots: "noindex, nofollow",
 });
 

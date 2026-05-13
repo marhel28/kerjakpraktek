@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from datetime import datetime
 from typing import Optional
@@ -7,6 +7,8 @@ from backend.db.main import get_session
 from backend.auth.depedence import get_admin
 from backend.auth.model import User
 from .service import TransactionAdminService
+from .schemas import TransactionRead
+from typing import List
 
 router_transaksi_admin = APIRouter()
 
@@ -25,7 +27,7 @@ async def get_all_transaksi_admin(
     session: AsyncSession = Depends(get_session),
     admin: User = Depends(get_admin)
 ):
-    data = await TransactionAdminService.get_all_transactions(
+    data, total, summary = await TransactionAdminService.get_all_transactions(
         session=session,
         page=page,
         limit=limit,
@@ -38,9 +40,47 @@ async def get_all_transaksi_admin(
         end_date=end_date
     )
 
+    # Map data to include stock titles and thumbnails for the frontend
+    formatted_data = []
+    for t in data:
+        t_dict = TransactionRead.model_validate(t)
+        for i, item in enumerate(t.items):
+            if item.stock:
+                t_dict.items[i].stock_title = item.stock.title
+                if item.stock.assets:
+                    t_dict.items[i].thumbnail_url = item.stock.assets[0].url
+        formatted_data.append(t_dict)
+
     return {
         "page": page,
         "limit": limit,
-        "count": len(data),
-        "data": data
+        "total": total,
+        "total_page": (total + limit - 1) // limit,
+        "summary": summary,
+        "data": formatted_data
+    }
+@router_transaksi_admin.put("/transaksi/{order_id}/waybill")
+async def update_transaction_waybill(
+    order_id: str,
+    waybill_number: str = Query(..., min_length=1),
+    courier_name: Optional[str] = Query(None),
+    status: str = Query("SHIPPED"),
+    session: AsyncSession = Depends(get_session),
+    admin: User = Depends(get_admin)
+):
+    transaction = await TransactionAdminService.update_waybill(
+        session=session,
+        order_id=order_id,
+        waybill_number=waybill_number,
+        courier_name=courier_name,
+        delivery_status=status
+    )
+    
+    if not transaction:
+        raise HTTPException(status_code=404, detail="Transaksi tidak ditemukan")
+        
+    return {
+        "success": True,
+        "message": "Resi berhasil diupdate",
+        "data": transaction
     }

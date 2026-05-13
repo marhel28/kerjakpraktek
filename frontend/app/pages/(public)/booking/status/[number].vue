@@ -5,7 +5,7 @@ const route = useRoute();
 const bookingNumber = route.params.number as string;
 
 useSeoMeta({
-  title: `Booking ${bookingNumber} | Padjajaran CCTV`,
+  title: `Booking ${bookingNumber} | PasarCctv`,
   robots: "noindex",
 });
 
@@ -110,7 +110,7 @@ const STATUS_CONFIG: Record<
     label: "Lunas — Terima Kasih!",
     color: "green",
     icon: "i-heroicons-star",
-    desc: "Transaksi selesai. Terima kasih telah menggunakan layanan Padjajaran CCTV.",
+    desc: "Transaksi selesai. Terima kasih telah menggunakan layanan PasarCctv.",
     bgClass: "bg-green-50 border-green-100",
     iconClass: "text-green-600 bg-green-100",
   },

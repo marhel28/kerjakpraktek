@@ -2,7 +2,7 @@
   <div
     class="min-h-screen flex flex-col bg-gray-50 text-gray-900 font-sans selection:bg-blue-200 selection:text-blue-900 relative"
   >
-    <header class="sticky top-0 z-50 shadow-sm">
+    <header class="sticky top-0 z-[100] shadow-sm bg-white">
       <AppNavbar />
       <ClientOnly>
         <FloatingChat />
@@ -166,7 +166,7 @@
             class="text-[10px] uppercase tracking-widest font-bold text-center md:text-left"
             :class="isStoreLocator ? 'text-zinc-500' : 'text-gray-400'"
           >
-            &copy; {{ new Date().getFullYear() }} Padjajaran CCTV / PasarCCTV. All Rights
+            &copy; {{ new Date().getFullYear() }} PasarCctv / PasarCCTV. All Rights
             Reserved.
           </p>
           <div
@@ -228,7 +228,7 @@ const footerLinks: FooterLinkGroup[] = [
       { name: "Instalasi CCTV", to: "/layanan/booking?category=installation" },
       { name: "Maintenance & Service", to: "/layanan/booking?category=maintenance" },
       { name: "Konsultasi Keamanan", to: "/layanan/booking?category=consultation" },
-      { name: "Paket Project", to: "/portofolio" },
+      { name: "Paket Project", to: "/portfolio" },
     ],
   },
   {

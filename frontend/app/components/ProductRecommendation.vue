@@ -66,13 +66,11 @@ defineProps<{
         v-for="(rec, index) in items"
         :key="rec.uuid"
         class="rec-item"
-        :style="{ animationDelay: `${index * 45}ms` }"
         itemprop="itemListElement"
         itemscope
         itemtype="https://schema.org/ListItem"
         role="listitem"
       >
-        <meta itemprop="position" :content="String(index + 1)" />
         <CardPerItems
           :uuid="rec.uuid"
           :slug="rec.slug"
@@ -88,7 +86,9 @@ defineProps<{
           :type="rec.type || ''"
           :specs="rec.specs || {}"
           class="h-full"
+          :style="{ animationDelay: `${index * 45}ms` }"
         />
+        <meta itemprop="position" :content="String(index + 1)" />
       </div>
     </div>
   </section>
@@ -156,29 +156,45 @@ defineProps<{
   display: grid;
   grid-template-columns: repeat(2, 1fr);
   gap: 0.75rem;
+  width: 100%;
 }
 
 @media (min-width: 640px) {
-  .rec-grid { grid-template-columns: repeat(3, 1fr); gap: 0.875rem; }
+  .rec-grid {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1rem;
+  }
 }
+
 @media (min-width: 768px) {
-  .rec-grid { grid-template-columns: repeat(4, 1fr); }
+  .rec-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
 }
+
 @media (min-width: 1024px) {
-  .rec-grid { grid-template-columns: repeat(5, 1fr); gap: 1rem; }
+  .rec-grid {
+    grid-template-columns: repeat(5, 1fr);
+  }
+}
+
+.rec-item {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-width: 0; /* Prevent grid blowout */
+}
+
+.rec-item > * {
+  flex: 1;
+  opacity: 0;
+  animation: fadeUp 0.38s ease-out forwards;
 }
 
 /* ── Item animasi masuk ──────────────────────────────────────────── */
 @keyframes fadeUp {
   from { opacity: 0; transform: translateY(12px); }
   to   { opacity: 1; transform: translateY(0); }
-}
-
-.rec-item {
-  opacity: 0;
-  animation: fadeUp 0.38s ease-out forwards;
-  display: flex;
-  flex-direction: column;
 }
 
 /* ── Reduced motion ──────────────────────────────────────────────── */

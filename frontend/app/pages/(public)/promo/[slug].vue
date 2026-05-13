@@ -17,8 +17,8 @@ const slug = computed(() => route.params.slug as string)
 const toast = useToast()
 
 // ─── KOORDINAT TOKO (Ganti dengan koordinat asli tokomu) ─────────
-const STORE_LAT = -6.873200 // Contoh: Latitude Padjajaran CCTV Cimahi
-const STORE_LNG = 107.540400 // Contoh: Longitude Padjajaran CCTV Cimahi
+const STORE_LAT = -6.873200 // Contoh: Latitude PasarCctv Cimahi
+const STORE_LNG = 107.540400 // Contoh: Longitude PasarCctv Cimahi
 
 // ─── Helpers ──────────────────────────────────────────────────────
 const formatRp = (n: number) =>
@@ -66,10 +66,10 @@ const { data: promo, pending: isLoadingPromo } = await useAsyncData<PromoRespons
 )
 
 useSeoMeta({
-  title: () => promo.value ? `${promo.value.name} — Padjajaran CCTV` : 'Promo — Padjajaran CCTV',
-  description: () => promo.value?.description || (promo.value ? `${promo.value.name}. ${discountLabel(promo.value)}. Berlaku hingga ${formatDate(promo.value.valid_until)}.` : 'Detail promo kamera CCTV dan paket instalasi dari Padjajaran CCTV Cimahi.'),
-  ogTitle: () => promo.value ? `${promo.value.name} — Padjajaran CCTV` : 'Promo — Padjajaran CCTV',
-  ogDescription: () => promo.value?.description || 'Detail promo kamera CCTV dan paket instalasi dari Padjajaran CCTV Cimahi.',
+  title: () => promo.value ? `${promo.value.name} — PasarCctv` : 'Promo — PasarCctv',
+  description: () => promo.value?.description || (promo.value ? `${promo.value.name}. ${discountLabel(promo.value)}. Berlaku hingga ${formatDate(promo.value.valid_until)}.` : 'Detail promo kamera CCTV dan paket instalasi dari PasarCctv Cimahi.'),
+  ogTitle: () => promo.value ? `${promo.value.name} — PasarCctv` : 'Promo — PasarCctv',
+  ogDescription: () => promo.value?.description || 'Detail promo kamera CCTV dan paket instalasi dari PasarCctv Cimahi.',
   ogImage: () => promo.value?.banner_url || undefined,
 })
 

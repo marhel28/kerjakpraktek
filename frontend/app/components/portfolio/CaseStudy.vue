@@ -31,7 +31,7 @@ defineProps<{
         
         <div>
           <h3 class="text-xs font-black tracking-widest text-gray-400 uppercase mb-2 flex items-center gap-2">
-            <Icon name="lucide:check-circle-2" class="w-4 h-4 text-green-500" /> Solusi Padjajaran
+            <Icon name="lucide:check-circle-2" class="w-4 h-4 text-green-500" /> Solusi PasarCctv
           </h3>
           <p class="text-sm font-medium text-gray-600 leading-relaxed">{{ data.solution }}</p>
         </div>

@@ -39,9 +39,20 @@
         </p>
       </div>
 
+      <!-- Mobile: full-width chips row above grid -->
+      <div class="lg:hidden w-full mb-4">
+        <CategoryFilter
+          v-model:search="searchQuery"
+          v-model:selected="selectedCategories"
+          v-model:price="priceRange"
+          :dynamicSuggests="popularTerms"
+        />
+      </div>
+
       <div class="flex flex-col lg:flex-row gap-6 lg:gap-8 items-start">
-        
-        <aside class="w-full lg:w-[280px] shrink-0">
+
+        <!-- Desktop sidebar -->
+        <aside class="hidden lg:block w-[280px] shrink-0">
           <CategoryFilter
             v-model:search="searchQuery"
             v-model:selected="selectedCategories"
@@ -100,9 +111,36 @@
             <div v-for="item in products" :key="item.uuid" class="h-full">
               <CardPerItems v-bind="item" />
             </div>
+
+            <template v-if="isFetchingMore">
+              <div v-for="i in 4" :key="`sm-${i}`" class="bg-white rounded-2xl border border-gray-100 p-4 flex flex-col h-[380px] shadow-sm">
+                <USkeleton class="w-full aspect-square rounded-xl mb-4 bg-gray-100" />
+                <USkeleton class="h-4 w-1/4 mb-3 bg-gray-100" />
+                <USkeleton class="h-5 w-full mb-1 bg-gray-100" />
+                <USkeleton class="h-5 w-3/4 mb-4 bg-gray-100" />
+                <div class="mt-auto">
+                  <USkeleton class="h-6 w-1/2 bg-gray-100" />
+                </div>
+              </div>
+            </template>
           </div>
 
-          <div v-if="!pending && products.length > 0" class="mt-12 text-center pb-8">
+          <!-- Infinite scroll trigger -->
+          <div
+            v-show="!pending && hasMore && products.length > 0"
+            ref="loadMoreTrigger"
+            class="h-10 w-full"
+            aria-hidden="true"
+          />
+
+          <div v-if="isFetchingMore" class="flex justify-center py-4">
+            <div class="flex items-center gap-2 text-sm text-gray-500 font-medium">
+              <span class="w-4 h-4 rounded-full border-2 border-green-500 border-t-transparent animate-spin" aria-hidden="true" />
+              Memuat lebih banyak...
+            </div>
+          </div>
+
+          <div v-if="!pending && !hasMore && products.length > 0" class="mt-12 text-center pb-8">
             <span class="inline-block px-5 py-2.5 bg-white border border-gray-200 text-gray-400 text-xs font-bold rounded-full shadow-sm uppercase tracking-widest">
               ~ Akhir dari Hasil Pencarian ~
             </span>
@@ -115,7 +153,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch, onMounted, onBeforeUnmount, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useHead } from '#imports'
 
@@ -173,31 +211,92 @@ watch([searchQuery, selectedCategories, priceRange, sortQuery], () => {
 
 
 // ==========================================
-// 🚀 FETCH DATA API (ELASTICSEARCH VIA NITRO)
+// 🚀 FETCH DATA API & INFINITE SCROLL
 // ==========================================
-const { data: apiResponse, pending } = await useFetch('/api/search', {
-  query: computed(() => ({
-    q: searchQuery.value || undefined,
-    cat: selectedCategories.value.length > 0 ? selectedCategories.value : undefined, // Kirim Array
-    sort: sortQuery.value,
-    min_price: priceRange.value[0],
-    max_price: priceRange.value[1],
-    size: 24 
-  })),
-  watch: [searchQuery, selectedCategories, priceRange, sortQuery] 
+const products = ref<any[]>([])
+const page = ref(1)
+const hasMore = ref(true)
+const isFetchingMore = ref(false)
+const pending = ref(true)
+const totalResults = ref(0)
+const suggestion = ref<string | null>(null)
+const popularTerms = ref<string[]>([])
+const loadMoreTrigger = ref<HTMLElement | null>(null)
+
+let debounceTimer: ReturnType<typeof setTimeout>
+let observer: IntersectionObserver | null = null
+
+const fetchProducts = async (isLoadMore = false) => {
+  if (!isLoadMore) {
+    pending.value = true
+    page.value = 1
+    products.value = []
+    hasMore.value = true
+  } else {
+    if (!hasMore.value || isFetchingMore.value) return
+    isFetchingMore.value = true
+  }
+
+  try {
+    const res = await $fetch<any>('/api/search', {
+      query: {
+        q: searchQuery.value || undefined,
+        cat: selectedCategories.value.length > 0 ? selectedCategories.value : undefined,
+        min_price: priceRange.value[0],
+        max_price: priceRange.value[1],
+        sort: sortQuery.value,
+        page: page.value,
+        size: 24,
+      },
+    })
+
+    if (res.status === 'success') {
+      const newItems = res.items || []
+      if (!isLoadMore) products.value = newItems
+      else products.value.push(...newItems)
+
+      totalResults.value = res.total || 0
+      suggestion.value = res.suggestion || null
+      hasMore.value = products.value.length < totalResults.value
+      if (res.facets?.popular_terms) popularTerms.value = res.facets.popular_terms
+    }
+  } catch { /* silent */ }
+  finally { pending.value = false; isFetchingMore.value = false }
+}
+
+// Watch state fetch 
+watch([searchQuery, selectedCategories, priceRange, sortQuery], () => {
+  clearTimeout(debounceTimer)
+  debounceTimer = setTimeout(() => fetchProducts(false), 400)
+}, { deep: true })
+
+const setupObserver = () => {
+  if (!loadMoreTrigger.value) return 
+
+  observer = new IntersectionObserver(
+    (entries) => {
+      if (entries[0].isIntersecting && hasMore.value && !pending.value && !isFetchingMore.value) {
+        page.value++
+        fetchProducts(true)
+      }
+    },
+    { rootMargin: '300px' }
+  )
+  
+  if (loadMoreTrigger.value) {
+    observer.observe(loadMoreTrigger.value)
+  }
+}
+
+onMounted(() => {
+  fetchProducts(false)
+  nextTick(() => setTimeout(setupObserver, 800))
 })
 
-// ==========================================
-// 🧮 COMPUTED DATA (MAPPING KE UI)
-// ==========================================
-const products = computed(() => {
-  if (!apiResponse.value?.items) return []
-  return apiResponse.value.items
+onBeforeUnmount(() => {
+  observer?.disconnect()
+  clearTimeout(debounceTimer)
 })
-
-const totalResults = computed(() => apiResponse.value?.total || 0)
-const suggestion = computed(() => apiResponse.value?.suggestion || null)
-const popularTerms = computed(() => apiResponse.value?.facets?.popular_terms || [])
 
 // ==========================================
 // ⚡ ACTIONS

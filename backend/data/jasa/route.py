@@ -3,14 +3,18 @@ router.py — FastAPI Routes: Service Booking, Package, Payment
 Sistem: Padjajaran CCTV, Cimahi
 """
 
+from __future__ import annotations
 import os
+import json
 from datetime import date
 from typing import List, Optional
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Form, File, UploadFile
+from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
+from sqlalchemy.orm.attributes import flag_modified
 from backend.db.main import get_session
 from backend.db.redis import get_redis_token
 from backend.auth.depedence import get_current_user, get_admin
@@ -19,6 +23,7 @@ from backend.auth.model import User
 from .model import (
     BookingStatus, ServiceBooking, ServicePayment,
     ServicePackage, ServicePricingConfig,
+    Technician, ServiceHoliday, ServiceOperationalHours
 )
 from .schema import (
     PricingConfigCreate, PricingConfigResponse,
@@ -30,6 +35,9 @@ from .schema import (
     BookingStatusUpdate, BookingPaymentInfo,
     CreatePaymentRequest, MidtransWebhookPayload,
     AvailableSlotsResponse,
+    TechnicianCreate, TechnicianResponse, TechnicianDetailResponse,
+    HolidayCreate, HolidayResponse,
+    OperationalHoursCreate, OperationalHoursResponse
 )
 from .service import (
     BookingService, PackageService, PaymentService, MidtransService,
@@ -46,7 +54,7 @@ booking_svc = BookingService()
 package_svc = PackageService()
 payment_svc = PaymentService(_midtrans)
 
-RATE_LIMIT_MAX = 5
+RATE_LIMIT_MAX = 50
 RATE_LIMIT_TTL = 60
 
 
@@ -95,6 +103,7 @@ async def _booking_response(
         distance_km      = booking.distance_km,
         contact_name     = booking.contact_name,
         contact_phone    = booking.contact_phone,
+        technician       = TechnicianResponse.model_validate(booking.technician) if booking.technician else None,
         device_price     = booking.device_price,
         service_price    = booking.service_price,
         addon_price      = booking.addon_price,
@@ -210,7 +219,6 @@ async def get_package_by_slug(
     slug: str,
     session: AsyncSession = Depends(get_session),
 ):
-    from sqlmodel import select
     result = await session.exec(select(ServicePackage).where(ServicePackage.slug == slug))
     pkg    = result.first()
     if not pkg:
@@ -374,8 +382,12 @@ async def create_booking_direct(
     if req.distance_km > config.max_distance_km:
         raise HTTPException(400, f"Jarak melebihi batas layanan {config.max_distance_km:.0f} km")
 
-    if await booking_svc._count_active_slot(session, req.scheduled_date, req.time_slot) >= 3:
-        raise HTTPException(409, "Slot sudah penuh")
+    # 🆕 DYNAMIC CAPACITY CHECK
+    max_capacity = await booking_svc._get_active_tech_count(session)
+    current_booked = await booking_svc._count_active_slot(session, req.scheduled_date, req.time_slot)
+    
+    if current_booked >= max_capacity:
+        raise HTTPException(409, f"Slot sudah penuh ({max_capacity} teknisi aktif). Pilih waktu lain.")
 
     acquired, lock_key = await booking_svc._acquire_slot_lock(req.scheduled_date, req.time_slot)
     if not acquired:
@@ -384,7 +396,6 @@ async def create_booking_direct(
     try:
         device_price = 0
         if req.package_uuid:
-            from sqlmodel import select
             pkg_res = await session.exec(
                 select(ServicePackage).where(ServicePackage.uuid == req.package_uuid)
             )
@@ -582,7 +593,9 @@ async def admin_update_status(
     PROGRESS → DONE
     DONE → LUNAS
     """
-    booking = await booking_svc.update_status(booking_uuid, body.status, session, body.notes)
+    booking = await booking_svc.update_status(
+        booking_uuid, body.status, session, body.notes, body.technician_uuid
+    )
     return await _booking_response(booking, session)
 
 
@@ -610,15 +623,26 @@ async def admin_stats(
     summary="Buat paket CCTV baru beserta item Stock",
 )
 async def admin_create_package(
-    data: PackageCreate,
+    data: str = Form(...),  # JSON string of PackageCreate
+    thumbnail: Optional[UploadFile] = File(None),
     session: AsyncSession = Depends(get_session),
     _: User = Depends(get_admin),
 ):
     """
-    Buat paket baru. item = list Stock UUID dengan quantity & harga override opsional.
-    device_price dihitung otomatis dari item.
+    Buat paket baru. data = JSON string dari PackageCreate.
+    thumbnail = File upload opsional.
     """
-    pkg    = await package_svc.create_package(data, session)
+    try:
+        data_dict = json.loads(data)
+        pkg_data = PackageCreate(**data_dict)
+    except Exception as e:
+        raise HTTPException(400, f"Invalid JSON data: {e}")
+
+    image_bytes = None
+    if thumbnail:
+        image_bytes = await thumbnail.read()
+
+    pkg    = await package_svc.create_package(pkg_data, session, image_file=image_bytes)
     config = await booking_svc.get_active_pricing_config(session)
     return await package_svc.build_package_response(pkg, session, config)
 
@@ -647,18 +671,21 @@ async def admin_list_packages(
 )
 async def admin_update_package(
     pkg_uuid: UUID,
-    updates: dict,
+    updates: str = Form(...),  # JSON string of updates
+    thumbnail: Optional[UploadFile] = File(None),
     session: AsyncSession = Depends(get_session),
     _: User = Depends(get_admin),
 ):
-    pkg = await package_svc.get_package(pkg_uuid, session)
-    allowed = {"name","description","thumbnail_url","highlights","is_active","sort_order","estimated_service_price"}
-    for k, v in updates.items():
-        if k in allowed:
-            setattr(pkg, k, v)
-    session.add(pkg)
-    await session.commit()
-    await session.refresh(pkg)
+    try:
+        updates_dict = json.loads(updates)
+    except Exception as e:
+        raise HTTPException(400, f"Invalid JSON updates: {e}")
+
+    image_bytes = None
+    if thumbnail:
+        image_bytes = await thumbnail.read()
+
+    pkg = await package_svc.update_package(pkg_uuid, updates_dict, session, image_file=image_bytes)
     config = await booking_svc.get_active_pricing_config(session)
     return await package_svc.build_package_response(pkg, session, config)
 
@@ -698,7 +725,6 @@ async def admin_create_pricing(
     Versi lama TIDAK dihapus (audit trail).
     Cache Redis diinvalidate otomatis.
     """
-    from sqlmodel import select
 
     # Nonaktifkan semua config lama
     old_res = await session.exec(
@@ -717,6 +743,42 @@ async def admin_create_pricing(
     return booking_svc.build_pricing_response(new_cfg)
 
 
+@router.patch(
+    "/admin/service/pricing/{uuid}",
+    response_model=PricingConfigResponse,
+    tags=["Admin Pricing"],
+    summary="Update konfigurasi pricing yang sudah ada (overwrite)",
+)
+async def admin_update_pricing(
+    uuid: UUID,
+    data: PricingConfigCreate,
+    session: AsyncSession = Depends(get_session),
+    _: User = Depends(get_admin),
+):
+    """
+    Mengupdate record pricing yang sudah ada. 
+    Gunakan ini jika hanya ingin koreksi tanpa menambah versi baru.
+    """
+    config = await session.get(ServicePricingConfig, uuid)
+    if not config:
+        raise HTTPException(status_code=404, detail="Config not found")
+
+    # Update fields from schema
+    update_data = data.model_dump(exclude_unset=True)
+    for key, value in update_data.items():
+        setattr(config, key, value)
+        # Force SQLAlchemy to detect changes in JSONB fields
+        if key in ["base_price_per_camera", "brand_multiplier", "addons_config", "routes_config"]:
+            flag_modified(config, key)
+
+    session.add(config)
+    await session.commit()
+    await session.refresh(config)
+
+    await booking_svc.invalidate_pricing_cache()
+    return booking_svc.build_pricing_response(config)
+
+
 @router.get(
     "/admin/service/pricing/active",
     response_model=PricingConfigResponse,
@@ -729,6 +791,251 @@ async def admin_get_pricing(
 ):
     config = await booking_svc.get_active_pricing_config(session)
     return booking_svc.build_pricing_response(config)
+
+# ── List all pricing configs (admin) ────────────────────────────────────────
+@router.get(
+    "/admin/service/pricing/all",
+    response_model=List[PricingConfigResponse],
+    tags=["Admin Pricing"],
+    summary="Daftar semua konfigurasi pricing (aktif & tidak aktif)"
+)
+async def admin_list_pricing(
+    session: AsyncSession = Depends(get_session),
+    _: User = Depends(get_admin),
+):
+    result = await session.exec(select(ServicePricingConfig).order_by(ServicePricingConfig.created_at.desc()))
+    configs = result.all()
+    return [booking_svc.build_pricing_response(c) for c in configs]
+
+
+# ══════════════════════════════════════════════════════════════════
+# ADMIN — Technician Management
+# ══════════════════════════════════════════════════════════════════
+
+@router.get(
+    "/admin/service/technicians",
+    response_model=List[TechnicianResponse],
+    tags=["Admin Technician"],
+    summary="Daftar semua teknisi",
+)
+async def admin_list_technicians(
+    active_only: bool = Query(True),
+    session: AsyncSession = Depends(get_session),
+    _: User = Depends(get_admin),
+):
+    return await booking_svc.list_technicians(session, active_only=active_only)
+
+
+@router.get(
+    "/admin/service/technicians/{uuid}",
+    response_model=TechnicianDetailResponse,
+    tags=["Admin Technician"],
+    summary="Detail teknisi + daftar booking",
+)
+async def admin_get_technician(
+    uuid: UUID,
+    session: AsyncSession = Depends(get_session),
+    _: User = Depends(get_admin),
+):
+    return await booking_svc.get_technician_detail(uuid, session)
+
+
+@router.get(
+    "/admin/service/technicians/{uuid}/validate-assignment",
+    tags=["Admin Technician"],
+    summary="Cek ketersediaan teknisi sebelum ditugaskan",
+)
+async def admin_validate_tech_assignment(
+    uuid: UUID,
+    target_date: date = Query(...),
+    target_slot: str = Query(...),
+    exclude_booking: Optional[UUID] = Query(None),
+    session: AsyncSession = Depends(get_session),
+    _: User = Depends(get_admin),
+):
+    return await booking_svc.check_technician_availability(
+        technician_uuid=uuid,
+        target_date=target_date,
+        target_slot=target_slot,
+        exclude_booking_uuid=exclude_booking,
+        session=session
+    )
+
+
+@router.post(
+    "/admin/service/technicians/upload-picture",
+    tags=["Admin Technician"],
+    summary="Upload foto profil teknisi",
+)
+async def admin_upload_tech_picture(
+    file: UploadFile = File(...),
+    _: User = Depends(get_admin),
+):
+    from backend.db.cdn import upload_file
+    import uuid
+    
+    # Validasi file
+    if not file.content_type.startswith("image/"):
+        raise HTTPException(400, "File harus berupa gambar")
+        
+    try:
+        content = await file.read()
+        filename = f"{uuid.uuid4()}.webp"
+        url = await upload_file(content, folder="technicians", filename=filename)
+        return {"url": url}
+    except Exception as e:
+        raise HTTPException(500, f"Gagal upload: {str(e)}")
+
+
+@router.post(
+    "/admin/service/technicians",
+    response_model=TechnicianResponse,
+    tags=["Admin Technician"],
+    summary="Tambah teknisi baru",
+)
+async def admin_create_technician(
+    data: TechnicianCreate,
+    session: AsyncSession = Depends(get_session),
+    _: User = Depends(get_admin),
+):
+    return await booking_svc.create_technician(data.model_dump(), session)
+
+
+@router.patch(
+    "/admin/service/technicians/{uuid}",
+    response_model=TechnicianResponse,
+    tags=["Admin Technician"],
+    summary="Update data teknisi",
+)
+async def admin_update_technician(
+    uuid: UUID,
+    data: TechnicianCreate,
+    session: AsyncSession = Depends(get_session),
+    _: User = Depends(get_admin),
+):
+    return await booking_svc.update_technician(uuid, data.model_dump(exclude_unset=True), session)
+
+
+# ══════════════════════════════════════════════════════════════════
+# ADMIN — Operational & Holidays
+# ══════════════════════════════════════════════════════════════════
+
+@router.get(
+    "/admin/service/holidays",
+    response_model=List[HolidayResponse],
+    tags=["Admin Operational"],
+    summary="Daftar hari libur layanan",
+)
+async def admin_list_holidays(
+    session: AsyncSession = Depends(get_session),
+    _: User = Depends(get_admin),
+):
+    return await booking_svc.list_holidays(session)
+
+
+@router.post(
+    "/admin/service/holidays",
+    response_model=HolidayResponse,
+    tags=["Admin Operational"],
+    summary="Tambah hari libur",
+)
+async def admin_create_holiday(
+    data: HolidayCreate,
+    session: AsyncSession = Depends(get_session),
+    _: User = Depends(get_admin),
+):
+    return await booking_svc.create_holiday(data.holiday_date, data.description, session)
+
+
+@router.delete(
+    "/admin/service/holidays/{uuid}",
+    tags=["Admin Operational"],
+    summary="Hapus hari libur",
+)
+async def admin_delete_holiday(
+    uuid: UUID,
+    session: AsyncSession = Depends(get_session),
+    _: User = Depends(get_admin),
+):
+    await booking_svc.delete_holiday(uuid, session)
+    return {"status": "ok"}
+
+
+@router.get(
+    "/admin/service/hours",
+    response_model=List[OperationalHoursResponse],
+    tags=["Admin Operational"],
+    summary="Daftar jam operasional mingguan",
+)
+async def admin_list_hours(
+    session: AsyncSession = Depends(get_session),
+    _: User = Depends(get_admin),
+):
+    return await booking_svc.list_operational_hours(session)
+
+
+@router.patch(
+    "/admin/service/hours/{day}",
+    response_model=OperationalHoursResponse,
+    tags=["Admin Operational"],
+    summary="Update jam operasional per hari (0-6)",
+)
+async def admin_update_hours(
+    day: int,
+    data: OperationalHoursCreate,
+    session: AsyncSession = Depends(get_session),
+    _: User = Depends(get_admin),
+):
+    return await booking_svc.update_operational_hours(day, data.model_dump(exclude_unset=True), session)
+@router.get(
+    "/admin/pricing/{uuid}",
+    response_model=PricingConfigResponse,
+    tags=["Admin Pricing"],
+    summary="Ambil konfigurasi pricing tunggal berdasarkan UUID"
+)
+async def admin_get_pricing_by_uuid(
+    uuid: str,
+    session: AsyncSession = Depends(get_session),
+    _: User = Depends(get_admin),
+):
+    config = await session.get(ServicePricingConfig, uuid)
+    if not config:
+        raise HTTPException(status_code=404, detail="Config not found")
+    return booking_svc.build_pricing_response(config)
+
+# ── Activate a specific pricing config (admin) ────────────────────────────────
+@router.post(
+    "/admin/service/pricing/activate",
+    response_model=PricingConfigResponse,
+    tags=["Admin Pricing"],
+    summary="Aktifkan konfigurasi pricing tertentu, menonaktifkan yang lain"
+)
+async def admin_activate_pricing(
+    payload: dict,
+    session: AsyncSession = Depends(get_session),
+    _: User = Depends(get_admin),
+):
+    uuid = payload.get("uuid")
+    if not uuid:
+        raise HTTPException(status_code=400, detail="UUID required")
+    # Deactivate all configs
+    old_res = await session.exec(
+        select(ServicePricingConfig).where(ServicePricingConfig.is_active == True)
+    )
+    for old in old_res.all():
+        old.is_active = False
+        session.add(old)
+    # Activate target config
+    target = await session.get(ServicePricingConfig, uuid)
+    if not target:
+        raise HTTPException(status_code=404, detail="Config not found")
+    target.is_active = True
+    session.add(target)
+    await session.commit()
+    await session.refresh(target)
+    await booking_svc.invalidate_pricing_cache()
+    return booking_svc.build_pricing_response(target)
+
 
 from .service import _send_service_notification
 

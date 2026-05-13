@@ -101,7 +101,7 @@ def send_reset_password_email_task(
       </h2>
       <p style="color:#6b7280;font-size:14px;line-height:1.6;margin-bottom:24px">
         Klik tombol di bawah untuk membuat password baru.
-        Link berlaku <strong style="color:#111">15 menit</strong>.
+        Link berlaku <strong style="color:#111">5 menit</strong>.
       </p>
       <a href="{reset_url}"
          style="display:block;text-align:center;padding:14px;background:#111827;

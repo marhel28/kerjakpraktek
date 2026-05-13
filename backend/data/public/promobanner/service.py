@@ -26,7 +26,7 @@ from datetime import datetime, timezone
 from typing import Optional, List, Dict, Any, Tuple
 
 from fastapi import HTTPException
-from sqlmodel import select
+from sqlmodel import select, delete, func
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import selectinload
@@ -42,6 +42,7 @@ from backend.auth.model import User, UserAddress, UserMap
 from backend.user.cart.model import Cart
 from backend.config import Config
 from backend.db.supabse import SupabaseNotificationService
+from backend.data.activity.service import ActivityService
 
 from .schema import (
     PromoCheckoutRequest, PromoCheckoutResponse,
@@ -777,8 +778,34 @@ class PromoCheckoutService:
         # 17. Increment used_count promo
         promo.used_count += 1
         session.add(promo)
+        
+        # 📝 Log Activity
+        await ActivityService(session).log_activity(
+            activity_type="promo",
+            title="🎁 Pesanan Promo",
+            description=f"Pesanan promo {order_id} ({promo.name}) dibuat oleh {user.username}",
+            reference_id=order_id,
+            user_id=user.uuid,
+            status="pending",
+            amount=int(gross_amount),
+            icon="i-heroicons-gift",
+            color="purple"
+        )
 
         await session.commit()
+        
+        # 18. Bersihkan cart jika item yang dicheckout ada di cart
+        try:
+            if payload.stock_items:
+                s_uuids = [item.stock_uuid for item in payload.stock_items]
+                await session.execute(
+                    delete(Cart)
+                    .where(Cart.user_uuid == user.uuid)
+                    .where(Cart.stock_uuid.in_(s_uuids))
+                )
+                await session.commit()
+        except Exception as e:
+            logger.error(f"Failed to clear cart after promo checkout: {e}")
 
         # 18. Notifikasi
         await _send_notif(
@@ -935,8 +962,11 @@ class PromoCheckoutService:
             if expected != payload.signature_key:
                 raise PermissionError("Invalid signature")
 
+        full_order_id = payload.order_id or ""
+        order_id = full_order_id.split("-R-")[0]
+
         result = await session.exec(
-            select(PromoTransaction).where(PromoTransaction.order_id == payload.order_id)
+            select(PromoTransaction).where(PromoTransaction.order_id == order_id)
         )
         promo_trx = result.first()
 
@@ -981,6 +1011,19 @@ class PromoCheckoutService:
 
                 notif_title = "✅ Pembayaran Promo Berhasil"
                 notif_content = f"Pesanan promo #{payload.order_id} dikonfirmasi. Hemat terjamin!"
+                
+                # 📝 Log Activity
+                await ActivityService(session).log_activity(
+                    activity_type="promo",
+                    title="💰 Pembayaran Promo",
+                    description=f"Pembayaran promo {order_id} sebesar Rp{int(float(payload.gross_amount or 0)):,} telah diterima.",
+                    reference_id=order_id,
+                    user_id=promo_trx.user_id,
+                    status="settlement",
+                    amount=int(float(payload.gross_amount or 0)),
+                    icon="i-heroicons-check-badge",
+                    color="green"
+                )
 
         elif payload.transaction_status in ("cancel", "deny", "expire"):
             # Kembalikan stok

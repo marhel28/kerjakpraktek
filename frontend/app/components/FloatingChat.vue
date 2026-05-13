@@ -31,7 +31,7 @@
             </div>
             <div class="flex flex-col">
               <span class="text-sm font-black uppercase tracking-widest italic"
-                >Padjajaran Support</span
+                >PasarCctv Support</span
               >
               <span class="text-[10px] text-gray-400 font-medium"
                 >Online • Siap Membantu</span
@@ -141,7 +141,7 @@
               class="bg-white border border-gray-200 p-3 rounded-2xl rounded-tl-sm shadow-sm"
             >
               <p class="text-xs font-medium text-gray-800 leading-relaxed">
-                Halo! Selamat datang di <strong>Padjajaran CCTV</strong>.<br /><br />
+                Halo! Selamat datang di <strong>PasarCctv</strong>.<br /><br />
                 Silakan ketik pertanyaan Anda seputar produk, klaim garansi, atau kendala
                 lainnya.
               </p>
@@ -399,7 +399,7 @@
       aria-label="Toggle Live Chat"
     >
       <Icon
-        :name="isOpen ? 'lucide:x' : 'lucide:message-square-text'"
+        :name="isOpen ? 'lucide:x' : 'lucide:headset'"
         class="w-6 h-6 transition-transform duration-300 pointer-events-none"
         :class="isOpen ? 'rotate-90' : 'rotate-0'"
       />
@@ -459,7 +459,7 @@
  */
 
 import { ref, computed, watch, nextTick, onMounted, onUnmounted } from 'vue'
-import { usePesanStore, type ProductContext } from '~/stores/usePesanStore'
+import { usePesanStore, type ProductContext } from '~/stores/UsePesanStore'
 
 const store = usePesanStore()
 

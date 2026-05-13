@@ -43,7 +43,7 @@ export default defineEventHandler(async (event) => {
     try {
       const data = await $fetch(`${config.public.apiBase}/wishlist`, {
         headers,
-        timeout: 4000,
+        timeout: 10000,
       })
 
       // ✔ simpan cache 30 detik
@@ -70,7 +70,7 @@ export default defineEventHandler(async (event) => {
         method: "POST",
         headers,
         body,
-        timeout: 4000,
+        timeout: 10000,
       })
 
       // ❌ invalidate cache setelah update

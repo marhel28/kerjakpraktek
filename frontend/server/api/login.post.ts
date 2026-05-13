@@ -11,8 +11,8 @@
  */
 
 import { defineEventHandler, readBody, setCookie, createError } from 'h3'
-
-const BACKEND = 'http://127.0.0.1:8000'
+const config = useRuntimeConfig();
+const BACKEND = config.public.apiBase
 
 export default defineEventHandler(async (event) => {
   const body = await readBody(event)

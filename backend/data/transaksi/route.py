@@ -31,10 +31,23 @@ async def estimate_shipping(
     address_uuid: UUID,
     stock_uuid: UUID,
     quantity: int = Query(1, ge=1),
-    courier: str = Query("jne:sicepat:jnt"),
+    weight: Optional[int] = Query(None, description="Berat total dalam gram (opsional, jika tidak diisi akan hitung dari stock * qty)"),
+    courier: Optional[str] = Query(None),
     user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ):
+    # Ambil preferensi kurir dari admin
+    from backend.admin.adminSettings.service import AdminSettingService
+    prefs = await AdminSettingService.get_courier_preferences(session)
+    
+    # Filter kurir yang aktif (True)
+    active_couriers = [k for k, v in prefs.items() if v]
+    
+    # Jika tidak ada yang aktif, default ke jne
+    courier_str = ":".join(active_couriers) if active_couriers else "jne"
+    
+    # Gunakan courier_str alih-alih parameter input agar sesuai setting admin
+    target_courier = courier_str
     from sqlmodel import select
     from backend.data.stock.model import Stock
     import httpx
@@ -49,14 +62,16 @@ async def estimate_shipping(
     if not address:
         raise HTTPException(404, "Alamat tidak ditemukan")
 
-    stock_result = await session.exec(
-        select(Stock).where(Stock.uuid == stock_uuid).where(Stock.is_active == True)
-    )
-    stock = stock_result.one_or_none()
-    if not stock:
-        raise HTTPException(404, "Produk tidak ditemukan")
-
-    total_weight = stock.weight * quantity
+    if weight is not None:
+        total_weight = weight
+    else:
+        stock_result = await session.exec(
+            select(Stock).where(Stock.uuid == stock_uuid).where(Stock.is_active == True)
+        )
+        stock = stock_result.one_or_none()
+        if not stock:
+            raise HTTPException(404, "Produk tidak ditemukan")
+        total_weight = stock.weight * quantity
 
     RAJAONGKIR_URL = "https://rajaongkir.komerce.id/api/v1/calculate/domestic-cost"
     ORIGIN = "16155"
@@ -70,7 +85,7 @@ async def estimate_shipping(
                     "origin": ORIGIN,
                     "destination": address.location_id,
                     "weight": max(total_weight, 1),
-                    "courier": courier.lower().replace(" ", ""),
+                    "courier": target_courier.lower().replace(" ", ""),
                     "price": "lowest",
                 },
             )
@@ -208,7 +223,7 @@ async def get_all_my_transactions(
         )
     except Exception as e:
         logger.exception(f"get_all_my_transactions error: {e}")
-        raise HTTPException(500, "Internal server error")
+        raise HTTPException(500, f"Gagal mengambil data pesanan: {str(e)}")
 
 
 # ============================================================
@@ -226,19 +241,59 @@ async def get_transaction_detail(
       - PROMO-YYYYMMDD-XXXXXXXX → PromoTransaction
     """
     try:
+        # Check if user is admin
+        from backend.auth.model import UserRole
+        target_user_id = user.uuid if user.role != UserRole.ADMIN else None
+
         if order_id.startswith("PROMO-"):
             return await TransactionService.get_promo_transaction_detail(
-                session=session, user_id=user.uuid, order_id=order_id
+                session=session, user_id=target_user_id, order_id=order_id
+            )
+        elif order_id.startswith("BK-"):
+            return await TransactionService.get_jasa_transaction_detail(
+                session=session, user_id=target_user_id, order_id=order_id
             )
         else:
             return await TransactionService.get_regular_transaction_detail(
-                session=session, user_id=user.uuid, order_id=order_id
+                session=session, user_id=target_user_id, order_id=order_id
             )
     except HTTPException:
         raise
     except Exception as e:
         logger.exception(f"get_transaction_detail error: {e}")
         raise HTTPException(500, "Internal server error")
+
+# ============================================================
+# DOWNLOAD INVOICE PDF
+# ============================================================
+@transaksi_route.get("/invoice/{order_id}")
+async def download_invoice(
+    order_id: str,
+    user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+):
+    """
+    Menghasilkan file PDF invoice untuk transaksi tertentu.
+    """
+    from fastapi.responses import StreamingResponse
+    try:
+        from backend.auth.model import UserRole
+        target_user_id = user.uuid if user.role != UserRole.ADMIN else None
+
+        pdf_buffer = await TransactionService.generate_invoice_pdf(
+            session=session, user_id=target_user_id, order_id=order_id
+        )
+        
+        return StreamingResponse(
+            pdf_buffer,
+            media_type="application/pdf",
+            headers={"Content-Disposition": f"attachment; filename=Invoice-{order_id}.pdf"}
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception(f"download_invoice error: {e}")
+        raise HTTPException(500, f"Gagal generate invoice: {str(e)}")
 
 
 # ============================================================

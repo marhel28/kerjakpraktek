@@ -563,6 +563,10 @@
                                     class="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium bg-violet-50 text-violet-600 border border-violet-100">
                                     {{ detailDrawer.data.type }}
                                 </span>
+                                <span v-if="detailDrawer.data.weight"
+                                    class="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium bg-orange-50 text-orange-600 border border-orange-100">
+                                    {{ detailDrawer.data.weight }}g
+                                </span>
                             </div>
 
                             <!-- Price Card -->

@@ -28,7 +28,13 @@ from backend.data.transaksi.dashbord.route import router as main_route_transaksi
 from backend.data.public.mainbottombanner.route import router as bottomBanner
 from backend.data.public.promobanner.router import promo_router as router_promo
 from backend.user.pesan.route import router as pesan_routes
-
+from backend.data.public.portofolio.route import router as porto_route
+from backend.data.public.about.route import router as router_about
+from backend.data.public.addon.route import router as addon_router
+from backend.data.public.addon.admin_route import router as addon_admin_router
+from backend.admin.coupon.router import router as admin_coupon_router
+from backend.data.activity.route import router as activity_router
+from backend.admin.adminSettings.router import router_settings as settings_router
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -67,7 +73,9 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "http://localhost:3000",
-        "http://localhost:5173"
+        "http://localhost:5173",
+        "https://29a4-103-165-157-195.ngrok-free.app",
+        "https://marketplace-pi-sable.vercel.app"
     ],
     allow_credentials=True,
     allow_methods=["*"],
@@ -94,3 +102,10 @@ app.include_router(main_route_transaksi)
 app.include_router(bottomBanner)
 app.include_router(router_promo,tags=['promos'])
 app.include_router(pesan_routes)
+app.include_router(porto_route)
+app.include_router(router_about)
+app.include_router(addon_router)
+app.include_router(addon_admin_router)
+app.include_router(admin_coupon_router, prefix="/admin/coupon", tags=["Admin Coupon"])
+app.include_router(settings_router, prefix="/settings", tags=["System Settings"])
+app.include_router(activity_router)

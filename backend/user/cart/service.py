@@ -1,4 +1,5 @@
 from uuid import UUID
+from typing import Optional
 from fastapi import HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -9,7 +10,7 @@ from .schema import CartSummaryResponse, CartItemResponse, CartStockResponse
 
 class CartService:
     @staticmethod
-    async def add_to_cart(session: AsyncSession, user_uuid: UUID, stock_uuid: UUID, quantity: int) -> Cart:
+    async def add_to_cart(session: AsyncSession, user_uuid: UUID, stock_uuid: UUID, quantity: int, options: Optional[dict] = None) -> Cart:
         # 1. Cek apakah stock ada dan is_active
         stmt_stock = select(Stock).where(Stock.uuid == stock_uuid, Stock.is_active == True)
         result_stock = await session.execute(stmt_stock)
@@ -21,10 +22,12 @@ class CartService:
         if stock.stok < quantity:
             raise HTTPException(status_code=400, detail="Stok barang tidak mencukupi")
 
-        # 2. Cek apakah barang sudah ada di keranjang user
+        # 2. Cek apakah barang sudah ada di keranjang user DENGAN OPTIONS YANG SAMA
+        # JSONB equality di PostgreSQL/SQLAlchemy handle perbandingan object secara mendalam
         stmt_cart = select(Cart).where(
             Cart.user_uuid == user_uuid, 
-            Cart.stock_uuid == stock_uuid
+            Cart.stock_uuid == stock_uuid,
+            Cart.options == options
         )
         result_cart = await session.execute(stmt_cart)
         existing_cart = result_cart.scalar_one_or_none()
@@ -38,7 +41,7 @@ class CartService:
             cart_item = existing_cart
         else:
             # Jika belum ada, buat baru
-            cart_item = Cart(user_uuid=user_uuid, stock_uuid=stock_uuid, quantity=quantity)
+            cart_item = Cart(user_uuid=user_uuid, stock_uuid=stock_uuid, quantity=quantity, options=options)
             session.add(cart_item)
 
         await session.commit()
@@ -62,36 +65,60 @@ class CartService:
         items = []
         total_price = 0
         total_qty = 0
+        total_weight = 0
 
         for c in carts:
             stock = c.stock
-            # Ambil gambar pertama jika ada
             cover_url = stock.assets[0].url if stock.assets else None
             
-            subtotal = stock.online_price * c.quantity
+            unit_price = stock.online_price
+            unit_weight = stock.weight or 0
+            
+            if c.options:
+                addons_list = c.options.get("addons", [])
+                if isinstance(addons_list, list):
+                    for addon in addons_list:
+                        if isinstance(addon, dict):
+                            a_price = addon.get("price", 0)
+                            a_qty = addon.get("quantity", 1)
+                            a_weight = addon.get("weight", 0)
+                            unit_price += (a_price * a_qty)
+                            unit_weight += (a_weight * a_qty)
+                
+                # Secondary handler for map format
+                for key, val in c.options.items():
+                    if key != "addons" and isinstance(val, dict) and "price" in val:
+                        a_price = val.get("price", 0)
+                        a_qty = val.get("quantity", 1)
+                        a_weight = val.get("weight", 0)
+                        unit_price += (a_price * a_qty)
+                        unit_weight += (a_weight * a_qty)
+            
+            subtotal = unit_price * c.quantity
             total_price += subtotal
             total_qty += c.quantity
+            total_weight += (unit_weight * c.quantity)
 
             items.append(
                 CartItemResponse(
                     cart_uuid=c.uuid,
                     quantity=c.quantity,
                     subtotal=subtotal,
-                    berat=c.stock_uuid,
+                    unit_weight=unit_weight,
+                    options=c.options,
                     stock=CartStockResponse(
                         uuid=stock.uuid,
                         title=stock.title,
                         slug=stock.slug,
                         online_price=stock.online_price,
-                        original_price=stock.original_price, # Sekarang akan dirender
-                        discount_percentage=stock.discount_percentage, # Sekarang akan dirender
-                        brand=stock.brand, # Sekarang akan dirender
+                        original_price=stock.original_price,
+                        discount_percentage=stock.discount_percentage,
+                        brand=stock.brand,
                         category_slug=stock.category_slug,
                         subcategory_slug=stock.subcategory_slug,
-                        specs=stock.specs, # Sekarang akan dirender
+                        specs=stock.specs,
                         cover_image_url=cover_url,
-                        weight=stock.weight
-                        
+                        weight=stock.weight or 0
                     )
                 )
             )
@@ -99,7 +126,8 @@ class CartService:
         return CartSummaryResponse(
             items=items,
             total_quantity=total_qty,
-            total_price=total_price
+            total_price=total_price,
+            total_weight=total_weight
         )
 
     @staticmethod

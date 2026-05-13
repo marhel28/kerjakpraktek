@@ -3,7 +3,7 @@ model.py — CCTV Service Booking Models
 Sistem: Padjajaran CCTV, Cimahi
 """
 
-from sqlmodel import SQLModel, Field, Column
+from sqlmodel import SQLModel, Field, Column, Relationship
 import sqlalchemy.dialects.postgresql as pg
 from uuid import UUID, uuid4
 from datetime import datetime, date
@@ -80,6 +80,9 @@ class ServicePricingConfig(SQLModel, table=True):
     transport_max_fee: int = Field(default=300_000)
     max_distance_km: float = Field(default=30.0)     # batas layanan dari Cimahi
     addons_config: List[Dict[str, Any]] = Field(
+        sa_column=Column(pg.JSONB, nullable=False, server_default=text("'[]'::jsonb"))
+    )
+    routes_config: List[Dict[str, Any]] = Field(
         sa_column=Column(pg.JSONB, nullable=False, server_default=text("'[]'::jsonb"))
     )
     dp_percentage: int = Field(default=50)           # persentase DP (default 50%)
@@ -257,6 +260,18 @@ class ServiceBooking(SQLModel, table=True):
         sa_column=Column(pg.JSONB, nullable=True)
     )
 
+    # ── Technician Assignment ────────────────────────────────────
+    technician_uuid: Optional[UUID] = Field(
+        default=None,
+        sa_column=Column(
+            pg.UUID(as_uuid=True),
+            ForeignKey("service_technician.uuid", ondelete="SET NULL"),
+            nullable=True,
+            index=True,
+        )
+    )
+    technician: Optional["Technician"] = Relationship(back_populates="bookings")
+
     # ── Jadwal ────────────────────────────────────────────────────
     scheduled_date: date = Field(
         sa_column=Column(pg.DATE, nullable=False, index=True)
@@ -384,4 +399,63 @@ class ServicePayment(SQLModel, table=True):
     __table_args__ = (
         Index("idx_payment_booking", "booking_uuid"),
         Index("idx_payment_order",   "order_id"),
+    )
+
+
+# ══════════════════════════════════════════════════════════════════
+# TECHNICIAN & OPERATIONAL CONFIG
+# ══════════════════════════════════════════════════════════════════
+
+class Technician(SQLModel, table=True):
+    __tablename__ = "service_technician"
+
+    uuid: UUID = Field(
+        default_factory=uuid4,
+        sa_column=Column(pg.UUID(as_uuid=True), primary_key=True)
+    )
+    name: str = Field(sa_column=Column(pg.VARCHAR(100), nullable=False))
+    id_employee: str = Field(sa_column=Column(pg.VARCHAR(50), unique=True, index=True))
+    phone: Optional[str] = Field(default=None, sa_column=Column(pg.VARCHAR(20)))
+    picture_url: Optional[str] = Field(default=None, sa_column=Column(pg.TEXT))
+    is_active: bool = Field(default=True, sa_column=Column(pg.BOOLEAN, index=True))
+    
+    created_at: datetime = Field(
+        sa_column=Column(pg.TIMESTAMP(timezone=True), server_default=func.now())
+    )
+
+    bookings: List["ServiceBooking"] = Relationship(back_populates="technician")
+
+
+class ServiceHoliday(SQLModel, table=True):
+    __tablename__ = "service_holiday"
+
+    uuid: UUID = Field(
+        default_factory=uuid4,
+        sa_column=Column(pg.UUID(as_uuid=True), primary_key=True)
+    )
+    holiday_date: date = Field(sa_column=Column(pg.DATE, unique=True, index=True, nullable=False))
+    description: Optional[str] = Field(default=None, sa_column=Column(pg.TEXT))
+    
+    created_at: datetime = Field(
+        sa_column=Column(pg.TIMESTAMP(timezone=True), server_default=func.now())
+    )
+
+
+class ServiceOperationalHours(SQLModel, table=True):
+    __tablename__ = "service_operational_hours"
+
+    uuid: UUID = Field(
+        default_factory=uuid4,
+        sa_column=Column(pg.UUID(as_uuid=True), primary_key=True)
+    )
+    # 0 = Monday, 6 = Sunday
+    day_of_week: int = Field(sa_column=Column(pg.INTEGER, unique=True, index=True, nullable=False))
+    is_open: bool = Field(default=True)
+    # Format: "08:00-17:00"
+    hours: str = Field(default="08:00-17:00", sa_column=Column(pg.VARCHAR(50)))
+    # Max bookings per day for this specific day
+    max_bookings: int = Field(default=9) 
+    
+    created_at: datetime = Field(
+        sa_column=Column(pg.TIMESTAMP(timezone=True), server_default=func.now())
     )

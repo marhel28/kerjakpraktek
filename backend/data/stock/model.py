@@ -93,6 +93,10 @@ class Stock(SQLModel, table=True):
     terjual: int = Field(default=0)
     is_active: bool = Field(default=True, sa_column=Column(pg.BOOLEAN, index=True))
     created_at: datetime = Field(sa_column=Column(pg.TIMESTAMP(timezone=True), server_default=func.now()))
+    addon_scope: str = Field(
+        default="inherit", 
+        sa_column=Column(pg.VARCHAR(20), server_default="inherit", nullable=False) # inherit, custom
+    )
     updated_at: datetime = Field(sa_column=Column(
         pg.TIMESTAMP(timezone=True), server_default=func.now(), onupdate=func.now()
     ))
@@ -112,6 +116,7 @@ class Coupon(SQLModel, table=True):
     __tablename__ = "coupon"
     uuid: UUID = Field(default_factory=uuid4, sa_column=Column(pg.UUID(as_uuid=True), primary_key=True))
     code: str = Field(sa_column=Column(pg.VARCHAR(50), unique=True, index=True, nullable=False))
+    description: Optional[str] = Field(default=None, sa_column=Column(pg.TEXT, nullable=True))
     discount_type: str = Field(sa_column=Column(pg.VARCHAR(20), nullable=False))
     discount_value: int = Field(default=0)
     min_purchase: int = Field(default=0)

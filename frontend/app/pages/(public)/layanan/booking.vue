@@ -8,10 +8,10 @@ import { ref, reactive, computed, watch, nextTick, onMounted } from 'vue'
 
 // ─── SEO ─────────────────────────────────────────────────────────
 useSeoMeta({
-  title: 'Pesan Instalasi CCTV | Padjajaran CCTV',
+  title: 'Pesan Instalasi CCTV | PasarCctv',
   description: 'Pesan layanan instalasi, maintenance, atau konsultasi CCTV profesional. Teknisi berpengalaman, bergaransi.',
   robots: 'noindex, nofollow',
-  ogTitle: 'Pesan Instalasi CCTV | Padjajaran CCTV',
+  ogTitle: 'Pesan Instalasi CCTV | PasarCctv',
   ogDescription: 'Teknisi berpengalaman, bergaransi. Pesan sekarang.',
   viewport: 'width=device-width, initial-scale=1, viewport-fit=cover',
 })

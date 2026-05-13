@@ -36,6 +36,7 @@ async def init_db():
         from backend.data.stock.model import Stock
         from backend.auth.model import User
         from backend.data.transaksi.model import Transaction
+        from backend.data.activity.model import ActivityLog
         await conn.run_sync(SQLModel.metadata.create_all)
     
 

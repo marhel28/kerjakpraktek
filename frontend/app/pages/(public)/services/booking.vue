@@ -8,11 +8,11 @@ import { ref, reactive, computed, watch, nextTick, onMounted } from 'vue'
 
 // ─── SEO ─────────────────────────────────────────────────────────
 useSeoMeta({
-  title: 'Pesan Instalasi CCTV | Padjajaran CCTV',
-  description: 'Pesan layanan instalasi, maintenance, atau konsultasi CCTV profesional. Teknisi berpengalaman, bergaransi.',
-  robots: 'noindex, nofollow',
-  ogTitle: 'Pesan Instalasi CCTV | Padjajaran CCTV',
-  ogDescription: 'Teknisi berpengalaman, bergaransi. Pesan sekarang.',
+  title: 'Pesan Instalasi & Konsultasi CCTV | PasarCctv',
+  description: 'Pesan layanan instalasi, maintenance, atau konsultasi CCTV profesional secara gratis. Teknisi berpengalaman, bergaransi resmi, pengerjaan cepat.',
+  robots: 'index, follow',
+  ogTitle: 'Pesan Instalasi & Konsultasi CCTV | PasarCctv',
+  ogDescription: 'Pesan layanan instalasi, maintenance, atau konsultasi CCTV profesional secara gratis. Teknisi berpengalaman, bergaransi resmi, pengerjaan cepat.',
   viewport: 'width=device-width, initial-scale=1, viewport-fit=cover',
 })
 
@@ -87,6 +87,138 @@ const form = reactive({
   contact_notes: '',
 })
 
+// ─── Tab State for Packages ───────────────────────────────────────
+const activeTab = ref('Populer')
+
+const packageTabs = computed(() => {
+  const tabs = ['Populer']
+  const counts = new Set<number>()
+  packagesList.value.forEach(p => {
+    if (p.camera_count) counts.add(p.camera_count)
+  })
+  const sortedCounts = Array.from(counts).sort((a, b) => a - b)
+  sortedCounts.forEach(c => tabs.push(`${c} Kamera`))
+  tabs.push('Semua') // Tab semua di akhir
+  return tabs
+})
+
+const displayedPackages = computed(() => {
+  if (activeTab.value === 'Populer') {
+    return packagesList.value.slice(0, 2) // 2 teratas sebagai populer
+  }
+  if (activeTab.value === 'Semua') {
+    return packagesList.value
+  }
+  const match = activeTab.value.match(/(\d+)/)
+  if (match) {
+    const camCount = parseInt(match[1])
+    return packagesList.value.filter(p => p.camera_count === camCount)
+  }
+  return packagesList.value
+})
+
+// Watch packages list to auto-select tab based on URL param
+watch(() => packagesList.value, (newList) => {
+  if (route.query.package && newList.length > 0) {
+    const pkgInfo = newList.find(p => p.uuid === route.query.package)
+    if (pkgInfo) {
+       const isPopular = newList.slice(0, 2).some(p => p.uuid === pkgInfo.uuid)
+       if (!isPopular && pkgInfo.camera_count) {
+          activeTab.value = `${pkgInfo.camera_count} Kamera`
+       }
+    }
+  }
+}, { immediate: true })
+
+// ─── Wilayah API (Kabupaten → Kecamatan → Desa) ───────────────────
+const WILAYAH_BASE = 'https://www.emsifa.com/api-wilayah-indonesia/api'
+
+const kabupatenList  = ref<{id:string,name:string}[]>([])
+const kecamatanList  = ref<{id:string,name:string}[]>([])
+const desaList       = ref<{id:string,name:string}[]>([])
+
+const selectedKab    = ref('')
+const selectedKec    = ref('')
+const selectedDesa   = ref('')
+
+const loadingKab  = ref(false)
+const loadingKec  = ref(false)
+const loadingDesa = ref(false)
+
+// Jawa Barat = id 32
+const PROV_JABAR = '32'
+
+const fetchKabupaten = async () => {
+  loadingKab.value = true
+  try {
+    const data = await $fetch<{id:string,name:string}[]>(`${WILAYAH_BASE}/regencies/${PROV_JABAR}.json`)
+    kabupatenList.value = data
+  } catch {}
+  loadingKab.value = false
+}
+
+const fetchKecamatan = async (kabId: string) => {
+  loadingKec.value = true
+  kecamatanList.value = []
+  desaList.value = []
+  selectedKec.value = ''
+  selectedDesa.value = ''
+  try {
+    const data = await $fetch<{id:string,name:string}[]>(`${WILAYAH_BASE}/districts/${kabId}.json`)
+    kecamatanList.value = data
+  } catch {}
+  loadingKec.value = false
+}
+
+const fetchDesa = async (kecId: string) => {
+  loadingDesa.value = true
+  desaList.value = []
+  selectedDesa.value = ''
+  try {
+    const data = await $fetch<{id:string,name:string}[]>(`${WILAYAH_BASE}/villages/${kecId}.json`)
+    desaList.value = data
+  } catch {}
+  loadingDesa.value = false
+}
+
+const onKabChange = () => {
+  const kab = kabupatenList.value.find(k => k.id === selectedKab.value)
+  if (kab) {
+    form.city = kab.name
+    form.district = ''
+    fetchKecamatan(kab.id)
+  }
+}
+
+const onKecChange = () => {
+  const kec = kecamatanList.value.find(k => k.id === selectedKec.value)
+  if (kec) {
+    form.district = kec.name
+    fetchDesa(kec.id)
+  }
+}
+
+const onDesaChange = () => {
+  const desa = desaList.value.find(d => d.id === selectedDesa.value)
+  if (desa) {
+    // Append desa ke address hint
+    if (!form.address.includes(desa.name)) {
+      form.address = form.address ? `${form.address}, ${desa.name}` : desa.name
+    }
+  }
+}
+
+// Load kabupaten saat user tiba di step 2
+watch(currentStep, (step) => {
+  if (step === 2 && kabupatenList.value.length === 0) fetchKabupaten()
+}, { immediate: false })
+
+// Auto-switch ke tab Semua jika navigasi dari homepage via hash
+if (process.client && window.location.hash === '#packages') {
+  nextTick(() => { activeTab.value = 'Semua' })
+}
+
+
 // ─── Handlers untuk Paket vs Kustom ───────────────────────────────
 const selectedPackageInfo = computed(() => {
   if (!form.package_uuid) return null
@@ -105,7 +237,17 @@ const clearPackageSelection = () => {
   form.package_uuid = null
 }
 
-const setManualCategory = (val: string) => { form.category = val; clearPackageSelection() }
+const setManualCategory = (val: string) => { 
+  form.category = val
+  clearPackageSelection()
+  if (val === 'consultation') {
+    form.brand = '-'
+    form.camera_count = 1
+    form.addons = []
+  } else if (form.brand === '-') {
+    form.brand = ''
+  }
+}
 const setManualBrand    = (val: string) => { form.brand = val; clearPackageSelection() }
 const setManualCamCount = (val: number) => { 
   form.camera_count = val; 
@@ -119,7 +261,14 @@ const initFromQuery = () => {
 
   if (q.category && typeof q.category === 'string') {
     const validCategories = ['installation', 'maintenance', 'consultation', 'troubleshoot']
-    if (validCategories.includes(q.category)) form.category = q.category
+    if (validCategories.includes(q.category)) {
+      form.category = q.category
+      if (q.category === 'consultation') {
+        form.brand = '-'
+        form.camera_count = 1
+        form.addons = []
+      }
+    }
   }
 
   if (q.city && typeof q.city === 'string') {
@@ -221,28 +370,31 @@ let   estimateTimer: ReturnType<typeof setTimeout>
 const fetchEstimate = async () => {
   if (!form.category || form.camera_count < 1 || !form.brand) return
   clearTimeout(estimateTimer)
-  estimateTimer = setTimeout(async () => {
-    estimateLoading.value = true
-    try {
-      const body: Record<string, any> = {
-        category:     form.category,
-        camera_count: form.camera_count,
-        brand:        form.brand,
-        addons:       form.addons,
-        distance_km:  form.distance_km,
-      }
-      if (form.package_uuid) body.package_uuid = form.package_uuid
-      const data = await $fetch<any>('/api/proxy/services/estimate', { method: 'POST', body })
-      estimate.value = data
-    } catch { /* silent */ }
-    finally { estimateLoading.value = false }
-  }, 500)
+  estimateLoading.value = true
+  try {
+    const body: Record<string, any> = {
+      category:     form.category,
+      camera_count: form.camera_count,
+      brand:        form.brand,
+      addons:       form.addons,
+      distance_km:  form.distance_km,
+    }
+    if (form.package_uuid) body.package_uuid = form.package_uuid
+    
+    console.log('[Booking] Fetching estimate...', body)
+    const data = await $fetch<any>('/api/proxy/services/estimate', { method: 'POST', body })
+    console.log('[Booking] Estimate received:', data)
+    estimate.value = data
+  } catch (e) {
+    console.error('[Booking] Estimate fetch failed:', e)
+  }
+  finally { estimateLoading.value = false }
 }
 
 watch(
   () => [form.category, form.camera_count, form.brand, form.addons.join(','), form.distance_km, form.package_uuid],
   fetchEstimate,
-  { deep: true }
+  { deep: true, immediate: true }
 )
 
 // ─── Draft Redis ──────────────────────────────────────────────────
@@ -415,19 +567,10 @@ const handleSubmit = async () => {
     sessionId.value = Array.from(crypto.getRandomValues(new Uint8Array(16)))
       .map(b => b.toString(16).padStart(2, '0')).join('')
 
-    // 3. Buat transaksi Midtrans DP
-    const paymentResult = await $fetch<any>('/api/proxy/services/payment/create', {
-      method: 'POST',
-      body:    { booking_uuid: bookingResult.uuid, payment_type: 'DP' },
-      headers: { Authorization: `Bearer ${token}` },
-    })
-
-    // 4. Redirect ke Midtrans Snap URL atau fallback ke /booking/status/[number]
-    if (paymentResult?.payment_url) {
-      window.location.href = paymentResult.payment_url
-    } else {
-      await router.push(`/booking/status/${bookingResult.booking_number}`)
-    }
+    // 3. Redirect ke /booking/status/[number]
+    // Kita langsung redirect ke status karena payment (DP) baru bisa dibuat 
+    // setelah status booking berubah menjadi 'CONFIRMED' oleh admin.
+    await router.push(`/booking/status/${bookingResult.booking_number}`)
 
   } catch (e: any) {
     submitError.value =
@@ -557,14 +700,25 @@ onMounted(() => {
                 <p class="text-[13px] text-gray-500 mt-1">Pilih paket atau atur sesuai kebutuhan Anda.</p>
               </div>
 
-              <section v-if="packagesList.length > 0" aria-labelledby="packages-heading" class="bg-white rounded-lg border border-gray-200 p-5">
-                <div class="flex items-center justify-between mb-4 border-b border-gray-100 pb-3">
-                  <h3 id="packages-heading" class="text-[15px] font-bold text-gray-900">Rekomendasi Paket (Terima Beres)</h3>
+              <section id="packages" v-if="packagesList.length > 0" aria-labelledby="packages-heading" class="bg-white rounded-lg border border-gray-200 p-5">
+                <div class="flex items-center justify-between mb-3">
+                  <h3 id="packages-heading" class="text-[15px] font-bold text-gray-900">Pilih Paket Layanan</h3>
                   <span class="text-[10px] font-bold text-[#03AC0E] bg-[#D6FFDE] px-2 py-1 rounded">LEBIH HEMAT</span>
                 </div>
 
+                <!-- Tabs Navigation -->
+                <div class="flex items-center gap-2 mb-4 overflow-x-auto hide-scrollbar pb-1">
+                  <button v-for="tab in packageTabs" :key="tab"
+                    @click="activeTab = tab"
+                    class="px-4 py-1.5 rounded-full text-[13px] font-bold whitespace-nowrap transition-colors border"
+                    :class="activeTab === tab ? 'bg-[#03AC0E] text-white border-[#03AC0E] shadow-sm' : 'bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100'"
+                  >
+                    {{ tab }}
+                  </button>
+                </div>
+
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div v-for="pkg in packagesList" :key="pkg.uuid"
+                  <div v-for="pkg in displayedPackages" :key="pkg.uuid"
                        @click="selectPackage(pkg)"
                        :class="form.package_uuid === pkg.uuid 
                           ? 'border-[#03AC0E] bg-[#D6FFDE]/20 ring-1 ring-[#03AC0E]' 
@@ -573,9 +727,12 @@ onMounted(() => {
                     
                     <UIcon v-if="form.package_uuid === pkg.uuid" name="i-heroicons-check-circle-20-solid" class="absolute top-3 right-3 w-6 h-6 text-[#03AC0E] z-10 bg-white rounded-full" aria-hidden="true" />
 
-                    <div class="relative w-full h-32 mb-4 rounded bg-gray-100 overflow-hidden border border-gray-100">
-                      <img v-if="pkg.thumbnail_url" :src="pkg.thumbnail_url" :alt="pkg.name" class="w-full h-full object-cover" loading="lazy" />
-                      <div v-else class="w-full h-full flex items-center justify-center text-gray-400"><UIcon name="i-heroicons-photo" class="w-8 h-8" /></div>
+                    <div class="mb-4">
+                      <BookingImageSectionPreview 
+                        :src="pkg.thumbnail_url" 
+                        :alt="pkg.name" 
+                        aspectClass="w-full h-32" 
+                      />
                     </div>
                     
                     <h4 class="font-bold text-[14px] text-gray-900 leading-snug mb-1 line-clamp-2">{{ pkg.name }}</h4>
@@ -619,7 +776,7 @@ onMounted(() => {
                 </div>
               </section>
 
-              <section aria-labelledby="cam-heading" class="bg-white p-5 rounded-lg border border-gray-200">
+              <section v-if="form.category !== 'consultation'" aria-labelledby="cam-heading" class="bg-white p-5 rounded-lg border border-gray-200">
                 <h3 id="cam-heading" class="text-[15px] font-bold text-gray-900 mb-4">Jumlah Titik Kamera</h3>
                 <div class="flex flex-wrap gap-3">
                   <button v-for="n in CAM_PRESETS" :key="n" type="button"
@@ -645,7 +802,7 @@ onMounted(() => {
                 </div>
               </section>
 
-              <section aria-labelledby="brand-heading" class="bg-white p-5 rounded-lg border border-gray-200">
+              <section v-if="form.category !== 'consultation'" aria-labelledby="brand-heading" class="bg-white p-5 rounded-lg border border-gray-200">
                 <h3 id="brand-heading" class="text-[15px] font-bold text-gray-900 mb-4">Pilih Brand Perangkat</h3>
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <button v-for="brand in config.brands" :key="brand.key" type="button"
@@ -669,7 +826,7 @@ onMounted(() => {
                 </div>
               </section>
 
-              <section v-if="config.addons?.length" aria-labelledby="addon-heading" class="bg-white p-5 rounded-lg border border-gray-200">
+              <section v-if="config.addons?.length && form.category !== 'consultation'" aria-labelledby="addon-heading" class="bg-white p-5 rounded-lg border border-gray-200">
                 <h3 id="addon-heading" class="text-[15px] font-bold text-gray-900 mb-4">Fitur Tambahan <span class="text-xs font-normal text-gray-500">(Opsional)</span></h3>
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <button v-for="addon in config.addons" :key="addon.key" type="button"
@@ -735,6 +892,11 @@ onMounted(() => {
                 <div class="flex items-center justify-between mb-4 pb-3 border-b border-gray-100">
                   <h3 id="slot-heading" class="text-[15px] font-bold text-gray-900">Pilih Jam Kedatangan</h3>
                   <span class="text-[12px] font-bold text-gray-500 bg-gray-100 px-2 py-1 rounded">{{ selectedDateLabel }}</span>
+                </div>
+
+                <div v-if="slotsData?.message" class="mb-4 p-3 bg-red-50 border border-red-100 rounded flex items-center gap-2 text-[13px] text-[#EF144A] font-bold">
+                  <UIcon name="i-heroicons-exclamation-triangle" class="w-5 h-5" />
+                  <span>{{ slotsData.message }}</span>
                 </div>
                 
                 <div v-if="loadingSlots" class="flex gap-3">
@@ -802,17 +964,49 @@ onMounted(() => {
                       <textarea v-model="form.address" rows="3" placeholder="Nama jalan, RT/RW, nomor rumah, patokan..."
                         class="w-full bg-white border border-gray-300 rounded px-3 py-2 text-[13px] text-gray-900 placeholder-gray-400 focus:ring-1 focus:ring-[#03AC0E] focus:border-[#03AC0E] outline-none transition-all resize-none" />
                     </div>
-                    
+
+                    <!-- Wilayah Picker: Kabupaten → Kecamatan → Desa -->
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <!-- Kabupaten -->
                       <div>
                         <label class="block text-[13px] font-bold text-gray-700 mb-2">Kota / Kabupaten <span class="text-[#EF144A]">*</span></label>
-                        <input v-model="form.city" type="text" placeholder="Contoh: Bandung"
-                          class="w-full bg-white border border-gray-300 rounded px-3 py-2 text-[13px] text-gray-900 placeholder-gray-400 focus:ring-1 focus:ring-[#03AC0E] focus:border-[#03AC0E] outline-none transition-all" />
+                        <div class="relative">
+                          <select v-model="selectedKab" @change="onKabChange"
+                            class="w-full appearance-none bg-white border border-gray-300 rounded px-3 py-2 text-[13px] text-gray-900 focus:ring-1 focus:ring-[#03AC0E] focus:border-[#03AC0E] outline-none transition-all pr-8"
+                            :disabled="loadingKab">
+                            <option value="">{{ loadingKab ? 'Memuat...' : '-- Pilih Kabupaten --' }}</option>
+                            <option v-for="kab in kabupatenList" :key="kab.id" :value="kab.id">{{ kab.name }}</option>
+                          </select>
+                          <UIcon :name="loadingKab ? 'i-heroicons-arrow-path' : 'i-heroicons-chevron-down'" :class="loadingKab ? 'animate-spin' : ''" class="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+                        </div>
                       </div>
+
+                      <!-- Kecamatan -->
                       <div>
-                        <label class="block text-[13px] font-bold text-gray-700 mb-2">Kecamatan <span class="font-normal text-gray-400">(Opsional)</span></label>
-                        <input v-model="form.district" type="text" placeholder="Contoh: Cimahi Tengah"
-                          class="w-full bg-white border border-gray-300 rounded px-3 py-2 text-[13px] text-gray-900 placeholder-gray-400 focus:ring-1 focus:ring-[#03AC0E] focus:border-[#03AC0E] outline-none transition-all" />
+                        <label class="block text-[13px] font-bold text-gray-700 mb-2">Kecamatan <span class="text-[#EF144A]">*</span></label>
+                        <div class="relative">
+                          <select v-model="selectedKec" @change="onKecChange"
+                            class="w-full appearance-none bg-white border border-gray-300 rounded px-3 py-2 text-[13px] text-gray-900 focus:ring-1 focus:ring-[#03AC0E] focus:border-[#03AC0E] outline-none transition-all pr-8"
+                            :disabled="!selectedKab || loadingKec">
+                            <option value="">{{ loadingKec ? 'Memuat...' : !selectedKab ? 'Pilih kabupaten dulu' : '-- Pilih Kecamatan --' }}</option>
+                            <option v-for="kec in kecamatanList" :key="kec.id" :value="kec.id">{{ kec.name }}</option>
+                          </select>
+                          <UIcon :name="loadingKec ? 'i-heroicons-arrow-path' : 'i-heroicons-chevron-down'" :class="loadingKec ? 'animate-spin' : ''" class="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+                        </div>
+                      </div>
+
+                      <!-- Desa / Kelurahan -->
+                      <div class="sm:col-span-2">
+                        <label class="block text-[13px] font-bold text-gray-700 mb-2">Desa / Kelurahan <span class="font-normal text-gray-400">(Opsional, untuk detail)</span></label>
+                        <div class="relative">
+                          <select v-model="selectedDesa" @change="onDesaChange"
+                            class="w-full appearance-none bg-white border border-gray-300 rounded px-3 py-2 text-[13px] text-gray-900 focus:ring-1 focus:ring-[#03AC0E] focus:border-[#03AC0E] outline-none transition-all pr-8"
+                            :disabled="!selectedKec || loadingDesa">
+                            <option value="">{{ loadingDesa ? 'Memuat...' : !selectedKec ? 'Pilih kecamatan dulu' : '-- Pilih Desa/Kelurahan --' }}</option>
+                            <option v-for="desa in desaList" :key="desa.id" :value="desa.id">{{ desa.name }}</option>
+                          </select>
+                          <UIcon :name="loadingDesa ? 'i-heroicons-arrow-path' : 'i-heroicons-chevron-down'" :class="loadingDesa ? 'animate-spin' : ''" class="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+                        </div>
                       </div>
                     </div>
 

@@ -22,7 +22,8 @@ async def add_item_to_cart(
         session=session, 
         user_uuid=current_user.uuid, 
         stock_uuid=request.stock_uuid, 
-        quantity=request.quantity
+        quantity=request.quantity,
+        options=request.options
     )
     return {"message": "Berhasil ditambahkan ke keranjang"}
 

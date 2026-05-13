@@ -43,8 +43,9 @@
           v-for="(card, i) in kpiCards"
           :key="card.key"
           class="kpi-card"
-          :class="`kpi-card--${card.color}`"
+          :class="[`kpi-card--${card.color}`, { 'cursor-pointer': card.link }]"
           :style="{ animationDelay: `${i * 60}ms` }"
+          @click="card.link && $router.push(card.link)"
         >
           <div class="kpi-card__top">
             <div class="kpi-card__icon-wrap" :class="`kpi-card__icon-wrap--${card.color}`">
@@ -179,12 +180,15 @@
                   >
                     <td>
                       <div class="order-cell">
-                        <div class="order-cell__icon" :class="`order-cell__icon--${item.type}`">
-                          <span v-html="item.type === 'booking' ? iconBooking : iconOrder"></span>
+                        <div class="order-cell__icon" :class="`order-cell__icon--${item.statusColor}`">
+                          <span v-html="item.type === 'booking' ? iconBooking : (item.type === 'promo' ? iconPromo : iconOrder)"></span>
                         </div>
                         <div>
                           <div class="order-cell__id">{{ item.id }}</div>
-                          <div class="order-cell__type">{{ item.type === 'booking' ? 'Jasa CCTV' : 'Produk' }}</div>
+                          <div class="order-cell__type">{{ 
+                            item.type === 'booking' ? 'Jasa CCTV' : 
+                            (item.type === 'promo' ? 'Promo' : 'Produk') 
+                          }}</div>
                         </div>
                       </div>
                     </td>
@@ -660,6 +664,7 @@ const activityFilters = [
   { value:'all', label:'Semua' },
   { value:'order', label:'Produk' },
   { value:'booking', label:'Jasa' },
+  { value:'promo', label:'Promo' },
 ]
 
 // ── KPI cards ─────────────────────────────────────────────────────
@@ -696,6 +701,7 @@ const kpiCards = computed(() => {
       icon: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>`,
       badge: s.processing_shipment ? `${s.processing_shipment} diproses` : null,
       badgeType:'blue', sub: `${(s.delivered_count||0)} terkirim`,
+      link: '/transaksi/shipping'
     },
     {
       key:'sold', label:'Item Terjual', color:'teal',
@@ -721,15 +727,19 @@ const chartAvgOrder    = computed(() => chartTotalOrders.value ? Math.round(char
 // ── Activity feed ─────────────────────────────────────────────────
 const iconBooking = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="3" y1="10" x2="21" y2="10"/></svg>`
 const iconOrder   = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/></svg>`
+const iconPromo   = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>`
 
 const allActivity = computed(() =>
   (activityData.value || []).map(t => ({
-    id: t.order_id, type: 'order',
-    customer: t.user_id ? t.user_id.slice(0, 8) + '…' : '—',
-    category: t.first_product_name ? t.first_product_name.slice(0, 20) : 'Produk',
-    statusLabel: STATUS_LABEL_MAP[t.transaction_status] || t.transaction_status,
-    statusColor: STATUS_COLOR_MAP[t.transaction_status] || 'gray',
-    amount: t.gross_amount, time: relTime(t.created_at),
+    id: t.reference_id,
+    type: t.activity_type,
+    customer: t.title,
+    category: t.description,
+    statusLabel: t.status?.toUpperCase() || 'OK',
+    statusColor: t.color || 'gray',
+    icon: t.icon || 'i-heroicons-shopping-cart',
+    amount: t.amount || 0,
+    time: relTime(t.created_at),
   }))
 )
 const filteredActivity = computed(() => {
@@ -1065,7 +1075,10 @@ const fetchChart = async () => {
 }
 const fetchActivity = async () => {
   activityLoading.value = true
-  try { activityData.value = (await api.get('/admin/dashboard/activity?limit=15'))?.data?.items || [] }
+  try { 
+    const res = await api.get('/admin/activities?limit=15')
+    activityData.value = res?.data?.data || [] 
+  }
   catch (e) { console.warn('activity', e) }
   finally { activityLoading.value = false }
 }
@@ -1417,8 +1430,13 @@ onUnmounted(() => {
   width: 30px; height: 30px; border-radius: 8px; flex-shrink: 0;
   display: flex; align-items: center; justify-content: center;
 }
-.order-cell__icon--order   { background: var(--blue-light);   color: var(--blue); }
-.order-cell__icon--booking { background: var(--violet-light); color: var(--violet); }
+.order-cell__icon--blue   { background: var(--blue-light);   color: var(--blue); }
+.order-cell__icon--violet { background: var(--violet-light); color: var(--violet); }
+.order-cell__icon--purple { background: #f3f0ff; color: #7950f2; }
+.order-cell__icon--green  { background: var(--green-light);  color: var(--green); }
+.order-cell__icon--orange { background: var(--orange-light); color: var(--orange); }
+.order-cell__icon--red    { background: var(--red-light);    color: var(--red); }
+.order-cell__icon--gray   { background: #f1f3f5; color: var(--text-muted); }
 .order-cell__id   { font-weight: 600; font-size: 12px; font-family: 'DM Mono', monospace; }
 .order-cell__type { font-size: 11px; color: var(--text-light); }
 

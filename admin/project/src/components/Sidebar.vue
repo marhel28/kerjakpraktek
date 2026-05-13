@@ -123,6 +123,7 @@ const iMegaphone = `<svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke=
   <path stroke-linecap="round" stroke-linejoin="round" d="M3 11v2a2 2 0 002 2h2l4 3V6L7 9H5a2 2 0 00-2 2z" />
   <path stroke-linecap="round" stroke-linejoin="round" d="M11 6l8-3v18l-8-3" />
 </svg>`
+const iPuzzle = `<svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M11 4a2 2 0 114 0v1a1 1 0 001 1h3a1 1 0 011 1v3a1 1 0 01-1 1h-1a2 2 0 100 4h1a1 1 0 011 1v3a1 1 0 01-1 1h-3a1 1 0 01-1-1v-1a2 2 0 10-4 0v1a1 1 0 01-1 1H7a1 1 0 01-1-1v-3a1 1 0 00-1-1H4a2 2 0 110-4h1a1 1 0 001-1V7a1 1 0 011-1h3a1 1 0 001-1V4z" /></svg>`
 
 const iMessageCircle = `<svg 
   class="w-5 h-5" 
@@ -157,6 +158,8 @@ const menuItems = [
             { name: 'Check Booking', path: '/jasa/check' },
             { name: 'Paket Booking', path: '/jasa/paket' },
             { name: 'Config', path: '/jasa/config' },
+            { name: 'Config List', path: '/jasa/config-list' },
+            { name: 'Tim & Jadwal', path: '/jasa/technicians' },
             
         ]
     },
@@ -164,6 +167,7 @@ const menuItems = [
         {name:'Stock List',path:'/stock'},
         {name:'Create',path:'/stock/createsData'},
     ] },
+    { name: 'Addons', icon: iPuzzle, path: '/addons' },
     { name: 'Transaksi', icon: iCreditCard, children:[
         { name: 'Transaksi List', path: '/transaksi/list' },
 
@@ -180,6 +184,16 @@ const menuItems = [
     {
         name:"Marketing",icon: iMegaphone,children:[
             { name: 'Promo', path: '/promo' },
+            { name: 'Kupon', path: '/promo/coupon' },
+            { name: 'PortoFolio', path: '/portofolio' },
+            { name: 'About', path: '/about' },
+        ]
+    },
+    {
+        name: "Pengaturan",
+        icon: `<svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>`,
+        children: [
+            { name: "Preferensi Kurir", path: "/settings/couriers" }
         ]
     }
 ]

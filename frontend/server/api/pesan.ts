@@ -23,8 +23,8 @@ import {
     createError,
     getMethod,
   } from 'h3'
-  
-  const BACKEND = 'http://127.0.0.1:8000'
+  const config = useRuntimeConfig();
+  const BACKEND = `${config.public.apiBase}`
   
   // ── Helper: ambil token dari cookie ───────────────────────────────
   function getToken(event: any): string {

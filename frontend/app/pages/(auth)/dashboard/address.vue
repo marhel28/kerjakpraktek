@@ -1,442 +1,327 @@
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, onMounted } from "vue";
+import { useUserStore } from "~/stores/user";
 
-// Layout public agar Sidebar AccountSidebar bisa ditampilkan
-definePageMeta({ layout: 'public' })
-const config = useRuntimeConfig()
-const API_BASE = `${config.public.apiBase}/cek/shipping` // Base URL disesuaikan dengan prefix router_ship
+definePageMeta({ layout: "auth" });
+const config = useRuntimeConfig();
+const userStore = useUserStore();
+const API_BASE = `${config.public.apiBase}/cek/shipping`;
 
-// State Management
-const addresses = ref<any[]>([])
-const isLoading = ref(true)
-const isModalOpen = ref(false)
-const isSaving = ref(false)
-const isSearching = ref(false)
-const isDeleting = ref<string | null>(null)
+const addresses = ref<any[]>([]);
+const isLoading = ref(true);
+const isModalOpen = ref(false);
+const isSaving = ref(false);
+const isSearching = ref(false);
+const isDeleting = ref<string | null>(null);
 
-// Pencarian Lokasi
-const searchQuery = ref('')
-const searchResults = ref<any[]>([])
-let searchTimeout: ReturnType<typeof setTimeout> | null = null
+const searchQuery = ref("");
+const searchResults = ref<any[]>([]);
+let searchTimeout: ReturnType<typeof setTimeout> | null = null;
 
-// Form State (Diperbarui menyesuaikan UserAddressCreate & SaveUserAddressRequest)
-const form = reactive({
-  id: '', // UUID
-  location_id: '',
-  zip_code: '',
-  full_address: '',
-  province: '',
-  city: '',
-  district: '',
-  subdistrict: '',
-  label: '', // Nama lokasi lengkap dari API
-  is_default: false
-})
+const form = reactive({ 
+  id: "", 
+  location_id: "", 
+  zip_code: "", 
+  full_address: "", 
+  province: "", 
+  city: "", 
+  district: "", 
+  subdistrict: "", 
+  label: "", 
+  is_default: false 
+});
 
-// Mengambil Token Auth
-const getToken = () => useCookie('token').value
+const tabs = [
+  { label: "Biodata Diri", to: "/dashboard" },
+  { label: "Daftar Alamat", to: "/dashboard/address" },
+  { label: "Keamanan", to: "/dashboard/change-password" },
+  { label: "Notifikasi", to: "/dashboard/notifications" },
+  { label: "Pesanan Saya", to: "/dashboard/orders" },
+  { label: "Layanan Jasa", to: "/dashboard/jasa" },
+];
 
-// ----------------------------------------------------
-// 1. FETCH DAFTAR ALAMAT USER
-// ----------------------------------------------------
+const getToken = () => useCookie("token").value;
+
 const fetchAddresses = async () => {
-  isLoading.value = true
+  isLoading.value = true;
   try {
-    const response: any = await $fetch(`${API_BASE}/address`, {
-      method: 'GET',
-      headers: { Authorization: `Bearer ${getToken()}` }
-    })
-    addresses.value = response.data || []
-  } catch (err) {
-    console.error('Gagal mengambil daftar alamat:', err)
-  } finally {
-    isLoading.value = false
+    const response: any = await $fetch(`${API_BASE}/address`, { 
+      method: "GET", 
+      headers: { Authorization: `Bearer ${getToken()}` } 
+    });
+    addresses.value = response.data || [];
+  } catch (err) { 
+    console.error("Gagal mengambil alamat:", err); 
+  } finally { 
+    isLoading.value = false; 
   }
-}
+};
 
-// ----------------------------------------------------
-// 2. HANDLER PENCARIAN LOKASI (AUTOCOMPLETE)
-// ----------------------------------------------------
 const handleSearchLocation = (e: Event) => {
-  const query = (e.target as HTMLInputElement).value
-  searchQuery.value = query
-
-  // Reset data jika kurang dari 3 huruf
-  if (query.length < 3) {
-    searchResults.value = []
-    form.location_id = ''
-    form.zip_code = ''
-    form.province = ''
-    form.city = ''
-    form.district = ''
-    form.subdistrict = ''
-    form.label = ''
-    return
-  }
-
-  if (searchTimeout) clearTimeout(searchTimeout)
-  
+  const query = (e.target as HTMLInputElement).value;
+  searchQuery.value = query;
+  if (query.length < 3) { searchResults.value = []; return; }
+  if (searchTimeout) clearTimeout(searchTimeout);
   searchTimeout = setTimeout(async () => {
-    isSearching.value = true
+    isSearching.value = true;
     try {
-      const response: any = await $fetch(`${API_BASE}/lokasi`, {
-        method: 'GET',
-        query: { q: query, limit: 10, offset: 0 },
-        headers: { Authorization: `Bearer ${getToken()}` }
-      })
-      searchResults.value = response.data || []
-    } catch (err) {
-      console.error('Pencarian lokasi gagal:', err)
-      searchResults.value = []
-    } finally {
-      isSearching.value = false
+      const response: any = await $fetch(`${API_BASE}/lokasi`, { 
+        method: "GET", 
+        query: { q: query, limit: 10 }, 
+        headers: { Authorization: `Bearer ${getToken()}` } 
+      });
+      searchResults.value = response.data || [];
+    } catch (err) { 
+      searchResults.value = []; 
+    } finally { 
+      isSearching.value = false; 
     }
-  }, 500)
-}
+  }, 400);
+};
 
-// Menangkap seluruh data lokasi saat user klik hasil pencarian
 const selectLocation = (loc: any) => {
-  form.location_id = loc.id.toString() 
-  form.zip_code = loc.zip 
-  form.label = loc.label 
-  form.province = loc.province
-  form.city = loc.city
-  form.district = loc.district
-  form.subdistrict = loc.subdistrict
-  
-  // Tampilkan label komplit di input search
-  searchQuery.value = form.label
-  searchResults.value = []
-}
+  Object.assign(form, { 
+    location_id: loc.id.toString(), 
+    zip_code: loc.zip, 
+    label: loc.label, 
+    province: loc.province, 
+    city: loc.city, 
+    district: loc.district, 
+    subdistrict: loc.subdistrict 
+  });
+  searchQuery.value = loc.label; 
+  searchResults.value = [];
+};
 
-// ----------------------------------------------------
-// 3. CREATE & UPDATE ADDRESS
-// ----------------------------------------------------
 const saveAddress = async () => {
-  if (!form.location_id || !form.zip_code) {
-    alert('Silakan cari dan pilih kecamatan/kota dari daftar dropdown terlebih dahulu.')
-    return
-  }
-  if (!form.full_address || form.full_address.length < 10) {
-    alert('Detail alamat lengkap wajib diisi (Minimal 10 karakter).')
-    return
-  }
-
-  isSaving.value = true
-  
-  // Payload sesuai schema pydantic backend
-  const payload = {
-    location_id: form.location_id,
-    zip_code: form.zip_code,
-    full_address: form.full_address,
-    province: form.province,
-    city: form.city,
-    district: form.district,
-    subdistrict: form.subdistrict,
-    label: form.label,
-    is_default: form.is_default
-  }
-
+  if (!form.location_id) return;
+  isSaving.value = true;
   try {
-    if (form.id) {
-      // UPDATE (PUT)
-      await $fetch(`${API_BASE}/address/${form.id}`, {
-        method: 'PUT',
-        headers: { Authorization: `Bearer ${getToken()}` },
-        body: payload
-      })
-    } else {
-      // CREATE (POST)
-      await $fetch(`${API_BASE}/address`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${getToken()}` },
-        body: payload
-      })
-    }
-    
-    closeModal()
-    await fetchAddresses() 
-  } catch (err: any) {
-    const errorMsg = err.data?.detail?.[0]?.msg || err.data?.detail || 'Terjadi kesalahan pada server.'
-    alert(`Gagal menyimpan: ${errorMsg}`)
-  } finally {
-    isSaving.value = false
+    const method = form.id ? "PUT" : "POST";
+    const url = form.id ? `${API_BASE}/address/${form.id}` : `${API_BASE}/address`;
+    await $fetch(url, { 
+      method, 
+      headers: { Authorization: `Bearer ${getToken()}` }, 
+      body: { ...form, id: undefined } 
+    });
+    isModalOpen.value = false; 
+    await fetchAddresses();
+  } catch (err) { 
+    alert("Gagal menyimpan alamat."); 
+  } finally { 
+    isSaving.value = false; 
   }
-}
+};
 
-// ----------------------------------------------------
-// 4. DELETE ADDRESS
-// ----------------------------------------------------
 const deleteAddress = async (id: string) => {
-  if (!confirm('Apakah Anda yakin ingin menghapus alamat ini?')) return
-
-  isDeleting.value = id
+  if (!confirm("Hapus alamat ini?")) return;
+  isDeleting.value = id;
   try {
-    await $fetch(`${API_BASE}/address/${id}`, {
-      method: 'DELETE',
-      headers: { Authorization: `Bearer ${getToken()}` }
-    })
-    await fetchAddresses()
-  } catch (err: any) {
-    console.error('Gagal menghapus alamat:', err)
-    alert('Gagal menghapus alamat. Silakan coba lagi.')
-  } finally {
-    isDeleting.value = null
+    await $fetch(`${API_BASE}/address/${id}`, { 
+      method: "DELETE", 
+      headers: { Authorization: `Bearer ${getToken()}` } 
+    });
+    await fetchAddresses();
+  } catch (err) { 
+    alert("Gagal menghapus."); 
+  } finally { 
+    isDeleting.value = null; 
   }
-}
+};
 
-// ----------------------------------------------------
-// 5. UTILITIES
-// ----------------------------------------------------
 const setAsDefault = async (address: any) => {
-  if (address.is_default) return
-  
-  const targetId = address.uuid || address.id;
-
+  if (address.is_default) return;
   try {
-    await $fetch(`${API_BASE}/address/${targetId}`, {
-      method: 'PUT',
-      headers: { Authorization: `Bearer ${getToken()}` },
-      // Mengirimkan data utuh dengan is_default true
-      body: { 
-        location_id: address.location_id,
-        zip_code: address.zip_code,
-        full_address: address.full_address,
-        province: address.province,
-        city: address.city,
-        district: address.district,
-        subdistrict: address.subdistrict,
-        label: address.label,
-        is_default: true 
-      }
-    })
-    await fetchAddresses()
-  } catch (err) {
-    console.error('Gagal mengubah alamat utama', err)
+    await $fetch(`${API_BASE}/address/${address.uuid || address.id}`, { 
+      method: "PUT", 
+      headers: { Authorization: `Bearer ${getToken()}` }, 
+      body: { ...address, is_default: true } 
+    });
+    await fetchAddresses();
+  } catch (err) { 
+    console.error(err); 
   }
-}
+};
 
 const openAddModal = () => {
-  form.id = ''
-  form.location_id = ''
-  form.zip_code = ''
-  form.full_address = ''
-  form.province = ''
-  form.city = ''
-  form.district = ''
-  form.subdistrict = ''
-  form.label = ''
-  form.is_default = addresses.value.length === 0
-  
-  searchQuery.value = ''
-  searchResults.value = []
-  isModalOpen.value = true
-}
+  Object.assign(form, { 
+    id: "", 
+    location_id: "", 
+    zip_code: "", 
+    full_address: "", 
+    province: "", 
+    city: "", 
+    district: "", 
+    subdistrict: "", 
+    label: "", 
+    is_default: addresses.value.length === 0 
+  });
+  searchQuery.value = ""; 
+  searchResults.value = []; 
+  isModalOpen.value = true;
+};
 
 const openEditModal = (address: any) => {
-  form.id = address.uuid || address.id
-  form.location_id = address.location_id
-  form.zip_code = address.zip_code
-  form.full_address = address.full_address
-  form.province = address.province || ''
-  form.city = address.city || ''
-  form.district = address.district || ''
-  form.subdistrict = address.subdistrict || ''
-  form.label = address.label || `Lokasi ID: ${address.location_id}` 
-  form.is_default = address.is_default
-  
-  // Set tampilan input pencarian ke label yang sudah tersimpan
-  searchQuery.value = form.label
-  searchResults.value = []
-  isModalOpen.value = true
-}
+  Object.assign(form, { 
+    id: address.uuid || address.id, 
+    location_id: address.location_id, 
+    zip_code: address.zip_code, 
+    full_address: address.full_address, 
+    province: address.province || "", 
+    city: address.city || "", 
+    district: address.district || "", 
+    subdistrict: address.subdistrict || "", 
+    label: address.label || "", 
+    is_default: address.is_default 
+  });
+  searchQuery.value = form.label; 
+  isModalOpen.value = true;
+};
 
-const closeModal = () => {
-  isModalOpen.value = false
-}
-
-onMounted(() => {
-  fetchAddresses()
-})
+onMounted(async () => {
+  if (!userStore.profile) await userStore.fetchProfile();
+  await fetchAddresses();
+});
 </script>
 
 <template>
-  <div class="min-h-screen bg-[#f3f4f5] py-8">
-    <div class="container mx-auto px-4 max-w-[1200px] flex flex-col lg:flex-row gap-6">
-      
-      <AccountSidebar />
+  <div class="min-h-screen bg-white">
+    <!-- TABS -->
+    <div class="border-b border-gray-200 overflow-x-auto no-scrollbar">
+      <div class="flex px-8">
+        <NuxtLink
+          v-for="tab in tabs"
+          :key="tab.to"
+          :to="tab.to"
+          class="px-6 py-4 text-sm font-bold whitespace-nowrap transition-colors relative"
+          :class="[
+            $route.path === tab.to 
+              ? 'text-[#03AC0E]' 
+              : 'text-gray-500 hover:text-gray-700'
+          ]"
+        >
+          {{ tab.label }}
+          <div v-if="$route.path === tab.to" class="absolute bottom-0 left-0 right-0 h-1 bg-[#03AC0E] rounded-t-full"></div>
+        </NuxtLink>
+      </div>
+    </div>
 
-      <main class="flex-1 bg-white rounded-xl shadow-sm border border-gray-200">
-        
-        <header class="px-8 py-6 border-b border-gray-100 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
-          <div>
-            <h1 class="text-xl font-bold text-gray-900">Daftar Alamat</h1>
-            <p class="text-sm text-gray-500 mt-1">Kelola alamat pengiriman untuk pesanan Anda</p>
-          </div>
-          <button 
-            @click="openAddModal" 
-            class="px-5 py-2.5 text-sm font-bold text-white bg-[#03AC0E] hover:bg-[#028c0b] rounded-lg transition-colors flex items-center gap-2"
-          >
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
-            Tambah Alamat Baru
-          </button>
-        </header>
-
-        <div class="p-8">
-          
-          <div v-if="isLoading" class="space-y-4">
-            <div v-for="i in 2" :key="i" class="w-full h-32 bg-gray-100 animate-pulse rounded-xl border border-gray-200"></div>
-          </div>
-
-          <div v-else-if="addresses.length === 0" class="text-center py-12 px-4 border-2 border-dashed border-gray-200 rounded-xl">
-            <svg class="w-16 h-16 text-gray-300 mx-auto mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
-            <h3 class="text-lg font-bold text-gray-900">Belum Ada Alamat</h3>
-            <p class="text-gray-500 mt-1 mb-4 text-sm">Tambahkan alamat pengiriman agar Anda dapat mulai berbelanja.</p>
-            <button @click="openAddModal" class="text-[#03AC0E] font-bold text-sm hover:underline">Tambah Alamat Sekarang</button>
-          </div>
-
-          <div v-else class="space-y-4">
-            <div 
-              v-for="address in addresses" 
-              :key="address.uuid || address.id"
-              class="p-5 rounded-xl border transition-all"
-              :class="address.is_default ? 'border-[#03AC0E] bg-green-50/30' : 'border-gray-200 hover:border-green-300'"
-            >
-              <div class="flex flex-col md:flex-row md:justify-between md:items-start gap-4">
-                
-                <div class="flex-1">
-                  <div class="flex items-center gap-3 mb-2">
-                    <span class="font-bold text-gray-800">Rumah / Kantor</span>
-                    <span v-if="address.is_default" class="px-2 py-0.5 text-[10px] font-bold text-[#03AC0E] bg-green-100 rounded-full">
-                      Alamat Utama
-                    </span>
-                  </div>
-                  <p class="text-gray-800 font-semibold text-sm">{{ address.label || address.city }}</p>
-                  <p class="text-gray-500 text-sm mt-1 leading-relaxed">{{ address.full_address }}</p>
-                  <div class="mt-2 flex gap-4 text-sm text-gray-500">
-                     <span class="bg-gray-100 px-2 py-1 rounded">Kode Pos: <span class="font-bold text-gray-700">{{ address.zip_code }}</span></span>
-                     <span class="bg-gray-100 px-2 py-1 rounded font-mono text-xs mt-0.5">Loc ID: {{ address.location_id }}</span>
-                  </div>
-                </div>
-
-                <div class="flex flex-row md:flex-col gap-3 md:items-end w-full md:w-auto mt-2 md:mt-0">
-                  <div class="flex gap-4 items-center">
-                    <button @click="openEditModal(address)" class="text-sm font-semibold text-gray-600 hover:text-[#03AC0E] transition-colors">Ubah</button>
-                    <button 
-                      @click="deleteAddress(address.uuid || address.id)" 
-                      :disabled="isDeleting === (address.uuid || address.id)"
-                      class="text-sm font-semibold text-red-500 hover:text-red-700 transition-colors disabled:opacity-50 flex items-center gap-1"
-                    >
-                      <svg v-if="isDeleting === (address.uuid || address.id)" class="animate-spin h-3 w-3 text-red-500" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-                      Hapus
-                    </button>
-                  </div>
-
-                  <button 
-                    v-if="!address.is_default" 
-                    @click="setAsDefault(address)" 
-                    class="text-sm font-semibold text-gray-700 border border-gray-300 hover:border-[#03AC0E] hover:text-[#03AC0E] bg-white px-4 py-2 rounded-lg transition-colors w-full md:w-auto mt-2"
-                  >
-                    Jadikan Utama
-                  </button>
-                </div>
-
-              </div>
-            </div>
-          </div>
+    <!-- CONTENT -->
+    <div class="p-8">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-6 mb-8">
+        <div>
+          <h2 class="text-xl font-bold text-gray-900">Daftar Alamat</h2>
+          <p class="text-xs text-gray-400 mt-1 uppercase tracking-widest font-bold">Kelola tujuan pengiriman Anda</p>
         </div>
-      </main>
-
-      <div v-if="isModalOpen" class="fixed inset-0 z-50 flex items-center justify-center p-4">
-        <div class="absolute inset-0 bg-black/50 backdrop-blur-sm" @click="closeModal"></div>
-        
-        <div class="relative w-full max-w-lg bg-white rounded-xl shadow-xl flex flex-col max-h-[90vh]">
-          
-          <div class="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-white rounded-t-xl sticky top-0 z-10">
-            <h2 class="text-lg font-bold text-gray-900">{{ form.id ? 'Ubah Alamat' : 'Tambah Alamat Baru' }}</h2>
-            <button @click="closeModal" class="text-gray-400 hover:text-gray-600 p-1">
-              <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
-            </button>
-          </div>
-
-          <div class="p-6 overflow-y-auto space-y-6">
-            
-            <div class="flex flex-col gap-2 relative z-20">
-              <label class="text-sm font-semibold text-gray-700">Kecamatan / Kota / Kabupaten <span class="text-red-500">*</span></label>
-              <div class="relative">
-                <input 
-                  v-model="searchQuery" 
-                  @input="handleSearchLocation"
-                  type="text" 
-                  placeholder="Ketik minimal 3 huruf (Cth: Wonosobo)" 
-                  class="w-full px-4 py-3 pl-10 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#03AC0E] focus:border-[#03AC0E] outline-none transition-all"
-                />
-                <svg class="w-5 h-5 absolute left-3 top-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
-                <svg v-if="isSearching" class="w-4 h-4 absolute right-4 top-3.5 animate-spin text-gray-400" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-              </div>
-
-              <ul v-if="searchResults.length > 0" class="absolute top-[70px] left-0 right-0 bg-white border border-gray-200 rounded-lg shadow-xl max-h-56 overflow-y-auto divide-y divide-gray-100">
-                <li 
-                  v-for="res in searchResults" 
-                  :key="res.id"
-                  @click="selectLocation(res)"
-                  class="px-4 py-3 hover:bg-green-50 cursor-pointer transition-colors"
-                >
-                  <p class="text-sm font-semibold text-gray-800 leading-snug">{{ res.label }}</p>
-                </li>
-              </ul>
-            </div>
-
-            <div v-if="form.location_id" class="flex gap-4 p-3 bg-blue-50 border border-blue-100 rounded-lg text-sm text-blue-800">
-               <div class="flex-1"><strong>Kode Pos:</strong> {{ form.zip_code }}</div>
-               <div class="flex-1 text-right"><strong>ID Lokasi:</strong> <span class="font-mono">{{ form.location_id }}</span></div>
-            </div>
-
-            <div class="flex flex-col gap-2">
-              <label class="text-sm font-semibold text-gray-700">Detail Alamat Lengkap <span class="text-red-500">*</span></label>
-              <textarea 
-                v-model="form.full_address" 
-                rows="4" 
-                class="w-full px-4 py-3 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#03AC0E] focus:border-[#03AC0E] outline-none transition-all resize-none" 
-                placeholder="Contoh: Jl. Diponegoro No.1, RT 01/RW 02, Patokan samping minimarket"
-              ></textarea>
-            </div>
-
-            <div class="flex items-center gap-3">
-              <input 
-                type="checkbox" 
-                id="is_default" 
-                v-model="form.is_default" 
-                class="w-5 h-5 text-[#03AC0E] bg-gray-100 border-gray-300 rounded focus:ring-[#03AC0E] focus:ring-2 cursor-pointer"
-              >
-              <label for="is_default" class="text-sm font-medium text-gray-700 cursor-pointer">
-                Jadikan sebagai alamat utama
-              </label>
-            </div>
-
-          </div>
-
-          <div class="px-6 py-4 border-t border-gray-100 bg-gray-50 rounded-b-xl flex justify-end gap-3">
-            <button 
-              @click="closeModal" 
-              type="button" 
-              class="px-6 py-2.5 text-sm font-bold text-gray-600 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-            >
-              Batal
-            </button>
-            <button 
-              @click="saveAddress" 
-              :disabled="isSaving || !form.location_id || !form.full_address || form.full_address.length < 10"
-              class="px-8 py-2.5 text-sm font-bold text-white bg-[#03AC0E] hover:bg-[#028c0b] rounded-lg transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <svg v-if="isSaving" class="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-              <span v-else>Simpan Alamat</span>
-            </button>
-          </div>
-
-        </div>
+        <button @click="openAddModal" class="px-6 py-3 bg-[#03AC0E] text-white text-sm font-bold rounded-lg hover:bg-[#028a0b] transition-all flex items-center justify-center gap-2 shadow-sm">
+          <UIcon name="i-heroicons-plus" class="w-4 h-4" />
+          Tambah Alamat Baru
+        </button>
       </div>
 
+      <!-- ADDRESS LIST -->
+      <div class="space-y-4">
+        <div v-if="isLoading" class="space-y-4">
+          <div v-for="i in 3" :key="i" class="h-32 bg-gray-50 rounded-xl animate-pulse"></div>
+        </div>
+
+        <div v-else-if="!addresses.length" class="py-20 text-center border-2 border-dashed border-gray-100 rounded-xl">
+          <p class="text-sm font-bold text-gray-400">Belum ada alamat tersimpan.</p>
+        </div>
+
+        <div v-else class="space-y-4">
+          <div v-for="addr in addresses" :key="addr.uuid || addr.id" 
+            class="bg-white border rounded-xl p-6 transition-all"
+            :class="addr.is_default ? 'border-[#03AC0E] bg-emerald-50/10' : 'border-gray-200'"
+          >
+            <div class="flex flex-col lg:flex-row lg:items-start justify-between gap-6">
+              <div class="flex-1">
+                <div class="flex items-center gap-3 mb-2">
+                  <h3 class="text-sm font-bold text-gray-900 uppercase tracking-tight">{{ addr.label || 'Alamat' }}</h3>
+                  <span v-if="addr.is_default" class="px-2 py-0.5 bg-emerald-50 text-emerald-600 text-[10px] font-bold rounded border border-emerald-100 uppercase tracking-widest">Utama</span>
+                </div>
+                <p class="text-sm font-bold text-gray-900 mb-1">{{ userStore.profile?.username || 'Penerima' }}</p>
+                <p class="text-xs text-gray-500 leading-relaxed max-w-2xl">{{ addr.full_address }}</p>
+                <p class="text-xs font-bold text-gray-400 mt-2 uppercase tracking-widest">{{ addr.city }}, {{ addr.zip_code }}</p>
+              </div>
+
+              <div class="flex items-center gap-6 pt-4 lg:pt-0 lg:border-l lg:pl-8 border-gray-100">
+                <button @click="openEditModal(addr)" class="text-sm font-bold text-[#03AC0E] hover:underline">Ubah</button>
+                <button v-if="!addr.is_default" @click="setAsDefault(addr)" class="text-sm font-bold text-gray-500 hover:text-gray-900 transition-colors">Pilih Utama</button>
+                <button v-if="!addr.is_default" @click="deleteAddress(addr.uuid || addr.id)" class="text-gray-300 hover:text-red-600 transition-colors">
+                  <UIcon name="i-heroicons-trash" class="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
+
+    <!-- MODAL -->
+    <div v-if="isModalOpen" class="fixed inset-0 z-[200] flex items-center justify-center p-4">
+      <div class="absolute inset-0 bg-gray-900/40 backdrop-blur-sm" @click="isModalOpen = false"></div>
+      <div class="relative w-full max-w-lg bg-white rounded-xl shadow-2xl overflow-hidden">
+        <div class="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+          <h2 class="text-base font-bold text-gray-900">{{ form.id ? 'Ubah Alamat' : 'Tambah Alamat Baru' }}</h2>
+          <button @click="isModalOpen = false" class="text-gray-400 hover:text-gray-900">
+            <UIcon name="i-heroicons-x-mark" class="w-5 h-5" />
+          </button>
+        </div>
+        
+        <div class="p-6 space-y-6 max-h-[70vh] overflow-y-auto">
+          <div class="space-y-2">
+            <label class="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Cari Lokasi (Kota/Kecamatan)</label>
+            <div class="relative">
+              <input v-model="searchQuery" @input="handleSearchLocation" type="text" placeholder="Masukkan minimal 3 karakter" 
+                class="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-lg focus:bg-white focus:border-[#03AC0E] text-sm font-medium outline-none transition-all" 
+              />
+              <div v-if="searchResults.length > 0" class="absolute left-0 right-0 top-full mt-1 bg-white border border-gray-200 rounded-lg shadow-xl z-50 max-h-48 overflow-y-auto">
+                <button v-for="res in searchResults" :key="res.id" @click="selectLocation(res)" 
+                  class="w-full text-left px-4 py-3 hover:bg-gray-50 transition-all border-b border-gray-50 last:border-0">
+                  <p class="text-xs font-bold text-gray-900 uppercase tracking-tight">{{ res.label }}</p>
+                  <p class="text-[9px] text-gray-400 mt-0.5">ZIP: {{ res.zip }}</p>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div class="space-y-2">
+            <label class="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Alamat Lengkap</label>
+            <textarea v-model="form.full_address" rows="3" class="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-lg focus:bg-white focus:border-[#03AC0E] text-sm font-medium outline-none transition-all resize-none" placeholder="Nama Jalan, No. Rumah, RT/RW"></textarea>
+          </div>
+
+          <div class="grid grid-cols-2 gap-4">
+             <div class="space-y-2">
+              <label class="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Label Alamat</label>
+              <input v-model="form.label" type="text" class="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-lg focus:bg-white focus:border-[#03AC0E] text-sm font-medium outline-none transition-all" placeholder="Rumah/Kantor" />
+            </div>
+            <div class="space-y-2">
+              <label class="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Kode Pos</label>
+              <input v-model="form.zip_code" readonly type="text" class="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-lg text-sm font-medium outline-none" />
+            </div>
+          </div>
+
+          <label class="flex items-center gap-3 cursor-pointer group">
+            <input type="checkbox" v-model="form.is_default" class="w-4 h-4 rounded text-[#03AC0E] focus:ring-[#03AC0E] border-gray-300" />
+            <span class="text-xs font-bold text-gray-600 group-hover:text-gray-900 transition-colors">Jadikan Alamat Utama</span>
+          </label>
+        </div>
+
+        <div class="p-6 bg-gray-50 border-t border-gray-100 flex justify-end gap-3">
+          <button @click="isModalOpen = false" class="px-6 py-2.5 text-xs font-bold text-gray-500 hover:text-gray-900 transition-colors">Batal</button>
+          <button @click="saveAddress" :disabled="isSaving || !form.location_id" class="px-10 py-2.5 bg-[#03AC0E] text-white text-xs font-black rounded-lg hover:bg-[#028a0b] disabled:opacity-50 transition-all flex items-center gap-2 shadow-sm">
+            <UIcon v-if="isSaving" name="i-heroicons-arrow-path" class="w-4 h-4 animate-spin" />
+            Simpan Alamat
+          </button>
+        </div>
+      </div>
+    </div>
+
   </div>
 </template>
+
+<style scoped>
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+</style>

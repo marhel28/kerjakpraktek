@@ -44,10 +44,11 @@ class CartSummaryResponse(BaseModel):
 # ── Coupon ─────────────────────────────────────────────────────────
 class CouponCreateRequest(BaseModel):
     code: str = Field(..., min_length=3, max_length=50)
+    description: Optional[str] = None
     discount_type: str = Field(..., pattern="^(percentage|fixed_amount)$")
     discount_value: int = Field(..., ge=1)
     min_purchase: int = Field(default=0, ge=0)
-    max_discount: Optional[int] = Field(default=None, ge=1)
+    max_discount: Optional[int] = Field(default=None)
     quota: int = Field(default=100, ge=1)
     valid_from: Optional[datetime] = None
     valid_until: Optional[datetime] = None
@@ -67,6 +68,7 @@ class CouponCreateRequest(BaseModel):
 
 
 class CouponUpdateRequest(BaseModel):
+    description: Optional[str] = None
     discount_type: Optional[str] = Field(default=None, pattern="^(percentage|fixed_amount)$")
     discount_value: Optional[int] = Field(default=None, ge=1)
     min_purchase: Optional[int] = Field(default=None, ge=0)
@@ -80,6 +82,7 @@ class CouponUpdateRequest(BaseModel):
 class CouponResponse(BaseModel):
     uuid: UUID
     code: str
+    description: Optional[str]
     discount_type: str
     discount_value: int
     min_purchase: int

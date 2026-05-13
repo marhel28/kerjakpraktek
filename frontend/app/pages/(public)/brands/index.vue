@@ -5,10 +5,10 @@ import { computed, ref } from "vue";
 const siteUrl = useRuntimeConfig().public.siteUrl ?? "https://yourdomain.com";
 
 useSeoMeta({
-  title: "Brand Resmi CCTV — Dahua, Imou, Ezviz | Padjajaran CCTV",
+  title: "Brand Resmi CCTV — Dahua, Imou, Ezviz | PasarCctv",
   description:
     "Distributor resmi brand CCTV terpercaya: Dahua, Imou, Ezviz, dan lainnya. Produk original bergaransi, harga terbaik, pengiriman ke seluruh Indonesia.",
-  ogTitle: "Brand Resmi CCTV | Padjajaran CCTV",
+  ogTitle: "Brand Resmi CCTV | PasarCctv",
   ogDescription:
     "Katalog brand CCTV original bergaransi resmi. Dahua, Imou, Ezviz, dan lebih banyak lagi.",
   ogUrl: `${siteUrl}/brands`,
@@ -29,7 +29,7 @@ useHead({
         name: "Brand Resmi CCTV",
         description: "Katalog brand CCTV resmi dan bergaransi",
         url: `${siteUrl}/brands`,
-        publisher: { "@type": "Organization", name: "Padjajaran CCTV", url: siteUrl },
+        publisher: { "@type": "Organization", name: "PasarCctv", url: siteUrl },
       }),
     },
   ]),
@@ -115,7 +115,7 @@ const doDrag = (e: MouseEvent) => {
               class="text-2xl md:text-4xl font-extrabold mb-3 leading-tight tracking-tight"
             >
               Mitra Resmi <br class="lg:hidden" />
-              Padjajaran CCTV
+              PasarCctv
             </h1>
             <p
               class="text-xs md:text-sm text-gray-400 max-w-2xl font-medium leading-relaxed"

@@ -24,7 +24,15 @@ class TransactionAdminService:
     ):
         offset = (page - 1) * limit
 
-        query = select(Transaction)
+        from sqlalchemy.orm import selectinload
+        from backend.data.transaksi.model import TransactionItem
+        from backend.data.stock.model import Stock, AssetStock
+
+        query = select(Transaction).options(
+            selectinload(Transaction.shipment),
+            selectinload(Transaction.user),
+            selectinload(Transaction.items).selectinload(TransactionItem.stock).selectinload(Stock.assets)
+        )
 
         # ===== FILTER =====
         if transaction_status:
@@ -50,10 +58,96 @@ class TransactionAdminService:
         else:
             query = query.order_by(desc(sort_column))
 
+        # ===== TOTAL COUNT (BEFORE PAGINATION) =====
+        from sqlalchemy import func
+        count_query = select(func.count()).select_from(query.subquery())
+        total_result = await session.execute(count_query)
+        total = total_result.scalar_one()
+
+        # ===== SUMMARY COUNTS =====
+        lunas_query = select(func.count(Transaction.uuid)).where(Transaction.transaction_status == "settlement")
+        pending_query = select(func.count(Transaction.uuid)).where(Transaction.transaction_status.in_(["pending", "pending_payment"]))
+        
+        lunas_res = await session.execute(lunas_query)
+        pending_res = await session.execute(pending_query)
+        
+        lunas_count = lunas_res.scalar_one()
+        pending_count = pending_res.scalar_one()
+
         # ===== PAGINATION =====
         query = query.offset(offset).limit(limit)
 
         result = await session.execute(query)
         data = result.scalars().all()
 
-        return data
+        return data, total, {"lunas": lunas_count, "pending": pending_count}
+
+    @staticmethod
+    async def update_waybill(
+        session: AsyncSession,
+        order_id: str,
+        waybill_number: str,
+        courier_name: Optional[str] = None,
+        delivery_status: str = "SHIPPED"
+    ):
+        from backend.data.ongkir.model import Shipment
+        from sqlalchemy.orm import selectinload
+
+        # Cari transaksi
+        query = select(Transaction).where(Transaction.order_id == order_id).options(selectinload(Transaction.shipment))
+        result = await session.execute(query)
+        transaction = result.scalar_one_or_none()
+
+        if not transaction:
+            return None
+
+        if not transaction.shipment:
+            # Jika belum ada shipment (biasanya harusnya ada dari checkout, tapi jaga-jaga)
+            shipment = Shipment(
+                transaction_uuid=transaction.uuid,
+                waybill_number=waybill_number,
+                courier_name=courier_name or "JNE", # Default jika kosong
+                delivery_status=delivery_status,
+                recipient_name="User", # Placeholder
+                recipient_phone="000",
+                shipping_address="Address"
+            )
+            session.add(shipment)
+        else:
+            transaction.shipment.waybill_number = waybill_number
+            transaction.shipment.delivery_status = delivery_status
+            if courier_name:
+                transaction.shipment.courier_name = courier_name
+            session.add(transaction.shipment)
+
+        await session.commit()
+        await session.refresh(transaction)
+
+        # ===== SEND NOTIFICATION =====
+        try:
+            from backend.db.supabse import SupabaseNotificationService
+            from backend.auth.model import UserMap
+
+            # 1. Get Supabase User ID
+            result_map = await session.execute(
+                select(UserMap).where(UserMap.local_user_id == str(transaction.user_id))
+            )
+            user_map = result_map.scalar_one_or_none()
+            
+            if user_map:
+                title = "Pesanan Dikirim! 📦"
+                content = f"Pesanan {order_id} telah dikirim dengan resi: {waybill_number}. Silakan cek berkala."
+                
+                await SupabaseNotificationService.send_notification(
+                    user_id=user_map.supabase_user_id,
+                    title=title,
+                    content=content,
+                    action_url=f"/dashboard/orders/{order_id}",
+                    notif_type="order",
+                    metadata={"order_id": order_id, "waybill": waybill_number}
+                )
+        except Exception as e:
+            # Notif failed should not rollback the waybill update
+            print(f"Failed to send shipping notification: {e}")
+
+        return transaction

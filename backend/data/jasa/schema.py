@@ -3,6 +3,7 @@ schema.py — Pydantic Schemas: Request/Response
 Sistem: Padjajaran CCTV Service Booking
 """
 
+from __future__ import annotations
 from pydantic import BaseModel, Field, field_validator, model_validator
 from uuid import UUID
 from typing import Optional, List, Dict, Any
@@ -45,6 +46,9 @@ class PricingConfigResponse(BaseModel):
     transport_max_fee: int
     max_distance_km: float
     dp_percentage: int
+    routes: List[Dict[str, Any]] = []    # [{key, label, price}]
+    is_active: bool
+    created_at: datetime
     updated_at: datetime
 
     class Config:
@@ -58,8 +62,9 @@ class PricingConfigCreate(BaseModel):
     transport_per_km: int = Field(default=5_000, ge=0)
     transport_min_fee: int = Field(default=25_000, ge=0)
     transport_max_fee: int = Field(default=300_000, ge=0)
-    max_distance_km: float = Field(default=30.0, ge=1, le=100)
+    max_distance_km: float = Field(default=30.0, ge=1, le=500)
     addons_config: List[Dict[str, Any]] = Field(default_factory=list)
+    routes_config: List[Dict[str, Any]] = Field(default_factory=list)
     dp_percentage: int = Field(default=50, ge=10, le=100)
 
 
@@ -314,6 +319,35 @@ class BookingPaymentInfo(BaseModel):
     status: str
 
 
+class TechnicianResponse(BaseModel):
+    uuid: UUID
+    name: str
+    id_employee: str
+    phone: Optional[str] = None
+    picture_url: Optional[str] = None
+    is_active: bool
+
+    class Config:
+        from_attributes = True
+
+
+class BookingBrief(BaseModel):
+    uuid: UUID
+    booking_number: str
+    scheduled_date: date
+    time_slot: str
+    status: str
+    contact_name: str
+    address: str
+
+    class Config:
+        from_attributes = True
+
+
+class TechnicianDetailResponse(TechnicianResponse):
+    bookings: List[BookingBrief] = []
+
+
 class BookingResponse(BaseModel):
     uuid: UUID
     booking_number: str
@@ -328,6 +362,9 @@ class BookingResponse(BaseModel):
     distance_km: float
     contact_name: str
     contact_phone: str
+
+    # Technician
+    technician: Optional[TechnicianResponse] = None
 
     # Pricing
     device_price: int
@@ -351,6 +388,56 @@ class BookingResponse(BaseModel):
 class BookingStatusUpdate(BaseModel):
     status: BookingStatus
     notes: Optional[str] = None
+    technician_uuid: Optional[UUID] = None
+
+
+# ══════════════════════════════════════════════════════════════════
+# TECHNICIAN
+# ══════════════════════════════════════════════════════════════════
+
+class TechnicianCreate(BaseModel):
+    name: str = Field(..., min_length=2, max_length=100)
+    id_employee: str = Field(..., min_length=2, max_length=50)
+    phone: Optional[str] = Field(None, max_length=20)
+    picture_url: Optional[str] = None
+    is_active: bool = True
+
+
+# ══════════════════════════════════════════════════════════════════
+# HOLIDAY & OPERATIONAL
+# ══════════════════════════════════════════════════════════════════
+
+class HolidayCreate(BaseModel):
+    holiday_date: date
+    description: Optional[str] = None
+
+
+class HolidayResponse(BaseModel):
+    uuid: UUID
+    holiday_date: date
+    description: Optional[str]
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class OperationalHoursCreate(BaseModel):
+    day_of_week: int = Field(..., ge=0, le=6)
+    is_open: bool = True
+    hours: str = Field(default="08:00-17:00")
+    max_bookings: int = Field(default=9)
+
+
+class OperationalHoursResponse(BaseModel):
+    uuid: UUID
+    day_of_week: int
+    is_open: bool
+    hours: str
+    max_bookings: int
+
+    class Config:
+        from_attributes = True
 
 
 # ══════════════════════════════════════════════════════════════════
@@ -397,3 +484,4 @@ class SlotInfo(BaseModel):
 class AvailableSlotsResponse(BaseModel):
     date: date
     slots: List[SlotInfo]
+    message: Optional[str] = None

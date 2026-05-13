@@ -4,7 +4,7 @@ from functools import lru_cache
 
 EXPIRE_JTI_TIME   = 3600   # 1 jam
 VERIFY_TOKEN_EXPIRE = 600  # 10 menit
-RESET_TOKEN_EXPIRE  = 900  # 15 menit
+RESET_TOKEN_EXPIRE  = 300  # 5 menit
 COUPON_CACHE_TTL    = 300  # 5 menit
 
 

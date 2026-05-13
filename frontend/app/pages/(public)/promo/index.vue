@@ -5,7 +5,7 @@ import type { PromoResponse, PromoListResponse } from "~/server/api/promo";
 definePageMeta({ layout: "public" });
 
 useSeoMeta({
-  title: "Promo & Diskon — Padjajaran CCTV",
+  title: "Promo & Diskon — PasarCctv",
   description:
     "Kumpulan penawaran dan diskon terbaik untuk kamera CCTV serta layanan instalasi.",
 });

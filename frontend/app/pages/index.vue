@@ -19,15 +19,12 @@ const { data: bottomBannerData } = await useFetch("/api/main-bottom", {
   server: true,
 });
 
-useHead({
-  title: "Padjajaran CCTV - Marketplace Keamanan No 1",
-  meta: [
-    {
-      name: "description",
-      content:
-        "Belanja perlengkapan CCTV terlengkap, paket instalasi, dan NVR untuk rumah dan bisnis.",
-    },
-  ],
+useSeoMeta({
+  title: "PasarCctv - Jasa Pasang & Marketplace CCTV Terlengkap di Bandung",
+  description: "Pesan layanan instalasi CCTV profesional dan belanja perlengkapan keamanan terlengkap untuk rumah serta bisnis di area Bandung & Cimahi.",
+  ogTitle: "PasarCctv - Spesialis Jasa Pasang CCTV Bandung",
+  ogDescription: "Beresin masalah CCTV kamu tanpa ribet. Teknisi standby, biaya transparan, garansi resmi.",
+  robots: "index, follow",
 });
 </script>
 

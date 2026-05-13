@@ -99,13 +99,19 @@
                         <span class="font-mono text-xs font-bold text-slate-700">{{ row.order_id }}</span>
                     </td>
                     <td class="px-4 py-3.5">
-                        <div class="flex flex-col gap-0.5">
-                            <span class="text-sm font-medium text-slate-700 line-clamp-1">
-                                {{ row.items?.[0]?.stock_title || '—' }}
-                            </span>
-                            <span class="text-xs text-slate-400">
-                                {{ row.items?.length > 1 ? `+${row.items.length - 1} produk lainnya` : '' }}
-                            </span>
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 bg-white rounded-lg border border-slate-100 overflow-hidden shrink-0 flex items-center justify-center p-1">
+                                <img v-if="row.items?.[0]?.thumbnail_url" :src="row.items[0].thumbnail_url" class="w-full h-full object-contain" />
+                                <svg v-else class="w-5 h-5 text-slate-200" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"/></svg>
+                            </div>
+                            <div class="flex flex-col min-w-0">
+                                <span class="text-sm font-bold text-slate-700 truncate max-w-[180px]" :title="row.items?.[0]?.stock_title">
+                                    {{ row.items?.[0]?.stock_title || 'No Title' }}
+                                </span>
+                                <span class="text-[10px] text-slate-400 font-bold uppercase tracking-wider">
+                                    {{ row.items?.length > 1 ? `+${row.items.length - 1} Produk Lain` : '1 Produk' }}
+                                </span>
+                            </div>
                         </div>
                     </td>
                     <td class="px-4 py-3.5">
@@ -156,6 +162,7 @@ const loading = ref(true)
 const transactions = ref([])
 const pagination = reactive({ page: 1, limit: 10, total: 0, totalPage: 1 })
 const filters = reactive({ search: '', status: '', min_amount: null, max_amount: null })
+const summary = ref({ lunas: 0, pending: 0 })
 
 let searchTimer = null
 
@@ -179,13 +186,13 @@ const summaryStats = computed(() => [
     },
     {
         label: 'Lunas',
-        value: transactions.value.filter(t => t.transaction_status === 'settlement').length,
+        value: summary.value.lunas,
         bg: 'bg-emerald-50', color: 'text-emerald-600',
         icon: 'M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z',
     },
     {
         label: 'Menunggu',
-        value: transactions.value.filter(t => ['pending', 'pending_payment'].includes(t.transaction_status)).length,
+        value: summary.value.pending,
         bg: 'bg-amber-50', color: 'text-amber-600',
         icon: 'M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z',
     },
@@ -205,18 +212,19 @@ async function fetchTransactions(resetPage = false) {
         const params = {
             page: pagination.page,
             limit: pagination.limit,
-            sort: 'desc',
             sort_by: 'created_at',
+            sort_order: 'desc',
         }
-        if (filters.status) params.status = filters.status
+        if (filters.status) params.transaction_status = filters.status
         if (filters.min_amount) params.min_amount = filters.min_amount
         if (filters.max_amount) params.max_amount = filters.max_amount
         if (filters.search) params.stock_name = filters.search
 
-        const { data } = await api.get('/transaksi/my', { params })
+        const { data } = await api.get('/recap/transaksi', { params })
         transactions.value = data.data || []
         pagination.total = data.total || 0
         pagination.totalPage = data.total_page || 1
+        if (data.summary) summary.value = data.summary
     } catch (e) {
         console.error(e)
     } finally {

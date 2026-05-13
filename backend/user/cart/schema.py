@@ -5,6 +5,7 @@ from typing import List, Optional,Dict,Any
 class CartAddRequest(BaseModel):
     stock_uuid: UUID
     quantity: int = Field(default=1, ge=1, description="Minimal kuantitas adalah 1")
+    options: Optional[Dict[str, Any]] = None
 
 class CartUpdateRequest(BaseModel):
     quantity: int = Field(default=1, ge=1)
@@ -29,9 +30,12 @@ class CartItemResponse(BaseModel):
     cart_uuid: UUID
     quantity: int
     subtotal: int
+    unit_weight: int = 0
+    options: Optional[Dict[str, Any]] = None
     stock: CartStockResponse
 
 class CartSummaryResponse(BaseModel):
     items: List[CartItemResponse]
     total_quantity: int
     total_price: int
+    total_weight: int = 0

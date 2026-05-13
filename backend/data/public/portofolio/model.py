@@ -1,20 +1,27 @@
 """
 models/portfolio.py
-Tabel:  portfolio_projects, portfolio_images, portfolio_reviews
+Tabel: portfolio_projects, portfolio_images, portfolio_reviews
+
+CATATAN PENTING:
+  - Tidak ada 'from __future__ import annotations' — menyebabkan SQLModel
+    gagal resolve generic List["X"] pada Relationship.
+  - Relationship pakai Mapped[List[...]] dari sqlalchemy.orm agar mapper
+    tidak bingung membedakan type hint biasa vs ORM relationship.
 """
+import enum
 import uuid
 from datetime import datetime
-from sqlalchemy import (
-    Column, String, Text, Integer, Boolean,
-    DateTime, ForeignKey, Enum as SAEnum,
-)
-from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy.orm import relationship
-from backend.db.database import Base   # sesuaikan import Base kamu
-import enum
+from typing import List, Optional
+
+from sqlalchemy import Enum as SAEnum, Text
+from sqlalchemy.orm import Mapped
+from sqlmodel import Column, Field, Relationship, SQLModel
 
 
-# ── Enum Kategori ────────────────────────────────────────────────────────────
+# ══════════════════════════════════════════════════════════════════
+# ENUMS
+# ══════════════════════════════════════════════════════════════════
+
 class ProjectCategory(str, enum.Enum):
     RESIDENSIAL    = "Residensial"
     KOMERSIAL      = "Komersial"
@@ -26,79 +33,137 @@ class ProjectCategory(str, enum.Enum):
     LAINNYA        = "Lainnya"
 
 
-# ── Portfolio Project ─────────────────────────────────────────────────────────
-class PortfolioProject(Base):
+class ImageRole(str, enum.Enum):
+    COVER   = "cover"     # gambar utama card grid
+    BEFORE  = "before"    # foto sebelum — case study
+    AFTER   = "after"     # foto sesudah — case study
+    GALLERY = "gallery"   # foto tambahan
+
+
+# ══════════════════════════════════════════════════════════════════
+# PORTFOLIO PROJECT
+# ══════════════════════════════════════════════════════════════════
+
+class PortfolioProject(SQLModel, table=True):
     __tablename__ = "portfolio_projects"
 
-    id           = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    title        = Column(String(200), nullable=False)
-    category     = Column(SAEnum(ProjectCategory), nullable=False)
-    location     = Column(String(150), nullable=False)
-    cameras      = Column(Integer, nullable=False, default=0)
-    package_slug = Column(String(100), nullable=True)   # link ke halaman paket
-
-    # Case-study fields (nullable — hanya untuk project featured)
-    client_type  = Column(String(100), nullable=True)
-    problem      = Column(Text, nullable=True)
-    solution     = Column(Text, nullable=True)
-    result       = Column(Text, nullable=True)
-    is_featured  = Column(Boolean, default=False, nullable=False)
-
-    is_active    = Column(Boolean, default=True, nullable=False)
-    created_at   = Column(DateTime, default=datetime.utcnow, nullable=False)
-    updated_at   = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-
-    # Relations
-    images  = relationship(
-        "PortfolioImage", back_populates="project",
-        cascade="all, delete-orphan", order_by="PortfolioImage.sort_order"
-    )
-    reviews = relationship(
-        "PortfolioReview", back_populates="project",
-        cascade="all, delete-orphan"
+    id: uuid.UUID = Field(
+        default_factory=uuid.uuid4,
+        primary_key=True,
+        nullable=False,
     )
 
+    title:        str           = Field(max_length=200)
+    location:     str           = Field(max_length=150)
+    cameras:      int           = Field(default=0)
+    package_slug: Optional[str] = Field(default=None, max_length=100)
 
-# ── Portfolio Image ───────────────────────────────────────────────────────────
-class ImageRole(str, enum.Enum):
-    COVER  = "cover"    # gambar utama card
-    BEFORE = "before"   # foto before (case study)
-    AFTER  = "after"    # foto after  (case study)
-    GALLERY = "gallery" # foto tambahan
+    category: ProjectCategory = Field(
+        sa_column=Column(
+            SAEnum(ProjectCategory, name="projectcategory", create_type=True),
+            nullable=False,
+        )
+    )
+
+    # Case-study fields — hanya diisi untuk project is_featured=True
+    client_type: Optional[str] = Field(default=None, max_length=100)
+    problem:     Optional[str] = Field(default=None, sa_column=Column("problem",  Text, nullable=True))
+    solution:    Optional[str] = Field(default=None, sa_column=Column("solution", Text, nullable=True))
+    result:      Optional[str] = Field(default=None, sa_column=Column("result",   Text, nullable=True))
+
+    is_featured: bool = Field(default=False, nullable=False)
+    is_active:   bool = Field(default=True,  nullable=False)
+
+    created_at: datetime = Field(default_factory=datetime.utcnow, nullable=False)
+    updated_at: datetime = Field(default_factory=datetime.utcnow, nullable=False)
+
+    # ── Relationships ────────────────────────────────────────────
+    # Mapped[List[...]] wajib agar SQLAlchemy mapper tidak salah
+    # mengira ini generic Python type hint biasa.
+    images: Mapped[List["PortfolioImage"]] = Relationship(
+        back_populates="project",
+        sa_relationship_kwargs={
+            "cascade": "all, delete-orphan",
+            "order_by": "PortfolioImage.sort_order",
+            "lazy": "selectin",
+        },
+    )
+    reviews: Mapped[List["PortfolioReview"]] = Relationship(
+        back_populates="project",
+        sa_relationship_kwargs={
+            "cascade": "all, delete-orphan",
+            "lazy": "selectin",
+        },
+    )
 
 
-class PortfolioImage(Base):
+# ══════════════════════════════════════════════════════════════════
+# PORTFOLIO IMAGE
+# ══════════════════════════════════════════════════════════════════
+
+class PortfolioImage(SQLModel, table=True):
     __tablename__ = "portfolio_images"
 
-    id         = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    project_id = Column(
-        UUID(as_uuid=True), ForeignKey("portfolio_projects.id", ondelete="CASCADE"),
-        nullable=False
+    id: uuid.UUID = Field(
+        default_factory=uuid.uuid4,
+        primary_key=True,
+        nullable=False,
     )
-    url        = Column(String(500), nullable=False)   # URL R2 lengkap
-    r2_key     = Column(String(300), nullable=False)   # key di bucket untuk delete
-    role       = Column(SAEnum(ImageRole), default=ImageRole.GALLERY, nullable=False)
-    alt_text   = Column(String(200), nullable=True)
-    sort_order = Column(Integer, default=0, nullable=False)
-    uploaded_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
-    project = relationship("PortfolioProject", back_populates="images")
+    project_id: uuid.UUID = Field(
+        foreign_key="portfolio_projects.id",
+        nullable=False,
+        ondelete="CASCADE",
+    )
+
+    url:    str = Field(max_length=500)   # full URL R2
+    r2_key: str = Field(max_length=300)   # key bucket untuk delete
+
+    role: ImageRole = Field(
+        default=ImageRole.GALLERY,
+        sa_column=Column(
+            SAEnum(ImageRole, name="imagerole", create_type=True),
+            nullable=False,
+            # Tidak pakai server_default — default dihandle Python
+        ),
+    )
+
+    alt_text:    Optional[str] = Field(default=None, max_length=200)
+    sort_order:  int           = Field(default=0, nullable=False)
+    uploaded_at: datetime      = Field(default_factory=datetime.utcnow, nullable=False)
+
+    # ── Relationships ────────────────────────────────────────────
+    project: Mapped[Optional["PortfolioProject"]] = Relationship(back_populates="images")
 
 
-# ── Portfolio Review ──────────────────────────────────────────────────────────
-class PortfolioReview(Base):
+# ══════════════════════════════════════════════════════════════════
+# PORTFOLIO REVIEW
+# ══════════════════════════════════════════════════════════════════
+
+class PortfolioReview(SQLModel, table=True):
     __tablename__ = "portfolio_reviews"
 
-    id         = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    project_id = Column(
-        UUID(as_uuid=True), ForeignKey("portfolio_projects.id", ondelete="SET NULL"),
-        nullable=True   # review global boleh tanpa project
+    id: uuid.UUID = Field(
+        default_factory=uuid.uuid4,
+        primary_key=True,
+        nullable=False,
     )
-    name       = Column(String(100), nullable=False)
-    role       = Column(String(100), nullable=True)   # "Pemilik Gudang", dll.
-    rating     = Column(Integer, nullable=False, default=5)  # 1–5
-    text       = Column(Text, nullable=False)
-    is_active  = Column(Boolean, default=True, nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
-    project = relationship("PortfolioProject", back_populates="reviews")
+    # Nullable — review boleh berdiri sendiri tanpa linked project
+    project_id: Optional[uuid.UUID] = Field(
+        default=None,
+        foreign_key="portfolio_projects.id",
+        nullable=True,
+        ondelete="SET NULL",
+    )
+
+    name:   str           = Field(max_length=100)
+    role:   Optional[str] = Field(default=None, max_length=100)  # "Pemilik Gudang"
+    rating: int           = Field(default=5, ge=1, le=5)
+    text:   str           = Field(sa_column=Column("text", Text, nullable=False))
+
+    is_active:  bool     = Field(default=True, nullable=False)
+    created_at: datetime = Field(default_factory=datetime.utcnow, nullable=False)
+
+    # ── Relationships ────────────────────────────────────────────
+    project: Mapped[Optional["PortfolioProject"]] = Relationship(back_populates="reviews")

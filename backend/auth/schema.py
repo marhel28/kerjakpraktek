@@ -64,3 +64,7 @@ class TokenResponse(BaseModel):
     token_type: str = "bearer"
     user: UserRead
     supabase: Optional[SupabaseSession] = None 
+
+class ChangePasswordRequest(BaseModel):
+    old_password: str
+    new_password: str = Field(..., min_length=6)

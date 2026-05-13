@@ -236,6 +236,7 @@ class StockService:
         sort_by: str = "newest",
         limit: int = 20,
         offset: int = 0,
+        session: Optional[AsyncSession] = None,
     ) -> Dict[str, Any]:
         safe_categories = [c for c in (categories or []) if c and c != "semua-kategori"]
 
@@ -388,6 +389,37 @@ class StockService:
 
         # Hitung total terjual dari semua item di halaman ini
         items = await self._parse_hits_admin(response["hits"]["hits"])
+
+        # Override stok and terjual with actual real-time DB data if session is available
+        if session and items:
+            from sqlalchemy import select
+            from .model import Stock
+            
+            item_uuids = [i["uuid"] for i in items]
+            stmt = select(Stock.uuid, Stock.stok, Stock.terjual).where(Stock.uuid.in_(item_uuids))
+            db_res = await session.execute(stmt)
+            real_data = {str(row[0]): {"stok": row[1], "terjual": row[2]} for row in db_res.all()}
+            
+            final_items = []
+            for item in items:
+                uid = str(item["uuid"])
+                if uid in real_data:
+                    item["stok"] = real_data[uid]["stok"]
+                    item["terjual"] = real_data[uid]["terjual"]
+                    item["sisa"] = max(item["stok"] - item["terjual"], 0)
+                    item["status_stok"] = "habis" if item["sisa"] <= 0 else "tersedia"
+                    final_items.append(item)
+                else:
+                    # 👻 GHOST ITEM DETECTED: Ada di ES tapi tidak ada di DB
+                    # Kita bersihkan ES secara async agar pencarian berikutnya bersih
+                    try:
+                        asyncio.create_task(es_client.delete(index="products", id=uid, ignore=[404]))
+                        logger.info(f"🧹 Auto-cleaned ghost item from ES: {uid}")
+                    except Exception:
+                        pass
+            
+            items = final_items
+
         total_terjual_page = sum(i["terjual"] for i in items)
 
         return {
@@ -485,14 +517,23 @@ class StockService:
         self, session: AsyncSession, data: "CouponCreateRequest"  # noqa: F821
     ) -> Coupon:
         from fastapi import HTTPException
-        existing = await session.exec(
-            select(Coupon).where(Coupon.code == data.code, Coupon.deleted_at == None)
-        )
-        if existing.first():
-            raise HTTPException(409, detail=f"Kupon '{data.code}' sudah ada")
+        # Cek kode - ambil semua (termasuk yang sudah soft-delete) karena unik di DB
+        stmt = select(Coupon).where(Coupon.code == data.code)
+        existing_res = await session.execute(stmt)
+        existing = existing_res.scalar_one_or_none()
+        
+        if existing:
+            if existing.deleted_at is None:
+                raise HTTPException(409, detail=f"Kupon '{data.code}' sudah ada dan aktif")
+            else:
+                # Jika sudah ada tapi terhapus, kita bisa "restore" atau hapus permanen dulu
+                # Untuk kemudahan, kita hapus permanen yang lama lalu buat baru
+                await session.delete(existing)
+                await session.flush()
 
         coupon = Coupon(
             code=data.code,
+            description=data.description,
             discount_type=data.discount_type,
             discount_value=data.discount_value,
             min_purchase=data.min_purchase,
@@ -509,6 +550,7 @@ class StockService:
         await cache_coupon(coupon.code, json.dumps({
             "uuid":           str(coupon.uuid),
             "code":           coupon.code,
+            "description":    coupon.description,
             "discount_type":  coupon.discount_type,
             "discount_value": coupon.discount_value,
             "min_purchase":   coupon.min_purchase,
@@ -590,14 +632,19 @@ class StockService:
         return {"message": f"Kupon '{code}' berhasil dihapus permanen"}
 
     # ══════════════════════════════════════════════════════════════
-    # 🎟️ COUPON VALIDATE — Redis-first
+    # 🎟️ COUPON VALIDATE — Redis-first & Atomic Aware
     # ══════════════════════════════════════════════════════════════
 
     async def validate_coupon(
         self, session: AsyncSession, code: str, cart_total: int
     ) -> Dict[str, Any]:
+        """
+        Validasi kupon dengan strategi Cache-First.
+        Cepat untuk frontend (checking) dan aman untuk backend (checkout).
+        """
         code = code.strip().upper()
 
+        # 1. Cek Cache Redis dulu
         cached_raw  = await get_cached_coupon(code)
         coupon_data: Optional[Dict] = None
         if cached_raw:
@@ -606,13 +653,17 @@ class StockService:
             except Exception:
                 coupon_data = None
 
+        # 2. Fallback ke DB jika cache miss
         if not coupon_data:
             coupon = await self.get_coupon_by_code(session, code)
             if not coupon:
                 return {"is_valid": False, "message": "Kode kupon tidak ditemukan."}
+            
+            # Sync ke cache
             coupon_data = {
                 "uuid":           str(coupon.uuid),
                 "code":           coupon.code,
+                "description":    coupon.description,
                 "discount_type":  coupon.discount_type,
                 "discount_value": coupon.discount_value,
                 "min_purchase":   coupon.min_purchase,
@@ -625,8 +676,10 @@ class StockService:
             }
             await cache_coupon(code, json.dumps(coupon_data))
 
+        # 3. Validasi Logika
         if not coupon_data.get("is_active"):
             return {"is_valid": False, "message": "Kupon sudah tidak aktif."}
+        
         if coupon_data["quota"] <= coupon_data["used_count"]:
             return {"is_valid": False, "message": "Kuota kupon sudah habis."}
 
@@ -635,16 +688,19 @@ class StockService:
             valid_from = datetime.fromisoformat(coupon_data["valid_from"])
             if now < valid_from:
                 return {"is_valid": False, "message": "Kupon belum bisa digunakan."}
+        
         if coupon_data.get("valid_until"):
             valid_until = datetime.fromisoformat(coupon_data["valid_until"])
             if now > valid_until:
                 return {"is_valid": False, "message": "Kupon sudah kadaluarsa."}
+        
         if cart_total < coupon_data["min_purchase"]:
             return {
                 "is_valid": False,
                 "message":  f"Minimal belanja Rp {coupon_data['min_purchase']:,} untuk kupon ini.",
             }
 
+        # 4. Hitung Diskon
         if coupon_data["discount_type"] == "percentage":
             calc     = int(cart_total * coupon_data["discount_value"] / 100)
             max_disc = coupon_data.get("max_discount")
@@ -653,22 +709,45 @@ class StockService:
             discount_amount = coupon_data["discount_value"]
 
         discount_amount = min(discount_amount, cart_total)
+        
         return {
             "is_valid": True,
             "data": {
                 "coupon_code":     coupon_data["code"],
+                "discount_type":   coupon_data["discount_type"],
+                "discount_value":  coupon_data["discount_value"],
                 "discount_amount": discount_amount,
                 "final_total":     cart_total - discount_amount,
             },
         }
 
-    async def use_coupon(self, session: AsyncSession, code: str) -> None:
-        coupon = await self.get_coupon_by_code(session, code)
-        if coupon:
-            coupon.used_count += 1
-            session.add(coupon)
-            await session.commit()
+    async def increment_coupon_usage(self, session: AsyncSession, code: str) -> bool:
+        """Atomic increment used_count kupon."""
+        code = code.strip().upper()
+        # Gunakan query UPDATE atomic untuk menghindari race condition
+        from sqlalchemy import update
+        stmt = (
+            update(Coupon)
+            .where(Coupon.code == code, Coupon.used_count < Coupon.quota, Coupon.is_active == True)
+            .values(used_count=Coupon.used_count + 1)
+        )
+        result = await session.execute(stmt)
+        if result.rowcount > 0:
             await invalidate_coupon_cache(code)
+            return True
+        return False
+
+    async def decrement_coupon_usage(self, session: AsyncSession, code: str) -> None:
+        """Kembalikan kuota kupon (jika transaksi batal/expire)."""
+        code = code.strip().upper()
+        from sqlalchemy import update
+        stmt = (
+            update(Coupon)
+            .where(Coupon.code == code, Coupon.used_count > 0)
+            .values(used_count=Coupon.used_count - 1)
+        )
+        await session.execute(stmt)
+        await invalidate_coupon_cache(code)
 
     # ══════════════════════════════════════════════════════════════
     # 🔍 PUBLIC SEARCH (tidak berubah)

@@ -101,7 +101,7 @@
                         Harga Final: Rp {{ calculatedPrice.toLocaleString('id-ID') }}
                     </span>
                 </div>
-                <div class="p-6 grid grid-cols-1 sm:grid-cols-3 gap-5">
+                <div class="p-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
                     <div>
                         <label class="block text-xs font-semibold text-gray-600 mb-1.5">Harga Asli (Rp) <span class="text-red-500">*</span></label>
                         <input v-model.number="form.original_price" type="number" min="0" placeholder="0"
@@ -120,6 +120,13 @@
                         <input v-model.number="form.stok" type="number" min="0" placeholder="1"
                             :class="['w-full px-4 py-2.5 text-sm border rounded-xl focus:outline-none focus:ring-2 transition-all font-mono', errors.stok ? 'border-red-300 focus:ring-red-500 bg-red-50/30' : 'border-gray-200 focus:ring-indigo-500 bg-gray-50 focus:bg-white']" />
                         <p v-if="errors.stok" class="text-xs text-red-500 mt-1.5">{{ errors.stok }}</p>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-600 mb-1.5">Berat (Gram) <span class="text-red-500">*</span></label>
+                        <input v-model.number="form.weight" type="number" min="1" placeholder="700"
+                            :class="['w-full px-4 py-2.5 text-sm border rounded-xl focus:outline-none focus:ring-2 transition-all font-mono', errors.weight ? 'border-red-300 focus:ring-red-500 bg-red-50/30' : 'border-gray-200 focus:ring-indigo-500 bg-gray-50 focus:bg-white']" />
+                        <p v-if="errors.weight" class="text-xs text-red-500 mt-1.5">{{ errors.weight }}</p>
                     </div>
                 </div>
             </div>
@@ -168,6 +175,39 @@
                                 </svg>
                             </button>
                         </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 5. Addon Resolution -->
+            <div class="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+                <div class="px-6 py-4 border-b border-gray-100 bg-gray-50/50">
+                    <h2 class="text-sm font-bold text-gray-800">Sistem Layanan Tambahan (Addons)</h2>
+                </div>
+                <div class="p-6">
+                    <div class="flex items-center justify-between gap-4 p-4 bg-gray-50 rounded-xl border border-gray-200">
+                        <div class="flex-1">
+                            <p class="text-sm font-bold text-gray-800 mb-1">Metode Resolusi Addon</p>
+                            <p class="text-xs text-gray-400">Pilih bagaimana sistem menentukan addon untuk produk ini.</p>
+                        </div>
+                        <div class="flex bg-white p-1 rounded-lg border border-gray-200">
+                            <button @click="form.addon_scope = 'inherit'" 
+                                :class="['px-4 py-1.5 text-xs font-bold rounded-md transition-all', form.addon_scope === 'inherit' ? 'bg-indigo-600 text-white shadow-sm' : 'text-gray-400 hover:text-gray-600']">
+                                Inherit
+                            </button>
+                            <button @click="form.addon_scope = 'custom'" 
+                                :class="['px-4 py-1.5 text-xs font-bold rounded-md transition-all', form.addon_scope === 'custom' ? 'bg-indigo-600 text-white shadow-sm' : 'text-gray-400 hover:text-gray-600']">
+                                Custom
+                            </button>
+                        </div>
+                    </div>
+                    <div class="mt-4 px-1">
+                        <p v-if="form.addon_scope === 'inherit'" class="text-[11px] text-indigo-500 font-medium italic">
+                            ✨ Mode Inherit: Produk akan menggunakan addon dari SubKategori atau Kategori (Default).
+                        </p>
+                        <p v-else class="text-[11px] text-amber-600 font-medium italic">
+                            ⚠️ Mode Custom: Produk akan menggunakan addon yang secara spesifik dipetakan ke produk ini. (Atur detail setelah simpan)
+                        </p>
                     </div>
                 </div>
             </div>
@@ -223,7 +263,9 @@ const form = reactive({
     discount_percentage: 0,
     online_price: 0,
     stok: 1,
-    specs: JSON.stringify({ garansi: '1 Tahun' }, null, 2)
+    weight: 700,
+    specs: JSON.stringify({ garansi: '1 Tahun' }, null, 2),
+    addon_scope: 'inherit'
 })
 
 // ── Computed & Watcher untuk Kalkulasi Harga Online ──
@@ -301,6 +343,7 @@ function validateForm() {
     if (!form.category_slug) e.category_slug = 'Kategori wajib dipilih'
     if (form.original_price <= 0) e.original_price = 'Harga harus lebih dari 0'
     if (form.stok < 0) e.stok = 'Stok tidak valid'
+    if (form.weight <= 0) e.weight = 'Berat harus lebih dari 0 gram'
 
     if (imageFiles.value.length > 4) e.images = 'Maksimal 4 gambar'
 

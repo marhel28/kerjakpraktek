@@ -59,12 +59,27 @@ const router = createRouter({
         {
           path:'/jasa/config',
           name:'jasa-configurasi',
-          component: () => import('@/views/jasa/configurasi.vue')
+          component: () => import('@/views/jasa/configurasi.vue'),
+        },
+        {
+          path:'/jasa/config-list',
+          name:'jasa-config-list',
+          component: () => import('@/views/jasa/config-list.vue')
+        },
+        {
+          path: '/jasa/technicians',
+          name: 'jasa-technicians',
+          component: () => import('@/views/jasa/technician-management.vue')
         },
         {
           path:'/transaksi/list',
           name:'transaksi-list',
           component: () => import('@/views/transaksi/index.vue')
+        },
+        {
+          path:'/transaksi/shipping',
+          name:'transaksi-shipping',
+          component: () => import('@/views/transaksi/shipping.vue')
         },
         {
           path:'/transaksi/:uuid',
@@ -84,7 +99,13 @@ const router = createRouter({
           path: '/stock/:uuid/edit',
           name:'stock-create',
           component: () => import('@/views/stock/edit.vue')
-        },{
+        },
+        {
+          path: '/addons',
+          name: 'addon-list',
+          component: () => import('@/views/addon/addon-list.vue')
+        },
+        {
           path:'/banner/main-bottom',
           name:'botom-banner',
           component:()=> import('@/views/main-bottom.vue')
@@ -93,6 +114,21 @@ const router = createRouter({
           path:'/promo',
           name:'promo-utama',
           component: ()=> import('@/views/promo/mainPromo.vue')
+        },
+        {
+          path:'/promo/coupon',
+          name:'coupon-list',
+          component: ()=> import('@/views/promo/coupon.vue')
+        },
+        {
+          path:'/about',
+          name:'about',
+          component: () => import('@/views/promo/about.vue')
+        },
+        {
+          path:'/portofolio',
+          name:'portofolio',
+          component: () => import('@/views/promo/portofolio.vue')
         },
         {
           path:'/promo/detail',
@@ -110,6 +146,11 @@ const router = createRouter({
               props: true
             }
           ]
+        },
+        {
+          path: '/settings/couriers',
+          name: 'settings-couriers',
+          component: () => import('@/views/settings/couriers.vue')
         }
       ]
       

@@ -7,8 +7,8 @@ from .service import UserService
 from .schema import (
     UserCreate, UserLogin, UserRead,
     UserProfileUpdate, EmailRequest,
-    ResetPasswordRequest, GoogleAuthRequest,
-    TokenResponse, SupabaseSession, SupabaseUserData,
+    ResetPasswordRequest, ChangePasswordRequest,
+    GoogleAuthRequest, TokenResponse, SupabaseSession, SupabaseUserData,
 )
 from .depedence import (
     AccessTokenBearer, RefreshTokenBearer,
@@ -282,6 +282,37 @@ async def reset_password(
     session: AsyncSession = Depends(get_session),
 ):
     return await user_service.reset_password(data, session)
+
+
+
+@user_router.post(
+    "/me/change-password",
+    summary="Ganti password (user yang sudah login)"
+)
+async def change_password(
+    data: ChangePasswordRequest,
+    current_user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+):
+    from .utility import verify_hash, generate_password_hash
+    from fastapi import HTTPException
+
+    if not current_user.password:
+        raise HTTPException(
+            status_code=400,
+            detail="Akun Google tidak memiliki password lokal. Gunakan Google untuk masuk."
+        )
+
+    if not verify_hash(data.old_password, current_user.password):
+        raise HTTPException(
+            status_code=400,
+            detail="Password lama salah"
+        )
+
+    current_user.password = generate_password_hash(data.new_password)
+    session.add(current_user)
+    await session.commit()
+    return {"message": "Password berhasil diubah"}
 
 
 # ══════════════════════════════════════════════════════════════════

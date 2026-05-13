@@ -33,6 +33,7 @@ async def _fetch_category_tree_from_db(session: AsyncSession):
             "icon": c.icon_name,
             "subcategories": [
                 {
+                    "id": str(s.uuid),
                     "name": s.name,
                     "slug": s.slug
                 }
@@ -47,6 +48,9 @@ async def _fetch_category_tree_from_db(session: AsyncSession):
 # CACHE ENGINE
 # =========================
 async def refresh_category_cache(session: AsyncSession, redis: Redis) -> bytes:
+    # 🔥 Pastikan session mengambil data terbaru dari DB (bypass identity map)
+    session.expire_all()
+    
     data = await _fetch_category_tree_from_db(session)
 
     json_bytes = orjson.dumps(
@@ -140,6 +144,30 @@ async def create_subcategory_service(
 async def delete_category_service(session: AsyncSession, uuid: UUID):
     cat = await session.get(Category, uuid)
     if not cat: return False
+
+    slug_to_cleanup = cat.slug
+
     await session.delete(cat)
     await session.commit()
-    return True
+
+    # 🔥 SYNC DELETION KE ELASTICSEARCH
+    try:
+        from backend.db.es_client import es_client
+        await es_client.delete_by_query(
+            index="products",
+            body={
+                "query": {
+                    "bool": {
+                        "should": [
+                            {"term": {"category_slug":         slug_to_cleanup}},
+                            {"term": {"category_slug.keyword": slug_to_cleanup}}
+                        ]
+                    }
+                }
+            },
+            wait_for_completion=False
+        )
+    except Exception:
+        pass
+
+    return True

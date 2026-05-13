@@ -23,6 +23,8 @@ from backend.user.cart.model import *
 from backend.data.jasa.model import *
 from backend.data.public.promobanner.model import *
 from backend.user.pesan.model import * 
+from backend.data.public.portofolio.model import *
+from backend.data.public.about.model import *
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.

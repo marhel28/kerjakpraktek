@@ -1,17 +1,15 @@
-// https://nuxt.com/docs/api/configuration/nuxt-config
 import tailwindcss from '@tailwindcss/vite'
 
 export default defineNuxtConfig({
 
   runtimeConfig: {
+    supabaseUrl: process.env.SUPABASE_URL,
+    supabaseKey: process.env.SUPABASE_ANON_KEY,
+    adminSupabaseId: process.env.NUXT_PUBLIC_ADMIN_SUPABASE_ID,
     public: {
-      apiBase: 'https://cctv-api.desa-sidomukti.com', 
-      // http://127.0.0.1:8000 untuk devlops
-      siteUrl: 'https://yourdomain.com',
-      googleClientId: '',
-      supabaseUrl: process.env.SUPABASE_URL,
-      supabaseKey: process.env.SUPABASE_ANON_KEY,
-      adminSupabaseId:   process.env.NUXT_PUBLIC_ADMIN_SUPABASE_ID,
+      apiBase: process.env.NUXT_PUBLIC_API_BASE ?? 'http://localhost:8000',
+      siteUrl: process.env.NUXT_PUBLIC_SITE_URL ?? 'http://localhost:3000',
+      googleClientId: process.env.NUXT_PUBLIC_GOOGLE_CLIENT_ID ?? '',
     }
   },
 
@@ -20,19 +18,49 @@ export default defineNuxtConfig({
   },
 
   compatibilityDate: '2025-07-15',
-  devtools: { enabled: true },
+  // devtools: { enabled: false }, // ✅ Matikan di production
 
   css: [
     'leaflet/dist/leaflet.css',
     '~/assets/main.css',
   ],
 
+  // ✅ Vercel: preset otomatis terdeteksi, tapi eksplisit lebih aman
+  nitro: {
+    preset: 'vercel',
+    storage: {
+      cache: {
+        driver: 'memory', // ✅ Vercel tidak punya persistent filesystem
+      },
+    },
+    // ✅ Vercel Edge/Serverless — pastikan bundle tidak terlalu besar
+    minify: true,
+  },
+
   vite: {
+    server: {
+      headers: {
+        'Cross-Origin-Opener-Policy': 'same-origin-allow-popups',
+        'Cross-Origin-Embedder-Policy': 'unsafe-none',
+      }
+    },
     plugins: [
       tailwindcss()
     ],
     optimizeDeps: {
       include: ['leaflet']
+    },
+    build: {
+      // ✅ Hindari chunk terlalu besar (Vercel limit ~50MB per function)
+      chunkSizeWarningLimit: 1000,
+      rollupOptions: {
+        output: {
+          manualChunks: {
+            leaflet: ['leaflet'],
+            vendor: ['@supabase/supabase-js'],
+          }
+        }
+      }
     }
   },
 
@@ -45,12 +73,14 @@ export default defineNuxtConfig({
     '@nuxtjs/leaflet',
     "@nuxtjs/supabase"
   ],
+
   supabase: {
     url: process.env.SUPABASE_URL,
     key: process.env.SUPABASE_ANON_KEY,
-    redirect: false,  // ← WAJIB false, kita pakai auth sistem sendiri
-    types: './app/types/database.types.ts', 
+    redirect: false,
+    types: 'app/types/database.types.ts',
   },
+
   app: {
     head: {
       link: [
@@ -61,23 +91,14 @@ export default defineNuxtConfig({
   },
 
   routeRules: {
-    '/': { isr: 60 },
-    // ── API cache ───────────────────────────────────────────────────
-    '/api/peritems':       { cache: { maxAge: 60,  staleMaxAge: 300  } },
-    '/api/recommendations':{ cache: { maxAge: 120, staleMaxAge: 600  } },
-    '/api/banner':         { cache: { maxAge: 60,  staleMaxAge: 300  } },
-    '/api/brands':         { cache: { maxAge: 30,  staleMaxAge: 120  } },
-    '/api/getpopular':     { cache: { maxAge: 300, staleMaxAge: 600  } },
+    // ✅ API cache — pakai memory driver (sudah dikonfigurasi di atas)
+    '/api/peritems':        { cache: { maxAge: 60,  staleMaxAge: 300 } },
+    '/api/recommendations': { cache: { maxAge: 120, staleMaxAge: 600 } },
+    '/api/banner':          { cache: { maxAge: 60,  staleMaxAge: 300 } },
+    '/api/brands':          { cache: { maxAge: 30,  staleMaxAge: 120 } },
+    '/api/getpopular':      { cache: { maxAge: 300, staleMaxAge: 600 } },
 
-    // ── ISR ─────────────────────────────────────────────────────────
-    '/product/**':  { isr: 60  },
-    '/category/**': { isr: 300 },
-    '/brands':      { isr: 30  },
-    '/brands/**':   { isr: 60  },
-
-    // ── Auth pages: COOP fix untuk Google GSI popup ─────────────────
-    // Tanpa header ini Google Sign-In popup tidak bisa
-    // postMessage balik ke parent window → error 400
+    // ✅ Auth pages: COOP fix untuk Google GSI popup
     '/login': {
       headers: {
         'Cross-Origin-Opener-Policy':   'same-origin-allow-popups',
@@ -90,7 +111,6 @@ export default defineNuxtConfig({
         'Cross-Origin-Embedder-Policy': 'unsafe-none',
       },
     },
-    // Jika ada halaman forgot-password / reset-password yang pakai Google
     '/forgot-password': {
       headers: {
         'Cross-Origin-Opener-Policy':   'same-origin-allow-popups',
@@ -117,6 +137,7 @@ export default defineNuxtConfig({
     },
     provider: 'ipx',
     quality: 80,
+    densities: [1, 2],
   },
 
   fonts: {
@@ -127,8 +148,16 @@ export default defineNuxtConfig({
   },
 
   build: {
-    transpile: [
-      'swiper'
-    ]
+    transpile: ['swiper']
+  },
+
+  vue: {
+    config: {
+      warnHandler() {}
+    },
+    compilerOptions: {
+      isCustomElement: (tag) => tag.startsWith('swiper-')
+    }
   }
+
 })

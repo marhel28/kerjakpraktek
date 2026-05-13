@@ -14,7 +14,8 @@ export default defineEventHandler(async (event) => {
 
   // 2. Base URL FastAPI (Sebaiknya gunakan runtimeConfig di nuxt.config.ts)
   // config.public.apiBase atau config.apiSecret
-  const backendUrl = 'http://127.0.0.1:8000/auth/user/auth/verify-email'
+  const config = useRuntimeConfig();
+  const backendUrl = `${config.public.apiBase}/auth/user/auth/verify-email`
 
   try {
     // 3. Tembak ke Backend FastAPI

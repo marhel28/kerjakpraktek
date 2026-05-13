@@ -2,7 +2,7 @@
 export default defineEventHandler(async (event) => {
     const method = event.node.req.method
     const config = useRuntimeConfig()
-    const backendUrl = config.apiBase || config.public.apiBase || 'http://localhost:8000'
+    const backendUrl =  config.public.apiBase || 'http://localhost:8000'
     
     // Ambil token dari cookie (yang di-set saat login)
     const token = getCookie(event, 'token')

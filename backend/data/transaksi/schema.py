@@ -12,9 +12,15 @@ from datetime import datetime
 # ============================================================
 # backend/data/transaksi/schema.py
 
+class CheckoutAddon(BaseModel):
+    addon_uuid: UUID
+    quantity: int = Field(ge=1, le=99)
+
+
 class CheckoutItem(BaseModel):
     stock_uuid: UUID
     quantity: int = Field(ge=1, le=999)
+    addons: Optional[list[CheckoutAddon]] = Field(default_factory=list)
 
 
 class CheckoutRequest(BaseModel):

@@ -37,9 +37,13 @@ from backend.data.public.promobanner.model import (
     PromoTransaction,
     PromoTransactionItem,
 )
+from backend.data.public.addon.model import AddonItem, ProductAddonOverride
 from backend.data.jasa.model import ServicePackage, ServiceBooking
+from backend.data.stock.service import StockService
+from backend.data.activity.service import ActivityService
 
 logger = logging.getLogger(__name__)
+stock_service = StockService()
 
 
 # ============================================================
@@ -111,13 +115,19 @@ async def _send_transaction_notification(
 
 
 async def _clear_cart_items(session, user_uuid, stock_uuids):
+    """Hapus item dari keranjang setelah checkout sukses."""
     try:
-        for stock_uuid in stock_uuids:
-            await session.exec(
-                delete(Cart)
-                .where(Cart.user_uuid == user_uuid)
-                .where(Cart.stock_uuid == stock_uuid)
-            )
+        if not stock_uuids:
+            return
+        
+        # Gunakan query DELETE yang lebih efisien (batch delete)
+        from sqlalchemy import delete
+        stmt = (
+            delete(Cart)
+            .where(Cart.user_uuid == user_uuid)
+            .where(Cart.stock_uuid.in_(stock_uuids))
+        )
+        await session.execute(stmt)
     except Exception as e:
         logger.error(f"Failed to clear cart items: {e}")
 
@@ -139,6 +149,62 @@ class TransactionService:
         if len(stock_uuids) != len(set(str(u) for u in stock_uuids)):
             raise ValueError("Terdapat produk duplikat dalam pesanan")
 
+        # ── 1.2. Validasi stok dan hitung berat dasar ─────────────
+        sorted_items = sorted(payload.items, key=lambda i: str(i.stock_uuid))
+        locked_stocks: dict[str, Stock] = {}
+        total_weight = 0
+
+        for item in sorted_items:
+            try:
+                result = await session.exec(
+                    select(Stock)
+                    .where(Stock.uuid == item.stock_uuid)
+                    .where(Stock.is_active == True)
+                    .with_for_update(nowait=True)
+                )
+                stock = result.one_or_none()
+            except OperationalError:
+                raise ValueError("Stok produk sedang diproses, coba lagi")
+            
+            if not stock:
+                raise ValueError(f"Produk {item.stock_uuid} tidak ditemukan atau tidak aktif")
+            if stock.stok < item.quantity:
+                raise ValueError(f"Stok '{stock.title}' tidak cukup. Tersedia: {stock.stok}")
+            
+            locked_stocks[str(item.stock_uuid)] = stock
+            total_weight += stock.weight * item.quantity
+
+        # ── 1.3. Ambil data Addon & Hitung tambahan berat ──────────
+        addon_data_map: dict = {}
+        from sqlalchemy import and_
+        for item in payload.items:
+            if not item.addons: continue
+            for a in item.addons:
+                addon_stmt = select(AddonItem).where(AddonItem.uuid == a.addon_uuid)
+                addon_res = await session.execute(addon_stmt)
+                addon_item = addon_res.scalar_one_or_none()
+                if not addon_item:
+                    raise ValueError(f"Addon {a.addon_uuid} tidak ditemukan")
+                
+                # Cek override harga/stok
+                ov_stmt = select(ProductAddonOverride).where(and_(
+                    ProductAddonOverride.product_uuid == item.stock_uuid,
+                    ProductAddonOverride.addon_item_uuid == addon_item.uuid
+                ))
+                ov_res = await session.execute(ov_stmt)
+                override = ov_res.scalar_one_or_none()
+                
+                final_price = override.override_price if override and override.override_price is not None else addon_item.price
+                
+                addon_data_map[str(a.addon_uuid)] = {
+                    "item": addon_item,
+                    "final_price": final_price,
+                    "name": addon_item.name,
+                    "weight": addon_item.weight
+                }
+                total_weight += addon_item.weight * a.quantity
+
+        # ── 1.4. Cek Ongkir dengan Berat Riil ──────────────────────
         addr_result = await session.exec(
             select(UserAddress)
             .where(UserAddress.uuid == payload.address_uuid)
@@ -148,10 +214,13 @@ class TransactionService:
         if not address:
             raise ValueError("Alamat tidak ditemukan atau bukan milik Anda")
 
+        # Minimal berat 100g
+        shipping_weight = max(total_weight, 100)
+
         ongkir_api = OngkirAPI(api_key=Config.SHIPPING_COST)
         ongkir_result = ongkir_api.cek_ongkir(
             destination=address.location_id,
-            weight=1000 * len(payload.items),
+            weight=shipping_weight,
             courier=payload.courier_name.lower(),
         )
         if isinstance(ongkir_result, dict) and "error" in ongkir_result:
@@ -166,44 +235,31 @@ class TransactionService:
         )
         shipping_cost = selected_courier.get("price", 0)
 
-        sorted_items = sorted(payload.items, key=lambda i: str(i.stock_uuid))
-        locked_stocks: dict[str, Stock] = {}
-        for item in sorted_items:
-            try:
-                result = await session.exec(
-                    select(Stock)
-                    .where(Stock.uuid == item.stock_uuid)
-                    .where(Stock.is_active == True)
-                    .with_for_update(nowait=True)
-                )
-                stock = result.one_or_none()
-            except OperationalError:
-                raise ValueError("Stok produk sedang diproses, coba lagi")
-            if not stock:
-                raise ValueError(f"Produk {item.stock_uuid} tidak ditemukan atau tidak aktif")
-            if stock.stok < item.quantity:
-                raise ValueError(f"Stok '{stock.title}' tidak cukup. Tersedia: {stock.stok}")
-            locked_stocks[str(item.stock_uuid)] = stock
-
-        items_subtotal = sum(
-            locked_stocks[str(item.stock_uuid)].online_price * item.quantity
-            for item in payload.items
-        )
+        items_subtotal = 0
+        for item in payload.items:
+            stock = locked_stocks[str(item.stock_uuid)]
+            item_total = stock.online_price * item.quantity
+            if item.addons:
+                for a in item.addons:
+                    item_total += addon_data_map[str(a.addon_uuid)]["final_price"] * a.quantity
+            items_subtotal += item_total
 
         discount_amount = 0
+        applied_coupon = None
         if payload.coupon_code:
-            coupon = await TransactionService._validate_coupon(
-                session=session, code=payload.coupon_code, subtotal=items_subtotal
+            v_res = await stock_service.validate_coupon(
+                session=session, code=payload.coupon_code, cart_total=items_subtotal
             )
-            if coupon:
-                if coupon.discount_type == "percentage":
-                    discount_amount = int(items_subtotal * coupon.discount_value / 100)
-                    if coupon.max_discount:
-                        discount_amount = min(discount_amount, coupon.max_discount)
-                else:
-                    discount_amount = coupon.discount_value
-                coupon.used_count += 1
-                session.add(coupon)
+            if not v_res["is_valid"]:
+                raise ValueError(v_res["message"])
+            
+            discount_amount = v_res["data"]["discount_amount"]
+            applied_coupon = v_res["data"]["coupon_code"]
+            
+            # Atomic use
+            used = await stock_service.increment_coupon_usage(session, applied_coupon)
+            if not used:
+                raise ValueError("Kuota kupon sudah habis saat checkout")
 
         gross_amount = max(items_subtotal - discount_amount, 0) + shipping_cost
 
@@ -220,6 +276,7 @@ class TransactionService:
             items_subtotal=items_subtotal,
             shipping_cost=shipping_cost,
             discount_amount=discount_amount,
+            coupon_code=applied_coupon,
             transaction_status="pending_payment",
         )
         session.add(transaction)
@@ -227,12 +284,24 @@ class TransactionService:
 
         for item in payload.items:
             stock = locked_stocks[str(item.stock_uuid)]
+            addon_snapshots = []
+            if item.addons:
+                for a in item.addons:
+                    ad = addon_data_map[str(a.addon_uuid)]
+                    addon_snapshots.append({
+                        "uuid": str(a.addon_uuid),
+                        "name": ad["name"],
+                        "price": ad["final_price"],
+                        "quantity": a.quantity
+                    })
+
             trx_item = TransactionItem(
                 transaction_id=transaction.uuid,
                 stock_id=stock.uuid,
                 quantity=item.quantity,
                 unit_price=stock.online_price,
                 subtotal=stock.online_price * item.quantity,
+                addons=addon_snapshots if addon_snapshots else None
             )
             session.add(trx_item)
 
@@ -262,6 +331,8 @@ class TransactionService:
                 items=payload.items,
                 locked_stocks=locked_stocks,
                 shipping_cost=shipping_cost,
+                addon_data_map=addon_data_map,
+                discount_amount=discount_amount
             )
         except Exception as e:
             logger.error(f"Midtrans error: {e}")
@@ -280,6 +351,20 @@ class TransactionService:
         session.add(transaction)
 
         await _clear_cart_items(session=session, user_uuid=user.uuid, stock_uuids=stock_uuids)
+        
+        # 📝 Log Activity
+        await ActivityService(session).log_activity(
+            activity_type="order",
+            title="🛒 Pesanan Baru",
+            description=f"Pesanan {order_id} dibuat oleh {user.username}",
+            reference_id=order_id,
+            user_id=user.uuid,
+            status="pending",
+            amount=int(gross_amount),
+            icon="i-heroicons-shopping-cart",
+            color="blue"
+        )
+        
         await session.commit()
 
         await _send_transaction_notification(
@@ -307,7 +392,7 @@ class TransactionService:
     # ----------------------------------------------------------
     @staticmethod
     async def _create_midtrans_snap(
-        order_id, gross_amount, user, items, locked_stocks, shipping_cost
+        order_id, gross_amount, user, items, locked_stocks, shipping_cost, addon_data_map=None, discount_amount=0
     ) -> dict:
         item_details = []
         for item in items:
@@ -318,8 +403,27 @@ class TransactionService:
                 "quantity": item.quantity,
                 "name": stock.title[:50],
             })
+            # Add addons as separate items for Midtrans transparency
+            if item.addons and addon_data_map:
+                for a in item.addons:
+                    ad = addon_data_map[str(a.addon_uuid)]
+                    item_details.append({
+                        "id": f"ADDON-{str(a.addon_uuid)[:8]}",
+                        "price": ad["final_price"],
+                        "quantity": a.quantity,
+                        "name": f"↳ {ad['name'][:45]}",
+                    })
+        
         if shipping_cost > 0:
             item_details.append({"id": "SHIPPING", "price": shipping_cost, "quantity": 1, "name": "Ongkos Kirim"})
+            
+        if discount_amount > 0:
+            item_details.append({
+                "id": "DISCOUNT",
+                "price": -int(discount_amount),
+                "quantity": 1,
+                "name": "Diskon / Kupon"
+            })
 
         payload = {
             "payment_type": "qris",
@@ -391,18 +495,50 @@ class TransactionService:
         for trx_item in trx.items:
             stock = stock_map.get(trx_item.stock_id)
             name = stock.title[:50] if stock else f"Produk {trx_item.stock_id}"
+            
+            # 1. Main product
             item_details.append({
                 "id": str(trx_item.stock_id),
                 "price": trx_item.unit_price,
                 "quantity": trx_item.quantity,
                 "name": name,
             })
+            
+            # 2. Addons if any
+            if trx_item.addons:
+                for a in trx_item.addons:
+                    item_details.append({
+                        "id": f"ADDON-{str(a['uuid'])[:8]}",
+                        "price": a["price"],
+                        "quantity": a["quantity"],
+                        "name": f"↳ {a['name'][:45]}",
+                    })
+
+        # 3. Shipping
         if trx.shipping_cost > 0:
-            item_details.append({"id": "SHIPPING", "price": trx.shipping_cost, "quantity": 1, "name": "Ongkos Kirim"})
+            item_details.append({
+                "id": "SHIPPING", 
+                "price": trx.shipping_cost, 
+                "quantity": 1, 
+                "name": "Ongkos Kirim"
+            })
+            
+        # 4. Discount (Coupon)
+        if trx.discount_amount > 0:
+            item_details.append({
+                "id": "DISCOUNT", 
+                "price": -int(trx.discount_amount), 
+                "quantity": 1, 
+                "name": "Diskon / Kupon"
+            })
+
+        # Gunakan suffix untuk Midtrans agar tidak "order_id already taken"
+        # tapi tetap simpan order_id asli di DB kita.
+        midtrans_order_id = f"{order_id}-R-{int(datetime.now().timestamp())}"
 
         payload = {
             "payment_type": "qris",
-            "transaction_details": {"order_id": order_id, "gross_amount": trx.gross_amount},
+            "transaction_details": {"order_id": midtrans_order_id, "gross_amount": trx.gross_amount},
             "item_details": item_details,
             "customer_details": {"first_name": user.username, "email": user.email},
             "qris": {"acquirer": "gopay"},
@@ -428,13 +564,17 @@ class TransactionService:
         await session.commit()
 
         return {
-            "order_id": order_id,
-            "trx_type": "regular",
-            "gross_amount": trx.gross_amount,
-            "snap_token": mt.get("token"),
-            "payment_url": mt.get("redirect_url"),
-            "expiry_time": mt.get("expiry_time"),
-            "transaction_status": trx.transaction_status,
+            "success": True,
+            "message": "Token pembayaran berhasil diperbarui",
+            "data": {
+                "order_id": order_id,
+                "trx_type": "regular",
+                "gross_amount": trx.gross_amount,
+                "snap_token": mt.get("token"),
+                "payment_url": mt.get("redirect_url"),
+                "expiry_time": mt.get("expiry_time"),
+                "transaction_status": trx.transaction_status,
+            }
         }
 
     @staticmethod
@@ -470,9 +610,11 @@ class TransactionService:
         if promo_trx.service_cost > 0:
             item_details.append({"id": "SERVICE_TRANSPORT", "price": promo_trx.service_cost, "quantity": 1, "name": "Biaya Transport Teknisi"})
 
+        midtrans_order_id = f"{order_id}-R-{int(datetime.now().timestamp())}"
+
         payload = {
             "payment_type": "qris",
-            "transaction_details": {"order_id": order_id, "gross_amount": promo_trx.gross_amount},
+            "transaction_details": {"order_id": midtrans_order_id, "gross_amount": promo_trx.gross_amount},
             "item_details": item_details,
             "customer_details": {"first_name": user.username, "email": user.email},
             "qris": {"acquirer": "gopay"},
@@ -497,13 +639,17 @@ class TransactionService:
         await session.commit()
 
         return {
-            "order_id": order_id,
-            "trx_type": "promo",
-            "gross_amount": promo_trx.gross_amount,
-            "snap_token": mt.get("token"),
-            "payment_url": mt.get("redirect_url"),
-            "expiry_time": mt.get("expiry_time"),
-            "transaction_status": promo_trx.transaction_status,
+            "success": True,
+            "message": "Token pembayaran promo berhasil diperbarui",
+            "data": {
+                "order_id": order_id,
+                "trx_type": "promo",
+                "gross_amount": promo_trx.gross_amount,
+                "snap_token": mt.get("token"),
+                "payment_url": mt.get("redirect_url"),
+                "expiry_time": mt.get("expiry_time"),
+                "transaction_status": promo_trx.transaction_status,
+            }
         }
 
     # ----------------------------------------------------------
@@ -580,6 +726,7 @@ class TransactionService:
                         "discount_value": 0,
                         "subtotal": item.subtotal,
                         "cover_image_url": cover,
+                        "addons": item.addons,
                     })
 
                 shipment = trx.shipment
@@ -742,10 +889,16 @@ class TransactionService:
                 })
 
         # ── 3. Sort gabungan by created_at ─────────────────────────
-        combined.sort(
-            key=lambda x: x["created_at"] or datetime.min.replace(tzinfo=timezone.utc),
-            reverse=(sort == "desc"),
-        )
+        def _get_sort_key(x):
+            val = x.get("created_at")
+            if not val:
+                return datetime.min.replace(tzinfo=timezone.utc)
+            # Pastikan aware untuk perbandingan
+            if val.tzinfo is None:
+                val = val.replace(tzinfo=timezone.utc)
+            return val
+
+        combined.sort(key=_get_sort_key, reverse=(sort == "desc"))
 
         # ── 4. Pagination ──────────────────────────────────────────
         total = len(combined)
@@ -753,11 +906,15 @@ class TransactionService:
         paginated = combined[offset : offset + limit]
 
         return {
-            "page": page,
-            "limit": limit,
-            "total": total,
-            "total_page": (total + limit - 1) // limit,
+            "success": True,
+            "message": "Riwayat transaksi berhasil diambil",
             "data": paginated,
+            "meta": {
+                "page": page,
+                "limit": limit,
+                "total": total,
+                "total_page": (total + limit - 1) // limit,
+            }
         }
 
     # ----------------------------------------------------------
@@ -765,13 +922,13 @@ class TransactionService:
     # ----------------------------------------------------------
     @staticmethod
     async def get_regular_transaction_detail(
-        *, session: AsyncSession, user_id: UUID, order_id: str
+        *, session: AsyncSession, user_id: Optional[UUID] = None, order_id: str
     ) -> dict:
-        result = await session.exec(
-            select(Transaction)
-            .options(selectinload(Transaction.shipment), selectinload(Transaction.items))
-            .where(Transaction.order_id == order_id, Transaction.user_id == user_id)
-        )
+        query = select(Transaction).options(selectinload(Transaction.shipment), selectinload(Transaction.items)).where(Transaction.order_id == order_id)
+        if user_id:
+            query = query.where(Transaction.user_id == user_id)
+        
+        result = await session.exec(query)
         trx = result.one_or_none()
         if not trx:
             raise HTTPException(404, "Transaksi tidak ditemukan")
@@ -801,40 +958,45 @@ class TransactionService:
                 "cover_image_url": cover,
                 "specs": stock.specs if stock else {},
                 "brand": stock.brand if stock else None,
+                "addons": item.addons,
             })
 
         shipment = trx.shipment
         return {
-            "trx_type": "regular",
-            "uuid": str(trx.uuid),
-            "order_id": trx.order_id,
-            "gross_amount": trx.gross_amount,
-            "items_subtotal": trx.items_subtotal,
-            "total_discount": trx.discount_amount,
-            "shipping_cost": trx.shipping_cost,
-            "service_cost": 0,
-            "transaction_status": trx.transaction_status,
-            "payment_type": trx.payment_type,
-            "transaction_time": trx.transaction_time,
-            "settlement_time": trx.settlement_time,
-            "created_at": trx.created_at,
-            "promo_name": None,
-            "promo_type": None,
-            "items": items_data,
-            "shipment": _format_shipment(shipment),
-            "booking": None,
-            "can_repay": trx.transaction_status not in FINAL_STATUSES,
-            "snap_token": (
-                trx.raw_response.get("token")
-                if trx.raw_response and trx.transaction_status not in FINAL_STATUSES
-                else None
-            ),
-            "payment_url": (
-                trx.raw_response.get("redirect_url")
-                if trx.raw_response and trx.transaction_status not in FINAL_STATUSES
-                else None
-            ),
-            "raw_response": trx.raw_response,
+            "success": True,
+            "message": "Detail transaksi berhasil diambil",
+            "data": {
+                "trx_type": "regular",
+                "uuid": str(trx.uuid),
+                "order_id": trx.order_id,
+                "gross_amount": trx.gross_amount,
+                "items_subtotal": trx.items_subtotal,
+                "total_discount": trx.discount_amount,
+                "shipping_cost": trx.shipping_cost,
+                "service_cost": 0,
+                "transaction_status": trx.transaction_status,
+                "payment_type": trx.payment_type,
+                "transaction_time": trx.transaction_time,
+                "settlement_time": trx.settlement_time,
+                "created_at": trx.created_at,
+                "promo_name": None,
+                "promo_type": None,
+                "items": items_data,
+                "shipment": _format_shipment(shipment),
+                "booking": None,
+                "can_repay": trx.transaction_status not in FINAL_STATUSES,
+                "snap_token": (
+                    trx.raw_response.get("token")
+                    if trx.raw_response and trx.transaction_status not in FINAL_STATUSES
+                    else None
+                ),
+                "payment_url": (
+                    trx.raw_response.get("redirect_url")
+                    if trx.raw_response and trx.transaction_status not in FINAL_STATUSES
+                    else None
+                ),
+                "raw_response": trx.raw_response,
+            }
         }
 
     # ----------------------------------------------------------
@@ -842,13 +1004,13 @@ class TransactionService:
     # ----------------------------------------------------------
     @staticmethod
     async def get_promo_transaction_detail(
-        *, session: AsyncSession, user_id: UUID, order_id: str
+        *, session: AsyncSession, user_id: Optional[UUID] = None, order_id: str
     ) -> dict:
-        result = await session.exec(
-            select(PromoTransaction)
-            .options(selectinload(PromoTransaction.items))
-            .where(PromoTransaction.order_id == order_id, PromoTransaction.user_id == user_id)
-        )
+        query = select(PromoTransaction).options(selectinload(PromoTransaction.items)).where(PromoTransaction.order_id == order_id)
+        if user_id:
+            query = query.where(PromoTransaction.user_id == user_id)
+            
+        result = await session.exec(query)
         pt = result.one_or_none()
         if not pt:
             raise HTTPException(404, "Transaksi promo tidak ditemukan")
@@ -914,39 +1076,187 @@ class TransactionService:
         snapshot = pt.promo_snapshot or {}
 
         return {
-            "trx_type": "promo",
-            "uuid": str(pt.uuid),
-            "order_id": pt.order_id,
-            "gross_amount": pt.gross_amount,
-            "items_subtotal_original": pt.items_subtotal_original,
-            "items_subtotal_discounted": pt.items_subtotal_discounted,
-            "total_discount": pt.total_discount,
-            "shipping_cost": pt.shipping_cost,
-            "service_cost": pt.service_cost,
-            "transaction_status": pt.transaction_status,
-            "payment_type": pt.payment_type,
-            "transaction_time": pt.transaction_time,
-            "settlement_time": pt.settlement_time,
-            "created_at": pt.created_at,
-            "promo_uuid": str(pt.promo_uuid),
-            "promo_name": snapshot.get("name"),
-            "promo_type": snapshot.get("promo_type"),
-            "promo_discount_value": snapshot.get("discount_value"),
-            "items": items_data,
-            "shipment": _format_shipment(shipment),
-            "booking": _format_booking(booking),
-            "can_repay": pt.transaction_status not in FINAL_STATUSES,
-            "snap_token": (
-                pt.raw_response.get("token")
-                if pt.raw_response and pt.transaction_status not in FINAL_STATUSES
-                else None
-            ),
-            "payment_url": (
-                pt.raw_response.get("redirect_url")
-                if pt.raw_response and pt.transaction_status not in FINAL_STATUSES
-                else None
-            ),
-            "raw_response": pt.raw_response,
+            "success": True,
+            "message": "Detail transaksi promo berhasil diambil",
+            "data": {
+                "trx_type": "promo",
+                "uuid": str(pt.uuid),
+                "order_id": pt.order_id,
+                "gross_amount": pt.gross_amount,
+                "items_subtotal_original": pt.items_subtotal_original,
+                "items_subtotal_discounted": pt.items_subtotal_discounted,
+                "total_discount": pt.total_discount,
+                "shipping_cost": pt.shipping_cost,
+                "service_cost": pt.service_cost,
+                "transaction_status": pt.transaction_status,
+                "payment_type": pt.payment_type,
+                "transaction_time": pt.transaction_time,
+                "settlement_time": pt.settlement_time,
+                "created_at": pt.created_at,
+                "promo_uuid": str(pt.promo_uuid),
+                "promo_name": snapshot.get("name"),
+                "promo_type": snapshot.get("promo_type"),
+                "promo_discount_value": snapshot.get("discount_value"),
+                "items": items_data,
+                "shipment": _format_shipment(shipment),
+                "booking": _format_booking(booking),
+                "can_repay": pt.transaction_status not in FINAL_STATUSES,
+                "snap_token": (
+                    pt.raw_response.get("token")
+                    if pt.raw_response and pt.transaction_status not in FINAL_STATUSES
+                    else None
+                ),
+                "payment_url": (
+                    pt.raw_response.get("redirect_url")
+                    if pt.raw_response and pt.transaction_status not in FINAL_STATUSES
+                    else None
+                ),
+                "raw_response": pt.raw_response,
+            }
+        }
+
+    # ----------------------------------------------------------
+    # GET DETAIL — ServiceBooking (BK-)
+    # ----------------------------------------------------------
+    @staticmethod
+    async def get_jasa_transaction_detail(
+        *, session: AsyncSession, user_id: Optional[UUID] = None, order_id: str
+    ) -> dict:
+        from backend.data.jasa.model import ServiceBooking, ServicePayment, ServicePackage
+        
+        # Cari booking berdasarkan booking_number atau order_id di payment
+        booking_number = order_id.split("-dp")[0].split("-lunas")[0]
+        
+        query = select(ServiceBooking).where(ServiceBooking.booking_number == booking_number).options(
+            selectinload(ServiceBooking.technician)
+        )
+        result = await session.exec(query)
+        booking = result.one_or_none()
+        
+        if not booking:
+            # Fallback cari via ServicePayment.order_id
+            pay_query = select(ServicePayment).where(ServicePayment.order_id == order_id)
+            pay_res = await session.exec(pay_query)
+            payment = pay_res.one_or_none()
+            if payment:
+                query = select(ServiceBooking).where(ServiceBooking.uuid == payment.booking_uuid)
+                if user_id: query = query.where(ServiceBooking.user_uuid == user_id)
+                query = query.options(selectinload(ServiceBooking.technician))
+                result = await session.exec(query)
+                booking = result.one_or_none()
+
+        if not booking:
+            raise HTTPException(404, "Data booking jasa tidak ditemukan")
+
+        # Ambil paket jika ada
+        package = None
+        if booking.package_uuid:
+            pkg_res = await session.exec(select(ServicePackage).where(ServicePackage.uuid == booking.package_uuid))
+            package = pkg_res.one_or_none()
+
+        # Ambil payment terakhir yang sukses atau pending
+        pay_query = select(ServicePayment).where(ServicePayment.booking_uuid == booking.uuid).order_by(ServicePayment.created_at.desc())
+        pay_res = await session.exec(pay_query)
+        payments = pay_res.all()
+        
+        latest_payment = payments[0] if payments else None
+
+        # Map ke format yang kompatibel dengan frontend order detail
+        items_data = [{
+            "item_type": "service_package" if booking.package_uuid else "custom_service",
+            "item_uuid": str(booking.package_uuid or booking.uuid),
+            "item_name": package.name if package else f"Layanan {booking.category}",
+            "original_price": booking.total_price,
+            "discount_value": 0,
+            "unit_price": booking.total_price,
+            "quantity": 1,
+            "subtotal": booking.total_price,
+            "cover_image_url": package.thumbnail_url if package else None,
+            "specs": {
+                "category": booking.category,
+                "camera": f"{booking.camera_count} Titik",
+                "brand": booking.brand,
+                "scheduled": str(booking.scheduled_date),
+                "slot": booking.time_slot
+            },
+            "brand": booking.brand,
+            "addons": [{"name": a, "quantity": 1, "price": 0} for a in (booking.addons or [])]
+        }]
+
+        # Mapping status booking ke status transaksi agar stepper frontend jalan
+        # Booking: pending, confirmed, dp_paid, progress, done, lunas, cancel
+        status_map = {
+            "pending": "pending",
+            "confirmed": "pending",
+            "dp_paid": "settlement",
+            "progress": "settlement",
+            "done": "settlement",
+            "lunas": "settlement",
+            "cancel": "cancel"
+        }
+
+        # Buat Timeline/History
+        timeline = []
+        timeline.append({"event": "Booking Dibuat", "timestamp": booking.created_at, "status": "done"})
+        
+        # DP Payment info
+        dp_payment = next((p for p in payments if p.payment_type == "dp" and p.status == "success"), None)
+        if dp_payment:
+            timeline.append({"event": "DP Berhasil Dibayar", "timestamp": dp_payment.paid_at, "status": "done"})
+        elif booking.status != "pending":
+            timeline.append({"event": "Menunggu Pembayaran DP", "timestamp": None, "status": "pending"})
+
+        # Pengerjaan
+        if booking.status in ["progress", "done", "lunas"]:
+            # Gunakan paid_at DP sebagai patokan mulai pengerjaan jika tidak ada field khusus
+            ts = dp_payment.paid_at if dp_payment else booking.updated_at
+            timeline.append({"event": "Teknisi Menuju Lokasi / Pengerjaan", "timestamp": ts, "status": "done"})
+            
+        if booking.status in ["done", "lunas"]:
+            # Gunakan updated_at booking sebagai pengerjaan selesai
+            timeline.append({"event": "Pekerjaan Selesai", "timestamp": booking.updated_at, "status": "done"})
+
+        lunas_payment = next((p for p in payments if p.payment_type == "lunas" and p.status == "success"), None)
+        if lunas_payment:
+            timeline.append({"event": "Pelunasan Berhasil", "timestamp": lunas_payment.paid_at, "status": "done"})
+        elif booking.status == "done":
+            timeline.append({"event": "Menunggu Pelunasan", "timestamp": None, "status": "pending"})
+
+        return {
+            "success": True,
+            "message": "Detail booking jasa berhasil diambil",
+            "data": {
+                "trx_type": "jasa",
+                "uuid": str(booking.uuid),
+                "order_id": booking.booking_number,
+                "gross_amount": booking.total_price,
+                "items_subtotal": booking.device_price + booking.service_price + booking.addon_price,
+                "total_discount": 0,
+                "shipping_cost": 0,
+                "service_cost": booking.transport_fee,
+                "transaction_status": status_map.get(booking.status, "pending"),
+                "payment_type": latest_payment.payment_method if latest_payment else "TRANSFER",
+                "transaction_time": booking.created_at,
+                "settlement_time": latest_payment.paid_at if latest_payment else None,
+                "created_at": booking.created_at,
+                "items": items_data,
+                "shipment": None,
+                "booking": _format_booking(booking),
+                "timeline": timeline,
+                "payments": [
+                    {
+                        "type": p.payment_type,
+                        "amount": p.gross_amount,
+                        "status": p.status,
+                        "paid_at": p.paid_at,
+                        "method": p.payment_method
+                    } for p in payments
+                ],
+                "can_repay": booking.status in ["confirmed", "done"],
+                "snap_token": latest_payment.payment_token if latest_payment and latest_payment.status == "pending" else None,
+                "payment_url": latest_payment.payment_url if latest_payment and latest_payment.status == "pending" else None,
+                "raw_response": latest_payment.midtrans_response if latest_payment else {},
+            }
         }
 
     # ----------------------------------------------------------
@@ -954,7 +1264,10 @@ class TransactionService:
     # ----------------------------------------------------------
     @staticmethod
     async def handle_webhook(*, session, payload: MidtransWebhookPayload) -> dict:
-        order_id = payload.order_id or ""
+        full_order_id = payload.order_id or ""
+        # Strip suffix -R- jika ada
+        order_id = full_order_id.split("-R-")[0]
+        
         if order_id.startswith("BK-"):
             from backend.data.jasa.service import PaymentService,MidtransService
             from backend.config import Config
@@ -982,8 +1295,10 @@ class TransactionService:
             ):
                 raise PermissionError("Invalid signature")
 
+        # Gunakan order_id yang sudah di-strip
+        order_id = payload.order_id.split("-R-")[0]
         trx_result = await session.exec(
-            select(Transaction).where(Transaction.order_id == payload.order_id)
+            select(Transaction).where(Transaction.order_id == order_id)
         )
         trx = trx_result.one_or_none()
         if not trx:
@@ -1027,6 +1342,19 @@ class TransactionService:
                     session.add(shipment)
                 notif_title = "✅ Pembayaran Berhasil"
                 notif_content = f"Pembayaran pesanan #{payload.order_id} dikonfirmasi."
+                
+                # 📝 Log Activity
+                await ActivityService(session).log_activity(
+                    activity_type="order",
+                    title="💰 Pembayaran Berhasil",
+                    description=f"Pembayaran {order_id} sebesar Rp{int(float(payload.gross_amount or 0)):,} telah diterima.",
+                    reference_id=order_id,
+                    user_id=trx.user_id,
+                    status="settlement",
+                    amount=int(float(payload.gross_amount or 0)),
+                    icon="i-heroicons-check-circle",
+                    color="green"
+                )
 
         elif payload.transaction_status in {"cancel", "deny", "expire"}:
             for trx_item in trx_items:
@@ -1045,6 +1373,15 @@ class TransactionService:
             )
             notif_title = f"❌ Pesanan {label.capitalize()}"
             notif_content = f"Pesanan #{payload.order_id} {label}."
+
+            # 🎟️ Reclaim Coupon Quota
+            if trx.coupon_code:
+                try:
+                    from backend.data.stock.service import StockService
+                    await StockService().decrement_coupon_usage(session, trx.coupon_code)
+                    logger.info(f"🎟️ Reclaimed coupon quota for {order_id}: {trx.coupon_code}")
+                except Exception as e:
+                    logger.error(f"❌ Failed to reclaim coupon {trx.coupon_code} for {order_id}: {e}")
 
         if notif_title and old_status != payload.transaction_status:
             await _send_transaction_notification(
@@ -1131,23 +1468,262 @@ class TransactionService:
     # ----------------------------------------------------------
     @staticmethod
     async def _validate_coupon(session, code, subtotal):
-        now = datetime.now(timezone.utc)
-        result = await session.exec(
-            select(Coupon)
-            .where(Coupon.code == code.upper())
-            .where(Coupon.is_active == True)
-            .where(Coupon.used_count < Coupon.quota)
-        )
-        coupon = result.one_or_none()
-        if not coupon:
-            raise ValueError("Kupon tidak valid atau sudah habis")
-        if coupon.valid_from and now < coupon.valid_from:
-            raise ValueError("Kupon belum berlaku")
-        if coupon.valid_until and now > coupon.valid_until:
-            raise ValueError("Kupon sudah kadaluarsa")
-        if subtotal < coupon.min_purchase:
-            raise ValueError(f"Minimal pembelian Rp{coupon.min_purchase:,} untuk kupon ini")
-        return coupon
+        # Mendelegasikan ke StockService agar logic & cache terpusat
+        res = await stock_service.validate_coupon(session, code, subtotal)
+        if not res["is_valid"]:
+            raise ValueError(res["message"])
+        
+        # Kembalikan objek dummy/minimal yang kompatibel jika masih ada bagian code lain yang butuh
+        from backend.data.stock.model import Coupon
+        result = await session.exec(select(Coupon).where(Coupon.code == code.upper()))
+        return result.first()
+
+    # ----------------------------------------------------------
+    # GENERATE INVOICE PDF
+    # ----------------------------------------------------------
+    @staticmethod
+    async def generate_invoice_pdf(*, session: AsyncSession, user_id: Optional[UUID], order_id: str):
+        """
+        Menghasilkan PDF invoice menggunakan xhtml2pdf.
+        """
+        import io
+        from jinja2 import Template
+        from xhtml2pdf import pisa
+
+        # 1. Ambil detail transaksi
+        if order_id.startswith("PROMO-"):
+            res = await TransactionService.get_promo_transaction_detail(
+                session=session, user_id=user_id, order_id=order_id
+            )
+        elif order_id.startswith("BK-"):
+            res = await TransactionService.get_jasa_transaction_detail(
+                session=session, user_id=user_id, order_id=order_id
+            )
+        else:
+            res = await TransactionService.get_regular_transaction_detail(
+                session=session, user_id=user_id, order_id=order_id
+            )
+        
+        detail = res.get("data")
+        if not detail:
+            raise Exception("Detail transaksi tidak ditemukan")
+
+        # 2. Persiapkan data untuk template
+        def fmt(v):
+            return f"Rp {v:,.0f}".replace(",", ".")
+
+        def fmt_dt(dt):
+            if not dt: return "Menunggu"
+            if isinstance(dt, str): return dt
+            return dt.strftime("%Y-%m-%d %H:%M")
+
+        # Transaction time handle
+        t_time = detail.get("transaction_time") or detail.get("created_at")
+        if isinstance(t_time, datetime):
+            t_time_str = t_time.strftime("%Y-%m-%d %H:%M")
+        elif isinstance(t_time, str):
+            t_time_str = t_time
+        else:
+            t_time_str = "-"
+
+        data = {
+            "order_id": detail["order_id"],
+            "transaction_status": str(detail["transaction_status"]).upper(),
+            "transaction_time": t_time_str,
+            "payment_type": (detail.get("payment_type") or "N/A").upper(),
+            "customer_name": (detail.get("shipment", {}).get("recipient_name") if detail.get("shipment") else (detail.get("booking", {}).get("contact_name") if detail.get("booking") else "Customer")),
+            "customer_phone": (detail.get("shipment", {}).get("recipient_phone") if detail.get("shipment") else (detail.get("booking", {}).get("contact_phone") if detail.get("booking") else "-")),
+            "shipping_address": (detail.get("shipment", {}).get("shipping_address") if detail.get("shipment") else (detail.get("booking", {}).get("address") if detail.get("booking") else "-")),
+            "items": detail.get("items", []),
+            "subtotal": detail.get("items_subtotal") or detail.get("items_subtotal_original", 0),
+            "shipping_cost": detail.get("shipping_cost", 0),
+            "service_cost": detail.get("service_cost", 0),
+            "discount_amount": detail.get("total_discount", 0),
+            "gross_amount": detail.get("gross_amount", 0),
+            "fmt": fmt,
+            "fmt_dt": fmt_dt,
+            "trx_type": detail.get("trx_type"),
+            "timeline": detail.get("timeline", []),
+            "booking": detail.get("booking"),
+            "now": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        }
+
+        # 3. Template HTML
+        html_template = """
+        <html>
+        <head>
+            <style>
+                @page { size: A4; margin: 1cm; }
+                body { font-family: Helvetica, Arial, sans-serif; font-size: 10pt; color: #333; }
+                .header { border-bottom: 2px solid #000; padding-bottom: 10px; margin-bottom: 20px; }
+                .brand { font-size: 24pt; font-weight: bold; }
+                .info-table { width: 100%; margin-bottom: 20px; }
+                .info-table td { vertical-align: top; width: 50%; }
+                .section-title { background: #f4f4f4; padding: 5px; font-weight: bold; margin-bottom: 10px; text-transform: uppercase; font-size: 9pt; }
+                .items-table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+                .items-table th { background: #000; color: #fff; padding: 8px; text-align: left; }
+                .items-table td { border-bottom: 1px solid #eee; padding: 8px; }
+                .text-right { text-align: right; }
+                .totals-table { width: 40%; margin-left: 60%; }
+                .total-row { font-weight: bold; font-size: 12pt; border-top: 2px solid #000; }
+                .footer { margin-top: 50px; font-size: 8pt; color: #999; text-align: center; }
+            </style>
+        </head>
+        <body>
+            <table class="info-table">
+                <tr>
+                    <td>
+                        <div class="brand">PasarCctv</div>
+                        <div style="font-size: 9pt; color: #666;">
+                            Solusi Keamanan Terpercaya<br>
+                            Jl. Raya Pajajaran No. 123, Bogor<br>
+                            0822-1882-8108 | pasarcctv.com
+                        </div>
+                    </td>
+                    <td class="text-right">
+                        <div style="font-size: 18pt; color: #666;">INVOICE</div>
+                        <div style="font-weight: bold;">#{{ order_id }}</div>
+                        <div>Status: {{ transaction_status }}</div>
+                    </td>
+                </tr>
+            </table>
+            <table class="info-table">
+                <tr>
+                    <td>
+                        <div class="section-title">Informasi Pelanggan</div>
+                        <strong>{{ customer_name }}</strong><br>
+                        Telp: {{ customer_phone }}<br>
+                        Alamat: {{ shipping_address }}
+                    </td>
+                    <td class="text-right">
+                        <div class="section-title">Waktu Transaksi</div>
+                        Dibuat: {{ transaction_time }}<br>
+                        Metode: {{ payment_type }}
+                        {% if booking %}
+                        <br><strong>Jadwal: {{ booking.scheduled_date }} ({{ booking.time_slot }})</strong>
+                        {% endif %}
+                    </td>
+                </tr>
+            </table>
+
+            {% if timeline and trx_type == 'jasa' %}
+            <div class="section-title">Riwayat Aktivitas & Pengerjaan</div>
+            <table class="items-table" style="font-size: 8pt; margin-bottom: 20px;">
+                <thead>
+                    <tr>
+                        <th style="width: 60%">Tahapan / Event</th>
+                        <th style="width: 40%">Waktu / Keterangan</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for t in timeline %}
+                    <tr>
+                        <td>{{ t.event }}</td>
+                        <td>{{ fmt_dt(t.timestamp) }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% endif %}
+
+            <div class="section-title">Rincian Layanan & Produk</div>
+            <table class="items-table">
+                <thead>
+                    <tr>
+                        <th>Deskripsi</th>
+                        <th class="text-right">Harga Satuan</th>
+                        <th class="text-right">Qty</th>
+                        <th class="text-right">Total</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in items %}
+                    <tr>
+                        <td>
+                            <strong>{{ item.item_name }}</strong>
+                            {% if item.brand %}<br><span style="font-size: 8pt; color: #666;">Brand: {{ item.brand }}</span>{% endif %}
+                            {% if item.addons %}<br>
+                                {% for ad in item.addons %}
+                                <span style="font-size: 8pt; color: #666;">&bull; {{ ad.name }} ({{ ad.quantity }}x)</span><br>
+                                {% endfor %}
+                            {% endif %}
+                        </td>
+                        <td class="text-right">{{ fmt(item.unit_price) }}</td>
+                        <td class="text-right">{{ item.quantity }}</td>
+                        <td class="text-right">{{ fmt(item.subtotal) }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+
+            <table class="totals-table">
+                <tr><td>Subtotal:</td><td class="text-right">{{ fmt(subtotal) }}</td></tr>
+                {% if shipping_cost > 0 %}<tr><td>Ongkir:</td><td class="text-right">{{ fmt(shipping_cost) }}</td></tr>{% endif %}
+                {% if service_cost > 0 %}<tr><td>Biaya Transport:</td><td class="text-right">{{ fmt(service_cost) }}</td></tr>{% endif %}
+                {% if discount_amount > 0 %}<tr><td>Diskon:</td><td class="text-right">-{{ fmt(discount_amount) }}</td></tr>{% endif %}
+                <tr class="total-row"><td>TOTAL:</td><td class="text-right">{{ fmt(gross_amount) }}</td></tr>
+            </table>
+
+            <div class="footer">
+                <p>Invoice ini adalah bukti pembayaran yang sah. Terima kasih telah mempercayakan keamanan Anda kepada PasarCctv.</p>
+                <p>Dicetak pada: {{ now }}</p>
+            </div>
+
+            {% if booking and booking.technician %}
+            <div style="pdf-page-break-before: always;"></div>
+            <div class="header">
+                <div class="brand">PasarCctv</div>
+                <div style="font-size: 14pt; color: #666; font-weight: bold; margin-top: 10px;">DETAIL PENUGASAN TEKNISI</div>
+            </div>
+
+            <table class="info-table" style="margin-top: 30px;">
+                <tr>
+                    <td style="width: 30%;">
+                        {% if booking.technician.picture_url %}
+                        <img src="{{ booking.technician.picture_url }}" style="width: 150px; height: 150px; border-radius: 10px; border: 1px solid #eee;">
+                        {% else %}
+                        <div style="width: 150px; height: 150px; background: #f9f9f9; border: 1px solid #eee; text-align: center; line-height: 150px; color: #ccc;">No Photo</div>
+                        {% endif %}
+                    </td>
+                    <td style="width: 70%; padding-left: 20px;">
+                        <div class="section-title">Informasi Teknisi</div>
+                        <div style="font-size: 16pt; font-weight: bold; color: #000;">{{ booking.technician.name }}</div>
+                        <div style="font-size: 11pt; color: #666; margin-bottom: 10px;">ID Pegawai: {{ booking.technician.id_employee }}</div>
+                        
+                        <div style="margin-top: 20px;">
+                            <strong>No. WhatsApp:</strong><br>
+                            {{ booking.technician.phone }}
+                        </div>
+
+                        <div style="margin-top: 20px;">
+                            <strong>Lokasi Pengerjaan:</strong><br>
+                            {{ booking.address }}
+                        </div>
+                    </td>
+                </tr>
+            </table>
+
+            <div class="section-title" style="margin-top: 40px;">Verifikasi Keamanan</div>
+            <div style="padding: 20px; border: 1px dashed #ccc; border-radius: 10px; text-align: center;">
+                <p style="margin-bottom: 20px;">Silakan scan QR Code pada aplikasi user atau cocokan ID Pegawai di atas dengan kartu tanda pengenal teknisi saat tiba di lokasi.</p>
+                <div style="font-size: 12pt; font-weight: bold; color: #333;">VERIFIED TECHNICIAN</div>
+                <div style="font-size: 9pt; color: #999;">#{{ booking.technician.id_employee }}-{{ order_id }}</div>
+            </div>
+
+            <div class="footer">
+                <p>PasarCctv — Keamanan Anda, Prioritas Kami.</p>
+            </div>
+            {% endif %}
+        </body>
+        </html>
+        """
+        template = Template(html_template)
+        rendered_html = template.render(**data)
+        result = io.BytesIO()
+        pdf = pisa.pisaDocument(io.BytesIO(rendered_html.encode("utf-8")), result)
+        if pdf.err: raise Exception("Gagal menghasilkan PDF")
+        result.seek(0)
+        return result
 
 
 # ============================================================
@@ -1172,6 +1748,16 @@ def _format_shipment(shipment) -> Optional[dict]:
 def _format_booking(booking) -> Optional[dict]:
     if not booking:
         return None
+    
+    tech_info = None
+    if booking.technician:
+        tech_info = {
+            "name": booking.technician.name,
+            "id_employee": booking.technician.id_employee,
+            "phone": booking.technician.phone,
+            "picture_url": booking.technician.picture_url
+        }
+
     return {
         "booking_number": booking.booking_number,
         "status": booking.status,
@@ -1182,4 +1768,5 @@ def _format_booking(booking) -> Optional[dict]:
         "city": booking.city,
         "contact_name": booking.contact_name,
         "contact_phone": booking.contact_phone,
+        "technician": tech_info
     }

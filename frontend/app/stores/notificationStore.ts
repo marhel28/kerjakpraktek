@@ -191,6 +191,23 @@ export const useNotificationStore = defineStore('notifications', () => {
         (payload: any) => {
           console.log('📨 [Store REALTIME] New notification:', payload.new.title)
           notifications.value.unshift(payload.new as Notification)
+          
+          // Trigger global toast
+          try {
+            const toast = useToast()
+            const targetUrl = payload.new.metadata?.url || payload.new.metadata?.action_url
+            
+            toast.add({
+              title: payload.new.title,
+              description: payload.new.content,
+              icon: 'i-heroicons-bell',
+              color: 'green',
+              timeout: 5000,
+              callback: targetUrl ? () => navigateTo(targetUrl) : undefined
+            })
+          } catch (e) {
+            console.error('Toast failed', e)
+          }
         }
       )
       .on(

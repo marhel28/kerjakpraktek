@@ -35,11 +35,24 @@ def find_location(
 # 💰 HITUNG ONGKIR
 # ==============================
 @router_ship.post("/ongkir")
-async def calculate_shipping(data: OngkirRequest):
+async def calculate_shipping(
+    data: OngkirRequest,
+    session: AsyncSession = Depends(get_session)
+):
+    # Ambil preferensi kurir dari admin
+    from backend.admin.adminSettings.service import AdminSettingService
+    prefs = await AdminSettingService.get_courier_preferences(session)
+    
+    # Filter kurir yang aktif (True)
+    active_couriers = [k for k, v in prefs.items() if v]
+    
+    # Jika tidak ada yang aktif, default ke jne
+    courier_str = ":".join(active_couriers) if active_couriers else "jne"
+    
     result = service_ship.cek_ongkir(
         destination=data.destination,
         weight=data.weight,
-        courier=data.courier,
+        courier=courier_str,
     )
 
     if isinstance(result, dict) and "error" in result:

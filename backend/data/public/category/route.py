@@ -88,7 +88,7 @@ async def delete_cat(
     # 🔥 instant invalidate (NO WAIT)
     await redis.delete(CAT_CACHE_KEY)
 
-    # rebuild async
+    # 🔥 Rebuild cache secara aman di background (menggunakan lock dan jeda sync)
     bg.add_task(refresh_category_cache_safe, redis)
 
     return {"status": "deleted"}

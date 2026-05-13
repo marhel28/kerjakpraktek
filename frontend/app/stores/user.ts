@@ -10,22 +10,26 @@ export const useUserStore = defineStore('user', {
   }),
 
   actions: {
-    // 1. GET: Fetch User Profile
     async fetchProfile() {
+      const config = useRuntimeConfig() // ✅ pindah ke sini
+
       this.isLoading = true
       this.error = null
-      
-      // Asumsi token disimpan di cookie 'auth_token'
-      const token = useCookie('token').value 
-      
+
+      const token = useCookie('token').value
+
       try {
-        const response = await $fetch('http://127.0.0.1:8000/auth/user/users/me', {
-          method: 'GET',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Accept': 'application/json'
+        const response = await $fetch(
+          `${config.public.apiBase}/auth/user/users/me`,
+          {
+            method: 'GET',
+            headers: {
+              Authorization: `Bearer ${token}`,
+              Accept: 'application/json',
+            },
           }
-        })
+        )
+
         this.profile = response
       } catch (err: any) {
         this.error = err.data?.message || 'Gagal memuat data pengguna'
@@ -35,24 +39,33 @@ export const useUserStore = defineStore('user', {
       }
     },
 
-    // 2. PUT: Update User Profile
     async updateProfile(payload: Record<string, any>) {
+      const config = useRuntimeConfig() // ✅
+
       this.isSaving = true
       this.error = null
+
       const token = useCookie('token').value
 
       try {
-        const response = await $fetch('http://127.0.0.1:8000/auth/user/users/me', { // Sesuaikan endpoint PUT Anda
-          method: 'PATCH',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Accept': 'application/json',
-          },
-          body: payload
-        })
-        
-        // Optimistic Update
-        this.profile = { ...this.profile, ...payload, waktu_update: new Date().toISOString() }
+        await $fetch(
+          `${config.public.apiBase}/auth/user/users/me`,
+          {
+            method: 'PATCH',
+            headers: {
+              Authorization: `Bearer ${token}`,
+              Accept: 'application/json',
+            },
+            body: payload,
+          }
+        )
+
+        this.profile = {
+          ...this.profile,
+          ...payload,
+          waktu_update: new Date().toISOString(),
+        }
+
         return true
       } catch (err: any) {
         this.error = err.data?.message || 'Gagal memperbarui profil'
@@ -62,27 +75,32 @@ export const useUserStore = defineStore('user', {
       }
     },
 
-    // 3. DELETE: Hapus Keterangan User (Reset/Delete)
     async deleteUserData() {
+      const config = useRuntimeConfig() // ✅
+
       this.isSaving = true
+
       const token = useCookie('auth_token').value
 
       try {
-        await $fetch('http://127.0.0.1:8000/auth/user/users/me', { // Sesuaikan endpoint DELETE Anda
-          method: 'DELETE',
-          headers: {
-            'Authorization': `Bearer ${token}`
+        await $fetch(
+          `${config.public.apiBase}/auth/user/users/me`,
+          {
+            method: 'DELETE',
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
           }
-        })
-        // Reset state
+        )
+
         this.profile = null
-        // Redirect ke login
-        navigateTo('/login')
+
+        await navigateTo('/login')
       } catch (err: any) {
         this.error = err.data?.message || 'Gagal menghapus data'
       } finally {
         this.isSaving = false
       }
-    }
-  }
+    },
+  },
 })

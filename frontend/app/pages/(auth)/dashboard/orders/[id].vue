@@ -1,489 +1,542 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted } from "vue";
 
-definePageMeta({ layout: 'public' })
+definePageMeta({ layout: "auth" });
 
 // ─── Midtrans Snap ────────────────────────────────────────
 useHead({
-  script: [
-    {
-      src: 'https://app.sandbox.midtrans.com/snap/snap.js',
-      'data-client-key': 'SB-Mid-client-pn3mYe4w4xeY6F0w',
-      async: true,
-    },
-  ],
-})
+  script: [{ src: "https://app.sandbox.midtrans.com/snap/snap.js", "data-client-key": "SB-Mid-client-pn3mYe4w4xeY6F0w", async: true }],
+});
 
-const route    = useRoute()
-const orderId  = route.params.id as string
+const route = useRoute();
+const orderId = route.params.id as string;
+const config = useRuntimeConfig();
+const API_BASE = `${config.public.apiBase}/transaksi`;
+const getToken = () => useCookie("token").value;
 
-const API_BASE = 'http://127.0.0.1:8000/transaksi'
-const getToken = () => useCookie('token').value
+const CATEGORY_LABELS: Record<string, string> = { 
+  installation: "Pemasangan Baru", 
+  maintenance: "Maintenance", 
+  consultation: "Cek Lokasi", 
+  troubleshoot: "Perbaikan" 
+};
 
 // ─── State ────────────────────────────────────────────────
-const order     = ref<any>(null)
-const isLoading = ref(true)
-const isRepaying = ref(false)
+const order = ref<any>(null);
+const isLoading = ref(true);
+const isRepaying = ref(false);
+const isDownloadingInvoice = ref(false);
 
-// ─── Fetch Detail ─────────────────────────────────────────
+const downloadInvoice = async () => {
+  if (isDownloadingInvoice.value) return;
+  isDownloadingInvoice.value = true;
+  try {
+    const response = await fetch(`${config.public.apiBase}/transaksi/invoice/${orderId}`, {
+      method: "GET",
+      headers: { Authorization: `Bearer ${getToken()}` },
+    });
+    
+    if (!response.ok) throw new Error("Gagal mengunduh invoice");
+    
+    const blob = await response.blob();
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.setAttribute("download", `Invoice-${orderId}.pdf`);
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.URL.revokeObjectURL(url);
+  } catch (err) {
+    alert("Gagal mengunduh invoice. Silakan coba lagi.");
+  } finally {
+    isDownloadingInvoice.value = false;
+  }
+};
+
 const fetchOrderDetail = async () => {
-  isLoading.value = true
+  isLoading.value = true;
   try {
     const response: any = await $fetch(`${API_BASE}/detail/${orderId}`, {
-      method: 'GET',
+      method: "GET",
       headers: { Authorization: `Bearer ${getToken()}` },
-    })
-    order.value = response
+    });
+    order.value = response.data || response;
   } catch (err: any) {
-    console.error('Gagal mengambil detail transaksi:', err)
-    order.value = null
+    order.value = null;
   } finally {
-    isLoading.value = false
+    isLoading.value = false;
   }
-}
+};
 
-onMounted(() => fetchOrderDetail())
+onMounted(() => fetchOrderDetail());
 
 // ─── Stepper Logic ────────────────────────────────────────
-/**
- * stepIndex:
- *  -1 = dibatalkan
- *   0 = pending (belum bayar)
- *   1 = processing (sudah bayar, dikemas)
- *   2 = shipped (dikirim)
- *   3 = completed / selesai
- */
-const stepIndex = computed<number>(() => {
-  if (!order.value) return 0
-  const tStatus = (order.value.transaction_status || '').toLowerCase()
-  const sStatus = (order.value.shipment?.delivery_status || '').toLowerCase()
-
-  if (['cancel', 'expire', 'deny'].includes(tStatus)) return -1
-  if (['pending', 'pending_payment'].includes(tStatus)) return 0
-
-  if (['settlement', 'success', 'capture'].includes(tStatus)) {
-    if (['delivered', 'completed'].includes(sStatus)) return 3
-    if (sStatus === 'shipped') return 2
-    return 1 // processing / PROCESSING / null
-  }
-  return 0
-})
-
 const steps = [
-  { id: 'created',    label: 'Pesanan Dibuat',  icon: 'M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z' },
-  { id: 'processing', label: 'Sedang Dikemas',  icon: 'M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4' },
-  { id: 'shipped',    label: 'Dikirim',          icon: 'M8 7h12m0 0l3 5v6H8m12-11V7m-5 5h5m-5 0v3m0-3l-3-5m-7 5v6H3V7h5m0 5h5m-5 0v3m0-3l-3-5' },
-  { id: 'completed',  label: 'Selesai',          icon: 'M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z' },
-]
+  { id: "created", label: "Dibuat", icon: "i-heroicons-shopping-cart" },
+  { id: "processing", label: "Diproses", icon: "i-heroicons-cube" },
+  { id: "shipped", label: "Dikirim", icon: "i-heroicons-truck" },
+  { id: "completed", label: "Selesai", icon: "i-heroicons-check-badge" },
+];
 
-// ─── Utilities ────────────────────────────────────────────
+const JASA_STEPS = [
+  { id: "pending", label: "Dibuat", icon: "i-heroicons-document-text" },
+  { id: "confirmed", label: "Konfirmasi", icon: "i-heroicons-user-group" },
+  { id: "dp_paid", label: "Bayar DP", icon: "i-heroicons-credit-card" },
+  { id: "progress", label: "Pengerjaan", icon: "i-heroicons-wrench" },
+  { id: "done", label: "Selesai", icon: "i-heroicons-check-badge" },
+];
+
+const stepIndex = computed<number>(() => {
+  if (!order.value) return 0;
+  
+  if (order.value.trx_type === 'jasa' && order.value.booking) {
+    const status = (order.value.booking.status || "").toLowerCase();
+    const sequence = ["pending", "confirmed", "dp_paid", "progress", "done", "lunas"];
+    if (status === 'cancel') return -1;
+    const idx = sequence.indexOf(status);
+    return idx > 4 ? 4 : idx;
+  }
+
+  const tStatus = (order.value.transaction_status || "").toLowerCase();
+  const sStatus = (order.value.shipment?.delivery_status || "").toLowerCase();
+  const hasWaybill = !!order.value.shipment?.waybill_number;
+
+  if (["cancel", "expire", "deny"].includes(tStatus)) return -1;
+  if (["pending", "pending_payment"].includes(tStatus)) return 0;
+  
+  if (["settlement", "success", "capture"].includes(tStatus)) {
+    if (["delivered", "completed"].includes(sStatus)) return 3;
+    if (sStatus === "shipped" || hasWaybill) return 2;
+    return 1;
+  }
+  return 0;
+});
+
 const formatRupiah = (angka: number) =>
-  new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(angka || 0)
+  new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", minimumFractionDigits: 0 }).format(angka || 0);
 
 const formatDate = (dateString: string | null | undefined) => {
-  if (!dateString) return '-'
-  const date = new Date(dateString)
-  return new Intl.DateTimeFormat('id-ID', {
-    day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit',
-  }).format(date)
-}
+  if (!dateString) return "-";
+  return new Intl.DateTimeFormat("id-ID", { day: "2-digit", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" }).format(new Date(dateString));
+};
 
-const isPromo    = computed(() => order.value?.trx_type === 'promo')
-const isPending  = computed(() => stepIndex.value === 0)
-const isCanceled = computed(() => stepIndex.value === -1)
-
-/** Label item name — handle reguler (item_name) & promo (item_name) */
-const getItemName = (item: any) => item.item_name || item.stock_title || '-'
-
-/** Cover image — field sama antara reguler & promo */
-const getItemCover = (item: any) => item.cover_image_url || null
-
-/** Progress bar width untuk stepper */
-const progressWidth = computed(() => {
-  if (stepIndex.value <= 0) return '0%'
-  return `${(stepIndex.value / (steps.length - 1)) * 80}%`
-})
-
-// ─── Repay via endpoint /repay/:orderId ───────────────────
-/**
- * Coba pakai snap_token yang sudah ada di order.
- * Jika tidak ada / sudah expire, call /repay dulu untuk dapat token baru.
- */
 const payOrder = async () => {
-  const existingToken = order.value?.snap_token || order.value?.raw_response?.token
-
-  if (existingToken) {
-    openSnap(existingToken)
-    return
-  }
-
-  // Tidak ada token → minta token baru via /repay
-  isRepaying.value = true
+  const existingToken = order.value?.snap_token || order.value?.raw_response?.token;
+  if (existingToken) { openSnap(existingToken); return; }
+  isRepaying.value = true;
   try {
-    const res: any = await $fetch(`${API_BASE}/repay/${orderId}`, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${getToken()}` },
-    })
-    if (res?.snap_token) {
-      openSnap(res.snap_token)
-    } else {
-      alert('Gagal mendapatkan token pembayaran. Silakan coba lagi.')
-    }
+    const res: any = await $fetch(`${API_BASE}/repay/${orderId}`, { method: "POST", headers: { Authorization: `Bearer ${getToken()}` } });
+    if (res?.success && res?.data?.snap_token) openSnap(res.data.snap_token);
+    else if (res?.snap_token) openSnap(res.snap_token);
   } catch (err: any) {
-    const msg = err?.data?.detail || 'Gagal memuat pembayaran. Silakan coba lagi.'
-    alert(msg)
-  } finally {
-    isRepaying.value = false
-  }
-}
+    alert(err?.data?.detail || "Gagal memuat pembayaran.");
+  } finally { isRepaying.value = false; }
+};
 
 const openSnap = (token: string) => {
-  const snapObj = (window as any).snap
-  if (!snapObj) {
-    alert('Modul pembayaran belum siap. Muat ulang halaman dan coba lagi.')
-    return
-  }
+  const snapObj = (window as any).snap;
+  if (!snapObj) return;
   snapObj.pay(token, {
-    onSuccess: () => { fetchOrderDetail() },
-    onPending: () => { fetchOrderDetail() },
-    onError:   () => { alert('Pembayaran gagal, silakan coba lagi.') },
-    onClose:   () => { /* user tutup popup */ },
-  })
-}
+    onSuccess: () => fetchOrderDetail(),
+    onPending: () => fetchOrderDetail(),
+    onError: () => alert("Pembayaran gagal."),
+  });
+};
 
-// ─── Booking Info (khusus promo dengan service) ───────────
-const hasBooking = computed(() => !!order.value?.booking)
+const getStatusBadge = () => {
+  const status = order.value?.transaction_status?.toLowerCase();
+  if (['pending', 'pending_payment'].includes(status)) return 'bg-amber-50 text-amber-600 border-amber-100';
+  if (['settlement', 'success', 'capture'].includes(status)) return 'bg-emerald-50 text-emerald-600 border-emerald-100';
+  if (['cancel', 'expire', 'deny'].includes(status)) return 'bg-red-50 text-red-600 border-red-100';
+  return 'bg-gray-50 text-gray-500 border-gray-100';
+};
 </script>
 
 <template>
-  <div class="min-h-screen bg-[#f3f4f5] py-8">
-    <div class="container mx-auto px-4 max-w-[1200px] flex flex-col lg:flex-row gap-6">
-
-      <AccountSidebar />
-
-      <main class="flex-1 w-full max-w-full overflow-hidden">
-
-        <!-- Back -->
-        <button
-          @click="$router.push('/dashboard/orders')"
-          class="flex items-center gap-2 text-gray-500 hover:text-[#03AC0E] font-semibold text-sm mb-6 transition-colors w-fit"
-        >
-          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
-          </svg>
-          KEMBALI KE DAFTAR TRANSAKSI
+  <div class="min-h-screen bg-white">
+    <!-- HEADER -->
+    <div class="px-8 py-4 border-b border-gray-200 flex items-center justify-between sticky top-0 bg-white z-10">
+      <div class="flex items-center gap-4">
+        <button @click="$router.back()" class="p-2 -ml-2 text-gray-400 hover:text-gray-900 transition-colors">
+          <UIcon name="i-heroicons-arrow-left" class="w-5 h-5" />
         </button>
+        <h1 class="text-base font-bold text-gray-900">Detail Transaksi</h1>
+      </div>
+      <div class="flex items-center gap-4">
+        <button 
+          v-if="order && ['settlement', 'success', 'capture'].includes(order.transaction_status?.toLowerCase())"
+          @click="downloadInvoice" 
+          :disabled="isDownloadingInvoice"
+          class="flex items-center gap-2 text-gray-600 font-bold text-sm hover:text-black transition-colors disabled:opacity-50"
+        >
+          <UIcon v-if="isDownloadingInvoice" name="i-heroicons-arrow-path" class="w-4 h-4 animate-spin" />
+          <UIcon v-else name="i-heroicons-document-arrow-down" class="w-4 h-4" />
+          {{ isDownloadingInvoice ? 'Generating...' : 'Cetak Invoice' }}
+        </button>
+        <div class="w-px h-4 bg-gray-200" v-if="order && ['settlement', 'success', 'capture'].includes(order.transaction_status?.toLowerCase())"></div>
+        <a v-if="order" :href="`https://wa.me/6282218828108?text=Bantuan Pesanan ${order.order_id}`" target="_blank" class="flex items-center gap-2 text-[#03AC0E] font-bold text-sm hover:underline">
+          <UIcon name="i-heroicons-chat-bubble-left-right" class="w-4 h-4" />
+          Tanya Kami
+        </a>
+      </div>
+    </div>
 
-        <!-- Skeleton -->
-        <div v-if="isLoading" class="space-y-6">
-          <div class="h-44 bg-white rounded-xl border border-gray-200 animate-pulse shadow-sm" />
-          <div class="h-64 bg-white rounded-xl border border-gray-200 animate-pulse shadow-sm" />
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div class="h-48 bg-white rounded-xl border border-gray-200 animate-pulse shadow-sm" />
-            <div class="h-48 bg-white rounded-xl border border-gray-200 animate-pulse shadow-sm" />
+    <div v-if="isLoading" class="p-8 max-w-5xl mx-auto space-y-6">
+      <div class="h-24 bg-gray-50 rounded-xl animate-pulse"></div>
+      <div class="h-64 bg-gray-50 rounded-xl animate-pulse"></div>
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div v-for="i in 3" :key="i" class="h-40 bg-gray-50 rounded-xl animate-pulse"></div>
+      </div>
+    </div>
+
+    <div v-else-if="!order" class="py-24 text-center max-w-md mx-auto px-8">
+      <div class="w-20 h-20 bg-gray-50 rounded-xl flex items-center justify-center text-gray-200 mx-auto mb-6">
+        <UIcon name="i-heroicons-shopping-cart" class="w-10 h-10" />
+      </div>
+      <h3 class="text-xl font-black text-gray-900 mb-2">Pesanan Tidak Ada</h3>
+      <p class="text-xs text-gray-400 font-bold uppercase tracking-widest leading-relaxed mb-8">
+        Kami tidak menemukan data pesanan dengan ID ini. Pastikan Anda masuk dengan akun yang benar.
+      </p>
+      <NuxtLink to="/dashboard/orders" class="inline-flex items-center gap-2 px-8 py-3 bg-gray-900 text-white text-xs font-black rounded-xl hover:bg-black transition-all">
+        Kembali ke Daftar
+      </NuxtLink>
+    </div>
+
+    <div v-else class="p-4 sm:p-8 space-y-6 max-w-5xl mx-auto">
+      
+      <!-- 1. HEADER SUMMARY -->
+      <div class="bg-white border border-gray-100 rounded-xl p-6 sm:p-8 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-6">
+        <div class="space-y-2">
+          <div class="flex items-center gap-3 flex-wrap">
+            <h2 class="text-xl font-black text-gray-900 font-mono tracking-tight">{{ order.order_id }}</h2>
+            <div :class="getStatusBadge()" class="px-3 py-1 rounded-xl text-[10px] font-black uppercase tracking-wider border">
+              {{ order.transaction_status }}
+            </div>
           </div>
+          <p class="text-xs text-gray-400 font-bold uppercase tracking-widest flex items-center gap-2">
+            <UIcon name="i-heroicons-calendar" class="w-4 h-4" />
+            Dipesan pada {{ formatDate(order.created_at) }}
+          </p>
         </div>
-
-        <!-- Not Found -->
-        <div v-else-if="!order" class="text-center py-20 bg-white rounded-xl border border-gray-200 shadow-sm">
-          <h3 class="text-xl font-bold text-gray-800">Transaksi tidak ditemukan</h3>
-          <p class="text-gray-500 text-sm mt-2 mb-6">Mungkin URL salah atau transaksi ini milik akun lain.</p>
-          <button
-            @click="$router.push('/dashboard/orders')"
-            class="px-6 py-2.5 bg-[#03AC0E] text-white font-bold rounded-lg hover:bg-[#028c0b] transition-colors"
+        
+        <div class="flex items-center gap-3">
+          <button v-if="['pending', 'pending_payment'].includes(order.transaction_status?.toLowerCase())" 
+            @click="payOrder" :disabled="isRepaying"
+            class="px-8 py-3 bg-[#03AC0E] text-white text-xs font-black rounded-xl hover:bg-[#028a0b] transition-all shadow-lg shadow-[#03AC0E]/20 flex items-center gap-2"
           >
-            Kembali ke Daftar Transaksi
+            <UIcon v-if="isRepaying" name="i-heroicons-arrow-path" class="w-4 h-4 animate-spin" />
+            Lanjutkan Pembayaran
           </button>
+          <a :href="`https://wa.me/6282218828108?text=Halo Admin, saya ingin bertanya tentang pesanan ${order.order_id}`" 
+             target="_blank"
+             class="p-3 bg-white border border-gray-200 text-gray-400 hover:text-[#03AC0E] hover:border-[#03AC0E] rounded-xl transition-all shadow-sm"
+          >
+            <UIcon name="i-heroicons-chat-bubble-left-right" class="w-5 h-5" />
+          </a>
+        </div>
+      </div>
+
+      <!-- 2. STEPPER -->
+      <section v-if="stepIndex >= 0" class="bg-white border border-gray-100 rounded-xl p-6 sm:p-8 overflow-x-auto no-scrollbar shadow-sm">
+        <div class="min-w-[600px] flex justify-between relative py-4">
+          <div class="absolute top-1/2 -translate-y-1/2 left-[5%] right-[5%] h-0.5 bg-gray-50"></div>
+          
+          <template v-if="order.trx_type === 'jasa'">
+            <div v-for="(step, i) in JASA_STEPS" :key="step.id" class="relative z-10 flex flex-col items-center gap-3 w-1/5">
+              <div :class="i <= stepIndex ? 'bg-[#03AC0E] text-white ring-4 ring-[#03AC0E]/10' : 'bg-white text-gray-200 border-gray-100 border'" class="w-12 h-12 rounded-full flex items-center justify-center transition-all shadow-sm">
+                <UIcon :name="step.icon" class="w-6 h-6" />
+              </div>
+              <span :class="i <= stepIndex ? 'text-gray-900 font-black' : 'text-gray-400 font-bold'" class="text-[10px] uppercase tracking-[0.1em] text-center px-2">{{ step.label }}</span>
+            </div>
+          </template>
+
+          <template v-else>
+            <div v-for="(step, i) in steps" :key="step.id" class="relative z-10 flex flex-col items-center gap-3 w-1/4">
+              <div :class="i <= stepIndex ? 'bg-[#03AC0E] text-white ring-4 ring-[#03AC0E]/10' : 'bg-white text-gray-200 border-gray-100 border'" class="w-12 h-12 rounded-full flex items-center justify-center transition-all shadow-sm">
+                <UIcon :name="step.icon" class="w-6 h-6" />
+              </div>
+              <span :class="i <= stepIndex ? 'text-gray-900 font-black' : 'text-gray-400 font-bold'" class="text-[10px] uppercase tracking-[0.1em] text-center px-2">{{ step.label }}</span>
+            </div>
+          </template>
+
+        </div>
+      </section>
+
+      <!-- 3. INFO GRID -->
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <!-- Payment Info -->
+        <div class="bg-white border border-gray-100 rounded-xl p-6 shadow-sm">
+          <div class="flex items-center gap-3 mb-6">
+            <div class="w-10 h-10 bg-emerald-50 rounded-xl flex items-center justify-center text-emerald-600">
+              <UIcon name="i-heroicons-credit-card" class="w-6 h-6" />
+            </div>
+            <div>
+              <h3 class="text-xs font-black text-gray-900 uppercase tracking-widest">Pembayaran</h3>
+              <p class="text-[10px] text-gray-400 font-bold uppercase tracking-tight">{{ order.payment_type || 'Metode Otomatis' }}</p>
+            </div>
+          </div>
+          <div class="space-y-4">
+            <div class="flex justify-between items-center">
+              <span class="text-[11px] text-gray-400 font-bold uppercase">Status</span>
+              <span :class="getStatusBadge()" class="px-2 py-0.5 rounded-lg text-[9px] font-black uppercase border">{{ order.transaction_status }}</span>
+            </div>
+            <div v-if="order.va_numbers?.[0]" class="flex justify-between items-center">
+              <span class="text-[11px] text-gray-400 font-bold uppercase">VA {{ order.va_numbers[0].bank }}</span>
+              <span class="text-xs font-mono font-black text-gray-900">{{ order.va_numbers[0].va_number }}</span>
+            </div>
+            <div v-if="order.payment_code" class="flex justify-between items-center">
+              <span class="text-[11px] text-gray-400 font-bold uppercase">Kode Bayar</span>
+              <span class="text-xs font-mono font-black text-gray-900">{{ order.payment_code }}</span>
+            </div>
+            <div class="flex justify-between items-center pt-3 border-t border-gray-50">
+              <span class="text-[11px] text-gray-400 font-bold uppercase">Waktu Bayar</span>
+              <span class="text-[11px] font-black text-gray-700">{{ order.settlement_time ? formatDate(order.settlement_time) : '-' }}</span>
+            </div>
+          </div>
         </div>
 
-        <!-- Detail -->
-        <div v-else class="space-y-5">
+        <!-- Shipping Info (Goods) -->
+        <div v-if="order.trx_type !== 'jasa'" class="bg-white border border-gray-100 rounded-xl p-6 shadow-sm">
+          <div class="flex items-center gap-3 mb-6">
+            <div class="w-10 h-10 bg-indigo-50 rounded-xl flex items-center justify-center text-indigo-600">
+              <UIcon name="i-heroicons-truck" class="w-6 h-6" />
+            </div>
+            <div>
+              <h3 class="text-xs font-black text-gray-900 uppercase tracking-widest">Pengiriman</h3>
+              <p class="text-[10px] text-gray-400 font-bold uppercase tracking-tight">{{ order.shipment?.courier_name || 'Reguler' }}</p>
+            </div>
+          </div>
+          <div class="space-y-4">
+            <div class="flex justify-between items-center">
+              <span class="text-[11px] text-gray-400 font-bold uppercase">Layanan</span>
+              <span class="text-[11px] font-black text-gray-900 uppercase">{{ order.shipment?.courier_service || '-' }}</span>
+            </div>
+            <div class="flex justify-between items-center">
+              <span class="text-[11px] text-gray-400 font-bold uppercase">No. Resi</span>
+              <span class="text-[11px] font-mono font-black text-[#03AC0E] uppercase">{{ order.shipment?.waybill_number || 'Proses' }}</span>
+            </div>
+            <div class="pt-3 border-t border-gray-50">
+              <span class="text-[11px] text-gray-400 font-bold uppercase block mb-1">Alamat</span>
+              <p class="text-[11px] font-black text-gray-900 leading-tight mb-0.5">{{ order.shipment?.recipient_name }}</p>
+              <p class="text-[10px] text-gray-500 leading-relaxed line-clamp-2">{{ order.shipment?.shipping_address }}</p>
+            </div>
+          </div>
+        </div>
 
-          <!-- ① Stepper Card -->
-          <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-6 sm:p-8">
-            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
-              <div>
-                <div class="flex items-center gap-2 flex-wrap">
-                  <h1 class="text-xl font-bold text-gray-900">Detail Transaksi</h1>
-                  <!-- Promo badge -->
-                  <span
-                    v-if="isPromo"
-                    class="text-xs font-bold px-2.5 py-1 rounded-full bg-purple-50 text-purple-600 border border-purple-200"
-                  >
-                    🏷 {{ order.promo_name || 'Transaksi Promo' }}
-                  </span>
-                </div>
-                <p class="text-sm text-gray-500 mt-1">
-                  No. Invoice:
-                  <span class="font-bold text-[#03AC0E]">{{ order.order_id }}</span>
-                </p>
-                <p class="text-xs text-gray-400 mt-0.5">Dibuat: {{ formatDate(order.created_at) }}</p>
-              </div>
+        <!-- Booking Info (Service) -->
+        <div v-if="order.trx_type === 'jasa' && order.booking" class="bg-white border border-gray-100 rounded-xl p-6 shadow-sm">
+          <div class="flex items-center gap-3 mb-6">
+            <div class="w-10 h-10 bg-indigo-50 rounded-xl flex items-center justify-center text-indigo-600">
+              <UIcon name="i-heroicons-wrench-screwdriver" class="w-6 h-6" />
+            </div>
+            <div>
+              <h3 class="text-xs font-black text-gray-900 uppercase tracking-widest">Informasi Kunjungan</h3>
+              <p class="text-[10px] text-gray-400 font-bold uppercase tracking-tight">{{ CATEGORY_LABELS[order.booking.category] || order.booking.category }}</p>
+            </div>
+          </div>
+          <div class="space-y-4">
+            <div class="flex justify-between items-center">
+              <span class="text-[11px] text-gray-400 font-bold uppercase">Jadwal</span>
+              <span class="text-[11px] font-black text-gray-900 uppercase">{{ formatDate(order.booking.scheduled_date) }}</span>
+            </div>
+            <div class="flex justify-between items-center">
+              <span class="text-[11px] text-gray-400 font-bold uppercase">Waktu</span>
+              <span class="text-[11px] font-black text-[#03AC0E] uppercase">{{ order.booking.time_slot }}</span>
+            </div>
+            <div class="pt-3 border-t border-gray-50">
+              <span class="text-[11px] text-gray-400 font-bold uppercase block mb-1">PIC & Lokasi</span>
+              <p class="text-[11px] font-black text-gray-900 leading-tight mb-0.5">{{ order.booking.contact_name }} ({{ order.booking.contact_phone }})</p>
+              <p class="text-[10px] text-gray-500 leading-relaxed line-clamp-2">{{ order.booking.address }}, {{ order.booking.city }}</p>
+            </div>
+          </div>
+        </div>
 
-              <!-- Canceled badge -->
-              <div v-if="isCanceled" class="px-4 py-2 bg-red-50 border border-red-200 text-red-600 font-bold rounded-lg text-sm">
-                Pesanan Dibatalkan
+        <!-- Technician & Verification (New) -->
+        <div v-if="order.trx_type === 'jasa' && order.booking?.technician" class="bg-white border border-gray-100 rounded-xl p-6 shadow-sm">
+          <div class="flex items-center gap-3 mb-6">
+            <div class="w-10 h-10 bg-blue-50 rounded-xl flex items-center justify-center text-blue-600">
+              <UIcon name="i-heroicons-identification" class="w-6 h-6" />
+            </div>
+            <div>
+              <h3 class="text-xs font-black text-gray-900 uppercase tracking-widest">Teknisi Bertugas</h3>
+              <p class="text-[10px] text-gray-400 font-bold uppercase tracking-tight">Padjajaran Tim</p>
+            </div>
+          </div>
+          <div class="flex items-center gap-4 mb-6">
+            <div class="w-16 h-16 rounded-xl bg-gray-50 border border-gray-100 overflow-hidden shrink-0">
+              <img v-if="order.booking.technician.picture_url" :src="order.booking.technician.picture_url" class="w-full h-full object-cover" />
+              <div v-else class="w-full h-full flex items-center justify-center text-gray-200">
+                <UIcon name="i-heroicons-user" class="w-8 h-8" />
               </div>
             </div>
-
-            <!-- Progress Stepper -->
-            <div v-if="!isCanceled" class="relative">
-              <!-- Track BG -->
-              <div class="absolute top-[28px] left-[10%] right-[10%] h-[3px] bg-gray-200 z-0" />
-              <!-- Track Active -->
-              <div
-                class="absolute top-[28px] left-[10%] h-[3px] bg-[#03AC0E] z-0 transition-all duration-700 ease-in-out"
-                :style="{ width: progressWidth }"
+            <div class="min-w-0">
+              <p class="text-sm font-black text-gray-900 truncate">{{ order.booking.technician.name }}</p>
+              <p class="text-[10px] font-mono font-bold text-gray-400 uppercase tracking-widest">{{ order.booking.technician.id_employee }}</p>
+              <a :href="`https://wa.me/${order.booking.technician.phone?.replace('+', '')}`" target="_blank" class="mt-1 flex items-center gap-1 text-[10px] font-black text-[#03AC0E] uppercase hover:underline">
+                <UIcon name="i-heroicons-phone" class="w-3 h-3" />
+                Hubungi WA
+              </a>
+            </div>
+          </div>
+          <div class="pt-4 border-t border-gray-100 flex flex-col items-center">
+            <div class="bg-gray-50 p-3 rounded-xl border border-gray-100 mb-2">
+              <img 
+                :src="`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${order.booking.technician.id_employee}+${order.order_id}`" 
+                alt="Verification QR"
+                class="w-24 h-24 mix-blend-multiply"
               />
-
-              <div class="relative z-10 flex justify-between">
-                <div
-                  v-for="(step, index) in steps"
-                  :key="step.id"
-                  class="flex flex-col items-center w-1/4"
-                >
-                  <div
-                    class="w-14 h-14 rounded-full border-4 flex items-center justify-center transition-colors duration-300"
-                    :class="[
-                      index <= stepIndex ? 'border-[#03AC0E] text-[#03AC0E] bg-green-50 shadow-sm' : 'border-gray-200 text-gray-300 bg-white',
-                      index === stepIndex ? 'shadow-md' : '',
-                    ]"
-                  >
-                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" :d="step.icon" />
-                    </svg>
-                  </div>
-                  <div class="mt-3 text-center">
-                    <p class="text-xs font-bold" :class="index <= stepIndex ? 'text-gray-900' : 'text-gray-400'">
-                      {{ step.label }}
-                    </p>
-                    <p v-if="index === 0" class="text-[10px] text-gray-400 mt-0.5">{{ formatDate(order.created_at) }}</p>
-                    <p v-if="index === 1 && stepIndex >= 1" class="text-[10px] text-gray-400 mt-0.5">{{ formatDate(order.transaction_time || order.settlement_time) }}</p>
-                    <p v-if="index === 2 && stepIndex >= 2" class="text-[10px] text-gray-400 mt-0.5">Dalam pengiriman</p>
-                    <p v-if="index === 3 && stepIndex >= 3" class="text-[10px] text-gray-400 mt-0.5">{{ formatDate(order.settlement_time) }}</p>
-                  </div>
-                </div>
-              </div>
             </div>
-
-            <!-- Canceled Detail -->
-            <div v-else class="mt-2 text-sm text-gray-500">
-              Status: <span class="font-semibold text-red-500 uppercase">{{ order.transaction_status }}</span>
-              <span v-if="order.payment_type"> · Metode: <span class="font-semibold">{{ order.payment_type }}</span></span>
-            </div>
+            <p class="text-[9px] text-center text-gray-400 font-bold uppercase tracking-[0.15em] leading-relaxed">
+              Scan untuk Verifikasi Teknisi<br/>Padjajaran CCTV Cimahi
+            </p>
           </div>
-
-          <!-- ② Produk -->
-          <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-6 sm:p-8">
-            <h2 class="text-base font-bold text-gray-900 mb-4">
-              {{ isPromo ? 'Item yang Dibeli' : 'Detail Produk' }}
-            </h2>
-
-            <div class="space-y-3">
-              <div
-                v-for="(item, idx) in order.items"
-                :key="idx"
-                class="flex items-start gap-4 p-4 border border-gray-100 rounded-xl bg-gray-50/50"
-              >
-                <!-- Cover -->
-                <div class="w-16 h-16 flex-shrink-0 rounded-lg overflow-hidden border border-gray-100 bg-white">
-                  <NuxtImg
-                    v-if="getItemCover(item)"
-                    :src="getItemCover(item)!"
-                    class="w-full h-full object-cover"
-                    alt="Item"
-                  />
-                  <div v-else class="w-full h-full flex items-center justify-center">
-                    <svg class="w-7 h-7 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14M14 8h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
-                    </svg>
-                  </div>
-                </div>
-
-                <!-- Info -->
-                <div class="flex-1 min-w-0">
-                  <h3 class="font-bold text-gray-900 text-sm line-clamp-2">{{ getItemName(item) }}</h3>
-                  <p class="text-xs text-gray-500 mt-0.5">{{ item.quantity }} × {{ formatRupiah(item.unit_price) }}</p>
-
-                  <!-- Promo: tampilkan harga asli + diskon -->
-                  <template v-if="isPromo && item.discount_value > 0">
-                    <p class="text-xs text-gray-400 line-through mt-0.5">{{ formatRupiah(item.original_price) }}</p>
-                    <span class="inline-block mt-1 text-[10px] font-bold px-1.5 py-0.5 bg-purple-50 text-purple-600 rounded border border-purple-100">
-                      Hemat {{ formatRupiah(item.discount_value * item.quantity) }}
-                    </span>
-                  </template>
-
-                  <!-- Tipe item (produk / paket) -->
-                  <span
-                    v-if="item.item_type && item.item_type !== 'stock'"
-                    class="inline-block mt-1 text-[10px] font-semibold px-1.5 py-0.5 bg-indigo-50 text-indigo-600 rounded border border-indigo-100 ml-1"
-                  >
-                    {{ item.item_type }}
-                  </span>
-                </div>
-
-                <!-- Subtotal -->
-                <div class="text-right flex-shrink-0">
-                  <p class="text-xs text-gray-400 mb-0.5">Subtotal</p>
-                  <p class="font-bold text-gray-900 text-sm">{{ formatRupiah(item.subtotal) }}</p>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- ③ Pengiriman + Pembayaran -->
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
-
-            <!-- Pengiriman -->
-            <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-6 sm:p-7">
-              <h2 class="text-base font-bold text-gray-900 mb-4 border-b border-gray-100 pb-3">Info Pengiriman</h2>
-              <div class="space-y-3 text-sm">
-                <div class="flex justify-between gap-2">
-                  <span class="text-gray-500 flex-shrink-0">Kurir</span>
-                  <span class="font-bold text-gray-900 uppercase text-right">
-                    {{ order.shipment?.courier_name || '-' }} {{ order.shipment?.courier_service || '' }}
-                  </span>
-                </div>
-                <div class="flex justify-between gap-2">
-                  <span class="text-gray-500 flex-shrink-0">ETD</span>
-                  <span class="font-semibold text-gray-900 text-right">{{ order.shipment?.etd || '-' }}</span>
-                </div>
-                <div class="flex justify-between gap-2">
-                  <span class="text-gray-500 flex-shrink-0">No. Resi</span>
-                  <span class="font-bold text-right" :class="order.shipment?.waybill_number ? 'text-[#03AC0E]' : 'text-gray-400'">
-                    {{ order.shipment?.waybill_number || 'Menunggu Resi' }}
-                  </span>
-                </div>
-                <div class="pt-2 border-t border-gray-100">
-                  <p class="text-gray-500 mb-1">Alamat Pengiriman</p>
-                  <p class="font-bold text-gray-900">
-                    {{ order.shipment?.recipient_name }}
-                    <span class="font-normal text-gray-500 ml-1 text-xs">{{ order.shipment?.recipient_phone }}</span>
-                  </p>
-                  <p class="text-gray-600 mt-1 text-xs leading-relaxed">{{ order.shipment?.shipping_address || '-' }}</p>
-                </div>
-              </div>
-            </div>
-
-            <!-- Pembayaran -->
-            <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-6 sm:p-7 flex flex-col">
-              <h2 class="text-base font-bold text-gray-900 mb-4 border-b border-gray-100 pb-3">Rincian Pembayaran</h2>
-
-              <div class="space-y-2.5 text-sm flex-1">
-                <div class="flex justify-between">
-                  <span class="text-gray-500">Status</span>
-                  <span class="font-bold uppercase text-right"
-                    :class="isPending ? 'text-amber-500' : isCanceled ? 'text-red-500' : 'text-[#03AC0E]'"
-                  >
-                    {{ order.transaction_status }}
-                  </span>
-                </div>
-                <div class="flex justify-between">
-                  <span class="text-gray-500">Metode</span>
-                  <span class="font-bold text-gray-900 uppercase text-right">{{ order.payment_type || 'Belum Dipilih' }}</span>
-                </div>
-
-                <!-- Harga item -->
-                <div class="flex justify-between">
-                  <span class="text-gray-500">Subtotal Barang</span>
-                  <span class="font-medium text-gray-900">
-                    {{ formatRupiah(order.items_subtotal || order.items_subtotal_original || 0) }}
-                  </span>
-                </div>
-
-                <!-- Diskon promo -->
-                <div v-if="(order.total_discount || 0) > 0" class="flex justify-between text-purple-600">
-                  <span>Diskon{{ isPromo ? ' Promo' : '' }}</span>
-                  <span class="font-medium">- {{ formatRupiah(order.total_discount) }}</span>
-                </div>
-
-                <!-- Diskon kupon (reguler) -->
-                <div v-if="!isPromo && (order.discount_amount || 0) > 0" class="flex justify-between text-[#03AC0E]">
-                  <span>Diskon Kupon</span>
-                  <span class="font-medium">- {{ formatRupiah(order.discount_amount) }}</span>
-                </div>
-
-                <!-- Ongkir -->
-                <div class="flex justify-between">
-                  <span class="text-gray-500">Ongkos Kirim</span>
-                  <span class="font-medium text-gray-900">{{ formatRupiah(order.shipping_cost || 0) }}</span>
-                </div>
-
-                <!-- Biaya transport teknisi (promo service) -->
-                <div v-if="(order.service_cost || 0) > 0" class="flex justify-between">
-                  <span class="text-gray-500">Biaya Transport Teknisi</span>
-                  <span class="font-medium text-gray-900">{{ formatRupiah(order.service_cost) }}</span>
-                </div>
-
-                <!-- Total -->
-                <div class="flex justify-between items-center pt-3 border-t border-gray-100 mt-2">
-                  <span class="font-bold text-gray-900">Total Belanja</span>
-                  <span class="font-bold text-[#03AC0E] text-lg">{{ formatRupiah(order.gross_amount) }}</span>
-                </div>
-              </div>
-
-              <!-- CTA Bayar -->
-              <div v-if="isPending" class="mt-5 pt-4 border-t border-gray-100">
-                <button
-                  @click="payOrder"
-                  :disabled="isRepaying"
-                  class="w-full bg-[#03AC0E] hover:bg-[#028c0b] disabled:bg-gray-400 text-white font-bold py-3 rounded-xl transition-all shadow-sm flex items-center justify-center gap-2 text-sm"
-                >
-                  <svg v-if="!isRepaying" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"/>
-                  </svg>
-                  <svg v-else class="w-5 h-5 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
-                  </svg>
-                  {{ isRepaying ? 'Memuat Pembayaran...' : 'Lanjutkan Pembayaran' }}
-                </button>
-              </div>
-            </div>
-          </div>
-
-          <!-- ④ Booking Info (Promo Service) -->
-          <div v-if="hasBooking" class="bg-white rounded-xl border border-gray-200 shadow-sm p-6 sm:p-8">
-            <h2 class="text-base font-bold text-gray-900 mb-4 border-b border-gray-100 pb-3">
-              🔧 Info Jadwal Teknisi
-            </h2>
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
-              <div class="flex justify-between gap-2">
-                <span class="text-gray-500">No. Booking</span>
-                <span class="font-bold text-gray-900 font-mono">{{ order.booking.booking_number }}</span>
-              </div>
-              <div class="flex justify-between gap-2">
-                <span class="text-gray-500">Status Booking</span>
-                <span class="font-bold capitalize" :class="order.booking.status === 'confirmed' ? 'text-[#03AC0E]' : 'text-amber-500'">
-                  {{ order.booking.status }}
-                </span>
-              </div>
-              <div class="flex justify-between gap-2">
-                <span class="text-gray-500">Tanggal</span>
-                <span class="font-semibold text-gray-900">{{ order.booking.scheduled_date || '-' }}</span>
-              </div>
-              <div class="flex justify-between gap-2">
-                <span class="text-gray-500">Waktu</span>
-                <span class="font-semibold text-gray-900">{{ order.booking.time_slot || '-' }}</span>
-              </div>
-              <div class="sm:col-span-2 flex justify-between gap-2">
-                <span class="text-gray-500">Nama / HP</span>
-                <span class="font-semibold text-gray-900 text-right">
-                  {{ order.booking.contact_name }} · {{ order.booking.contact_phone }}
-                </span>
-              </div>
-              <div class="sm:col-span-2 flex justify-between gap-2">
-                <span class="text-gray-500 flex-shrink-0">Alamat</span>
-                <span class="font-semibold text-gray-900 text-right text-xs leading-relaxed">
-                  {{ [order.booking.address, order.booking.district, order.booking.city].filter(Boolean).join(', ') }}
-                </span>
-              </div>
-            </div>
-          </div>
-
         </div>
-        <!-- /detail -->
 
-      </main>
+        <!-- Order Summary -->
+        <div class="bg-white border border-gray-100 rounded-xl p-6 shadow-sm lg:col-span-1 md:col-span-2">
+          <div class="flex items-center gap-3 mb-6">
+            <div class="w-10 h-10 bg-amber-50 rounded-xl flex items-center justify-center text-amber-600">
+              <UIcon name="i-heroicons-receipt-percent" class="w-6 h-6" />
+            </div>
+            <div>
+              <h3 class="text-xs font-black text-gray-900 uppercase tracking-widest">Ringkasan</h3>
+              <p class="text-[10px] text-gray-400 font-bold uppercase tracking-tight">Final Kalkulasi</p>
+            </div>
+          </div>
+          <div class="space-y-3">
+            <div class="flex justify-between text-[11px] font-bold">
+              <span class="text-gray-400 uppercase">Subtotal</span>
+              <span class="text-gray-900">{{ formatRupiah(order.items_subtotal) }}</span>
+            </div>
+            <div v-if="order.total_discount > 0" class="flex justify-between text-[11px] font-bold">
+              <span class="text-emerald-600 uppercase">Promo</span>
+              <span class="text-emerald-600">- {{ formatRupiah(order.total_discount) }}</span>
+            </div>
+            <div class="flex justify-between text-[11px] font-bold">
+              <span class="text-gray-400 uppercase">Ongkir</span>
+              <span class="text-gray-900">{{ formatRupiah(order.shipping_cost) }}</span>
+            </div>
+            <div v-if="order.service_cost > 0" class="flex justify-between text-[11px] font-bold">
+              <span class="text-gray-400 uppercase">Layanan</span>
+              <span class="text-gray-900">{{ formatRupiah(order.service_cost) }}</span>
+            </div>
+            <div class="pt-4 mt-2 border-t border-gray-100 flex justify-between items-center">
+              <span class="text-xs font-black text-gray-900 uppercase tracking-widest">Total</span>
+              <span class="text-xl font-black text-[#03AC0E] tracking-tighter">{{ formatRupiah(order.gross_amount) }}</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Payment History (For Jasa) -->
+        <div v-if="order.trx_type === 'jasa' && order.payments?.length" class="bg-white border border-gray-100 rounded-xl p-6 shadow-sm md:col-span-2 lg:col-span-1">
+          <div class="flex items-center gap-3 mb-6">
+            <div class="w-10 h-10 bg-emerald-50 rounded-xl flex items-center justify-center text-emerald-600">
+              <UIcon name="i-heroicons-banknotes" class="w-6 h-6" />
+            </div>
+            <div>
+              <h3 class="text-xs font-black text-gray-900 uppercase tracking-widest">Riwayat Bayar</h3>
+              <p class="text-[10px] text-gray-400 font-bold uppercase tracking-tight">Status Pembayaran</p>
+            </div>
+          </div>
+          <div class="space-y-4">
+            <div v-for="pay in order.payments" :key="pay.type" class="p-3 bg-gray-50 rounded-lg border border-gray-100">
+              <div class="flex justify-between items-start mb-1">
+                <span class="text-[10px] font-black text-gray-900 uppercase">{{ pay.type === 'dp' ? 'DP 50%' : 'Pelunasan' }}</span>
+                <span :class="pay.status === 'success' ? 'bg-emerald-100 text-emerald-600' : 'bg-amber-100 text-amber-600'" class="px-2 py-0.5 rounded text-[8px] font-black uppercase">
+                  {{ pay.status }}
+                </span>
+              </div>
+              <p class="text-[11px] font-black text-gray-900">{{ formatRupiah(pay.amount) }}</p>
+              <p v-if="pay.paid_at" class="text-[9px] text-gray-400 font-bold mt-1 uppercase">{{ formatDate(pay.paid_at) }} • {{ pay.method || 'Midtrans' }}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 4. TIMELINE -->
+      <section v-if="order.timeline?.length" class="bg-white border border-gray-100 rounded-xl p-8 shadow-sm">
+        <h3 class="text-xs font-black text-gray-900 uppercase tracking-widest mb-8 flex items-center gap-2">
+          <UIcon name="i-heroicons-clock" class="w-5 h-5 text-[#03AC0E]" />
+          Riwayat Aktivitas
+        </h3>
+        <div class="relative pl-8 space-y-8">
+          <div class="absolute left-[11px] top-2 bottom-2 w-0.5 bg-gray-100"></div>
+          <div v-for="(log, i) in order.timeline" :key="i" class="relative">
+            <div :class="log.status === 'done' ? 'bg-[#03AC0E]' : 'bg-gray-200'" class="absolute -left-8 top-1 w-2.5 h-2.5 rounded-full border-4 border-white ring-2 ring-gray-50 z-10"></div>
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
+              <p :class="log.status === 'done' ? 'text-gray-900 font-black' : 'text-gray-400 font-bold'" class="text-sm tracking-tight">{{ log.event }}</p>
+              <span v-if="log.timestamp" class="text-[10px] text-gray-400 font-bold uppercase">{{ formatDate(log.timestamp) }}</span>
+              <span v-else class="text-[10px] text-gray-300 font-bold uppercase italic tracking-widest">Menunggu</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 4. ITEM LIST -->
+      <section class="bg-white border border-gray-100 rounded-xl overflow-hidden shadow-sm">
+        <div class="px-8 py-6 border-b border-gray-50 bg-gray-50/30 flex items-center justify-between">
+          <div class="flex items-center gap-3">
+            <div class="w-8 h-8 bg-black rounded-xl flex items-center justify-center text-white">
+              <UIcon name="i-heroicons-shopping-bag" class="w-5 h-5" />
+            </div>
+            <h3 class="text-sm font-black text-gray-900 uppercase tracking-widest">Produk yang Dibeli</h3>
+          </div>
+          <span class="text-[10px] font-black text-gray-400 uppercase tracking-widest">{{ order.items?.length || 0 }} Item</span>
+        </div>
+        <div class="divide-y divide-gray-50">
+          <div v-for="(item, idx) in order.items" :key="idx" class="p-8 flex flex-col sm:flex-row items-start gap-8 hover:bg-gray-50/50 transition-all group">
+            <div class="w-24 h-24 bg-white rounded-xl overflow-hidden border border-gray-100 shrink-0 shadow-sm p-2">
+              <NuxtImg v-if="item.cover_image_url" :src="item.cover_image_url" class="w-full h-full object-contain group-hover:scale-110 transition-transform duration-500" />
+              <div v-else class="w-full h-full flex items-center justify-center"><UIcon name="i-heroicons-photo" class="w-10 h-10 text-gray-200" /></div>
+            </div>
+            <div class="flex-1 min-w-0 space-y-3">
+              <div>
+                <h4 class="text-base font-black text-gray-900 tracking-tight mb-1">{{ item.item_name || item.stock_title || '-' }}</h4>
+                <div class="flex items-center gap-4 text-[11px] font-bold text-gray-400 uppercase tracking-widest">
+                  <span>{{ item.brand || 'No Brand' }}</span>
+                  <span class="w-1 h-1 bg-gray-200 rounded-full"></span>
+                  <span>{{ item.quantity }} Barang</span>
+                  <span class="w-1 h-1 bg-gray-200 rounded-full"></span>
+                  <span class="text-gray-900">{{ formatRupiah(item.unit_price) }}</span>
+                </div>
+              </div>
+              
+              <!-- Specs Chips -->
+              <div v-if="item.specs && Object.keys(item.specs).length > 0" class="flex flex-wrap gap-2">
+                <span v-for="(val, key) in item.specs" :key="key" class="px-2 py-0.5 bg-gray-100 text-[9px] font-black text-gray-500 rounded uppercase tracking-widest border border-gray-200/50">
+                  {{ key.replace('_', ' ') }}: {{ val }}
+                </span>
+              </div>
+
+              <!-- Addons List -->
+              <div v-if="item.addons?.length" class="bg-emerald-50/50 rounded-xl border border-emerald-100/50 p-4 space-y-2">
+                <p class="text-[9px] font-black text-emerald-700 uppercase tracking-[0.2em] mb-2 flex items-center gap-2">
+                  <UIcon name="i-heroicons-sparkles" class="w-3.5 h-3.5" />
+                  Layanan Tambahan
+                </p>
+                <div v-for="addon in item.addons" :key="addon.uuid" class="flex items-center justify-between">
+                  <div class="flex items-center gap-2">
+                    <span class="w-1 h-1 bg-emerald-400 rounded-full"></span>
+                    <span class="text-[11px] text-emerald-800 font-bold">{{ addon.name }} (x{{ addon.quantity }})</span>
+                  </div>
+                  <span class="text-[11px] font-black text-emerald-600">{{ formatRupiah(addon.price * addon.quantity) }}</span>
+                </div>
+              </div>
+            </div>
+            <div class="w-full sm:w-auto sm:text-right pt-4 sm:pt-0 border-t sm:border-0 border-gray-50">
+              <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Subtotal Item</p>
+              <p class="text-lg font-black text-gray-900 tracking-tighter">{{ formatRupiah(item.subtotal) }}</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
     </div>
   </div>
 </template>
+
+<style scoped>
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+</style>

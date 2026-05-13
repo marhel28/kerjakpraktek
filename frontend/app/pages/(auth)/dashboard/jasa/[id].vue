@@ -1,709 +1,251 @@
-<template>
-  <div
-    class="min-h-screen bg-[#F3F4F5] font-[Plus_Jakarta_Sans,sans-serif] pb-24 md:pb-12 text-gray-800"
-  >
-    <Head>
-      <link rel="preconnect" href="https://fonts.googleapis.com" />
-      <link
-        href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap"
-        rel="stylesheet"
-      />
-      <title>{{ booking?.booking_number ?? "Detail Transaksi" }} — Padjajaran CCTV</title>
-    </Head>
-
-    <div class="bg-white border-b border-gray-200 sticky top-0 z-40 shadow-sm">
-      <div class="max-w-5xl mx-auto px-4 h-14 flex items-center justify-between">
-        <div class="flex items-center gap-3">
-          <NuxtLink
-            to="/dashboard/jasa"
-            class="p-2 -ml-2 hover:bg-gray-100 rounded-full transition-colors text-gray-600"
-          >
-            <Icon name="lucide:arrow-left" class="text-xl" />
-          </NuxtLink>
-          <h1 class="font-bold text-lg text-gray-900 tracking-tight">Detail Transaksi</h1>
-        </div>
-        <NuxtLink
-          to="/dashboard/jasa"
-          class="text-sm font-semibold text-[#00AA5B] hover:text-[#008c4a]"
-        >
-          Daftar Booking
-        </NuxtLink>
-      </div>
-    </div>
-
-    <div v-if="pending" class="max-w-5xl mx-auto px-4 py-6 space-y-4">
-      <div class="h-32 bg-white animate-pulse rounded-xl" />
-      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div class="lg:col-span-2 space-y-4">
-          <div class="h-64 bg-white animate-pulse rounded-xl" />
-          <div class="h-48 bg-white animate-pulse rounded-xl" />
-        </div>
-        <div class="h-96 bg-white animate-pulse rounded-xl" />
-      </div>
-    </div>
-
-    <div v-else-if="error" class="max-w-xl mx-auto px-4 py-24 text-center">
-      <Icon name="lucide:search-x" class="text-6xl text-gray-300 mb-4 mx-auto" />
-      <h2 class="text-xl font-bold text-gray-900 mb-2">Transaksi Tidak Ditemukan</h2>
-      <p class="text-sm text-gray-500 mb-6">
-        Pastikan link atau ID transaksi yang Anda masukkan benar.
-      </p>
-      <NuxtLink
-        to="/dashboard/jasa"
-        class="px-6 py-2.5 bg-[#00AA5B] text-white rounded-lg font-bold hover:bg-[#008c4a] transition-colors"
-      >
-        Kembali ke Daftar Transaksi
-      </NuxtLink>
-    </div>
-
-    <div v-else-if="booking" class="max-w-5xl mx-auto px-4 sm:px-6 py-6">
-      <div
-        class="bg-white p-4 sm:p-6 rounded-xl shadow-[0_1px_6px_rgba(0,0,0,0.05)] border border-gray-100 mb-6"
-      >
-        <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div>
-            <p class="text-xs font-semibold text-gray-500 mb-1">
-              Nomor Invoice •
-              <span class="font-mono text-[#00AA5B]">{{ booking.booking_number }}</span>
-            </p>
-            <div class="flex items-center gap-3">
-              <h2 class="text-2xl font-extrabold text-gray-900">
-                {{ statusStyle.label }}
-              </h2>
-              <span
-                :class="[
-                  'px-2.5 py-1 rounded-md text-[11px] font-bold uppercase tracking-wider',
-                  statusStyle.badge,
-                ]"
-              >
-                {{ booking.status }}
-              </span>
-            </div>
-            <p class="text-xs text-gray-400 mt-2">
-              Tanggal Pembelian: {{ formatDateTime(booking.created_at) }}
-            </p>
-          </div>
-
-          <a
-            :href="`https://wa.me/6282218828108?text=Halo Admin Padjajaran CCTV, saya butuh bantuan untuk transaksi ${booking.booking_number}`"
-            target="_blank"
-            class="inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-white border border-gray-300 rounded-lg text-sm font-bold text-gray-700 hover:bg-gray-50 hover:border-[#00AA5B] hover:text-[#00AA5B] transition-all"
-          >
-            <Icon name="logos:whatsapp-icon" class="text-lg" />
-            Tanya CS
-          </a>
-        </div>
-      </div>
-
-      <div
-        class="bg-white p-6 rounded-xl shadow-[0_1px_6px_rgba(0,0,0,0.05)] border border-gray-100 mb-6 overflow-x-auto no-scrollbar"
-      >
-        <div class="min-w-[600px] py-4 relative">
-          <div class="flex items-start justify-between w-full">
-            <template v-for="(step, i) in statusSteps" :key="step.key">
-              <div class="relative flex flex-col items-center flex-1">
-                <div
-                  v-if="i !== statusSteps.length - 1"
-                  class="absolute top-5 left-[50%] w-full h-[3px] -z-10 transition-colors duration-500"
-                  :class="step.done ? 'bg-[#00AA5B]' : 'bg-gray-200'"
-                ></div>
-
-                <div
-                  :class="[
-                    'w-10 h-10 rounded-full border-[3px] bg-white flex items-center justify-center transition-all duration-300 z-10',
-                    step.done || step.active
-                      ? 'border-[#00AA5B] text-[#00AA5B]'
-                      : 'border-gray-200 text-gray-300',
-                  ]"
-                >
-                  <Icon :name="step.icon" class="text-xl" />
-                </div>
-
-                <div class="text-center mt-3 absolute top-12 w-28 -ml-14 left-1/2">
-                  <p
-                    :class="[
-                      'text-[11px] sm:text-xs font-bold leading-tight',
-                      step.done || step.active ? 'text-gray-800' : 'text-gray-400',
-                    ]"
-                  >
-                    {{ step.label }}
-                  </p>
-                  <p
-                    v-if="step.date && (step.done || step.active)"
-                    class="text-[10px] text-gray-400 mt-1"
-                  >
-                    {{ step.date }}
-                  </p>
-                </div>
-              </div>
-            </template>
-          </div>
-          <div class="h-10"></div>
-        </div>
-      </div>
-
-      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div class="lg:col-span-2 space-y-6">
-          <div
-            class="bg-white rounded-xl shadow-[0_1px_6px_rgba(0,0,0,0.05)] border border-gray-100 overflow-hidden"
-          >
-            <div
-              class="px-6 py-4 border-b border-gray-100 bg-white flex justify-between items-center"
-            >
-              <h3 class="font-bold text-gray-900">Detail Layanan Jasa</h3>
-            </div>
-
-            <div class="p-6">
-              <div class="flex items-start gap-4">
-                <div
-                  class="w-16 h-16 rounded-lg bg-gray-50 border border-gray-200 flex items-center justify-center text-gray-400 flex-shrink-0"
-                >
-                  <Icon name="lucide:cctv" class="text-3xl text-[#00AA5B]" />
-                </div>
-
-                <div class="flex-1">
-                  <h4 class="font-bold text-base text-gray-900 mb-1">
-                    {{ CATEGORY_LABELS[booking.category] || booking.category }} ({{
-                      booking.camera_count
-                    }}
-                    Titik)
-                  </h4>
-                  <p class="text-sm text-gray-500 mb-2">Perangkat: {{ booking.brand }}</p>
-                  <div class="flex justify-between items-end">
-                    <p
-                      class="text-xs font-semibold text-gray-500 bg-gray-100 px-2.5 py-1 rounded"
-                    >
-                      Jarak: {{ booking.distance_km }} km
-                    </p>
-                    <p class="font-bold text-lg text-gray-900">
-                      {{ formatRp(booking.total_price) }}
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              <div
-                v-if="booking.addons?.length"
-                class="mt-5 pt-5 border-t border-dashed border-gray-200"
-              >
-                <p class="text-xs font-bold text-gray-900 mb-2">
-                  Layanan Tambahan (Add-on)
-                </p>
-                <div class="flex flex-wrap gap-2">
-                  <span
-                    v-for="addon in booking.addons"
-                    :key="addon"
-                    class="px-3 py-1 bg-green-50 text-[#00AA5B] rounded-md text-xs font-semibold border border-green-100"
-                  >
-                    {{ addon }}
-                  </span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div
-            class="bg-white rounded-xl shadow-[0_1px_6px_rgba(0,0,0,0.05)] border border-gray-100"
-          >
-            <div class="px-6 py-4 border-b border-gray-100">
-              <h3 class="font-bold text-gray-900">Info Pemasangan & Kontak</h3>
-            </div>
-            <div class="p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div class="space-y-4">
-                <div class="flex gap-3">
-                  <Icon
-                    name="lucide:calendar-clock"
-                    class="text-xl text-gray-400 flex-shrink-0"
-                  />
-                  <div>
-                    <p class="text-xs text-gray-500 mb-0.5">Jadwal Kunjungan</p>
-                    <p class="text-sm font-semibold text-gray-900">
-                      {{ formatDate(booking.scheduled_date) }}
-                    </p>
-                    <p class="text-xs text-gray-600">{{ slotLabel }}</p>
-                  </div>
-                </div>
-                <div class="flex gap-3">
-                  <Icon
-                    name="lucide:map-pin"
-                    class="text-xl text-gray-400 flex-shrink-0"
-                  />
-                  <div>
-                    <p class="text-xs text-gray-500 mb-0.5">Alamat Lokasi</p>
-                    <p class="text-sm font-semibold text-gray-900 leading-relaxed">
-                      {{ booking.address }}
-                    </p>
-                    <p class="text-xs text-gray-600">{{ booking.city }}</p>
-                  </div>
-                </div>
-              </div>
-
-              <div class="bg-gray-50 rounded-lg p-4 border border-gray-100">
-                <p class="text-xs text-gray-500 mb-2">Detail Kontak Pelanggan</p>
-                <div class="flex items-center gap-3 mb-2">
-                  <div
-                    class="w-8 h-8 rounded-full bg-white border border-gray-200 flex items-center justify-center"
-                  >
-                    <Icon name="lucide:user" class="text-gray-500" />
-                  </div>
-                  <div>
-                    <p class="text-sm font-bold text-gray-900">
-                      {{ booking.contact_name }}
-                    </p>
-                    <p class="text-xs font-mono text-gray-600">
-                      {{ booking.contact_phone }}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div
-            v-if="booking.payments?.length"
-            class="bg-white rounded-xl shadow-[0_1px_6px_rgba(0,0,0,0.05)] border border-gray-100"
-          >
-            <div class="px-6 py-4 border-b border-gray-100">
-              <h3 class="font-bold text-gray-900">Riwayat Transaksi</h3>
-            </div>
-            <div class="p-2">
-              <div
-                v-for="pay in booking.payments"
-                :key="pay.uuid"
-                class="flex flex-col sm:flex-row sm:items-center justify-between p-4 hover:bg-gray-50 rounded-lg transition-colors border-b border-gray-50 last:border-0"
-              >
-                <div class="flex items-center gap-4 mb-3 sm:mb-0">
-                  <div
-                    class="w-10 h-10 rounded-full bg-[#E5F9F1] flex items-center justify-center text-[#00AA5B]"
-                  >
-                    <Icon name="lucide:receipt" class="text-lg" />
-                  </div>
-                  <div>
-                    <p class="text-sm font-bold text-gray-900">
-                      {{
-                        pay.payment_type === "dp"
-                          ? `DP (${booking.dp_percentage}%)`
-                          : "Pelunasan Akhir"
-                      }}
-                    </p>
-                    <p class="text-[11px] text-gray-500 font-mono">{{ pay.order_id }}</p>
-                  </div>
-                </div>
-                <div class="text-left sm:text-right flex items-center sm:block gap-4">
-                  <p class="text-sm font-extrabold text-gray-900 mb-1">
-                    {{ formatRp(pay.gross_amount) }}
-                  </p>
-                  <span
-                    :class="[
-                      'text-[10px] font-bold px-2 py-0.5 rounded uppercase',
-                      payStatusStyle(pay.status).badge,
-                    ]"
-                  >
-                    {{ payStatusStyle(pay.status).label }}
-                  </span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div class="lg:col-span-1">
-          <div
-            class="sticky top-20 bg-white rounded-xl shadow-[0_1px_6px_rgba(0,0,0,0.05)] border border-gray-100 overflow-hidden"
-          >
-            <div class="px-6 py-4 border-b border-gray-100">
-              <h3 class="font-bold text-gray-900">Ringkasan Pembayaran</h3>
-            </div>
-
-            <div class="p-6 space-y-3">
-              <div v-if="booking.device_price > 0" class="flex justify-between text-sm">
-                <span class="text-gray-600">Total Perangkat</span>
-                <span class="font-semibold text-gray-900">{{
-                  formatRp(booking.device_price)
-                }}</span>
-              </div>
-              <div class="flex justify-between text-sm">
-                <span class="text-gray-600">Biaya Jasa Pemasangan</span>
-                <span class="font-semibold text-gray-900">{{
-                  formatRp(booking.service_price)
-                }}</span>
-              </div>
-              <div v-if="booking.addon_price > 0" class="flex justify-between text-sm">
-                <span class="text-gray-600">Layanan Tambahan</span>
-                <span class="font-semibold text-gray-900">{{
-                  formatRp(booking.addon_price)
-                }}</span>
-              </div>
-              <div v-if="booking.transport_fee > 0" class="flex justify-between text-sm">
-                <span class="text-gray-600">Ongkos Transport</span>
-                <span class="font-semibold text-gray-900">{{
-                  formatRp(booking.transport_fee)
-                }}</span>
-              </div>
-
-              <div class="border-t border-gray-200 pt-4 mt-4">
-                <div class="flex justify-between items-end mb-2">
-                  <span class="font-bold text-gray-900">Total Tagihan</span>
-                  <span class="text-lg font-extrabold text-[#00AA5B]">{{
-                    formatRp(booking.total_price)
-                  }}</span>
-                </div>
-              </div>
-
-              <div
-                class="bg-gray-50 rounded-lg p-3 space-y-2 mt-4 border border-gray-100"
-              >
-                <div class="flex justify-between text-sm">
-                  <span class="text-gray-500">Uang Muka (DP)</span>
-                  <span class="font-bold text-gray-900">
-                    {{ formatRp(booking.dp_amount) }}
-                    <Icon
-                      v-if="isDpPaid"
-                      name="lucide:check-circle-2"
-                      class="text-[#00AA5B] inline-block ml-1"
-                    />
-                  </span>
-                </div>
-                <div class="flex justify-between text-sm">
-                  <span class="text-gray-500">Sisa Pembayaran</span>
-                  <span class="font-bold text-gray-900">
-                    {{ formatRp(booking.remaining_amount) }}
-                    <Icon
-                      v-if="isFullyPaid"
-                      name="lucide:check-circle-2"
-                      class="text-[#00AA5B] inline-block ml-1"
-                    />
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            <div class="p-6 bg-white border-t border-gray-100">
-              <div v-if="canPayDp">
-                <button
-                  @click="payNow('dp')"
-                  :disabled="payLoading"
-                  class="w-full py-3 bg-[#00AA5B] hover:bg-[#008c4a] text-white font-bold rounded-lg transition-colors flex items-center justify-center gap-2"
-                >
-                  <Icon
-                    v-if="payLoading"
-                    name="lucide:loader-2"
-                    class="animate-spin text-xl"
-                  />
-                  <span>Bayar DP Sekarang</span>
-                </button>
-              </div>
-
-              <div v-else-if="canPayLunas">
-                <button
-                  @click="payNow('lunas')"
-                  :disabled="payLoading"
-                  class="w-full py-3 bg-[#00AA5B] hover:bg-[#008c4a] text-white font-bold rounded-lg transition-colors flex items-center justify-center gap-2"
-                >
-                  <Icon
-                    v-if="payLoading"
-                    name="lucide:loader-2"
-                    class="animate-spin text-xl"
-                  />
-                  <span>Lunasi Sekarang</span>
-                </button>
-              </div>
-
-              <div
-                v-else-if="isFullyPaid"
-                class="bg-[#E5F9F1] border border-[#00AA5B]/30 rounded-lg p-4 flex flex-col items-center text-center"
-              >
-                <div
-                  class="w-10 h-10 bg-[#00AA5B] text-white rounded-full flex items-center justify-center mb-2"
-                >
-                  <Icon name="lucide:check" class="text-2xl font-bold" />
-                </div>
-                <p class="font-bold text-[#008c4a]">Transaksi Selesai & Lunas</p>
-                <p class="text-xs text-green-700 mt-1">
-                  Terima kasih telah berbelanja di Padjajaran CCTV.
-                </p>
-              </div>
-
-              <div
-                v-else-if="booking.status === 'cancel'"
-                class="bg-red-50 border border-red-200 rounded-lg p-4 text-center"
-              >
-                <Icon name="lucide:x-circle" class="text-red-500 text-3xl mx-auto mb-1" />
-                <p class="font-bold text-red-700">Transaksi Dibatalkan</p>
-              </div>
-
-              <div v-else class="text-center py-2">
-                <p
-                  class="text-sm font-semibold text-gray-500 flex items-center justify-center gap-2"
-                >
-                  <Icon name="lucide:clock" /> Menunggu Konfirmasi Admin
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <Transition name="toast">
-      <div
-        v-if="toast.show"
-        :class="[
-          'fixed bottom-8 left-1/2 -translate-x-1/2 z-[100] px-5 py-3 rounded-lg text-sm font-semibold text-white shadow-lg flex items-center gap-3 min-w-[280px]',
-          toast.type === 'success' ? 'bg-[#00AA5B]' : 'bg-red-500',
-        ]"
-      >
-        <Icon
-          :name="
-            toast.type === 'success' ? 'lucide:check-circle-2' : 'lucide:alert-circle'
-          "
-          class="text-xl"
-        />
-        <span class="flex-1">{{ toast.message }}</span>
-      </div>
-    </Transition>
-  </div>
-</template>
-
 <script setup lang="ts">
 import { ref, computed } from "vue";
 
-definePageMeta({ layout: "public" });
+definePageMeta({ layout: "auth" });
 
-interface PaymentInfo {
-  uuid: string;
-  order_id: string;
-  payment_type: string;
-  gross_amount: number;
-  status: string;
-}
-
+interface PaymentInfo { uuid: string; order_id: string; payment_type: string; gross_amount: number; status: string; }
 interface Booking {
-  uuid: string;
-  booking_number: string;
-  category: string;
-  camera_count: number;
-  brand: string;
-  addons: string[];
-  scheduled_date: string;
-  time_slot: string;
-  address: string;
-  city: string;
-  distance_km: number;
-  contact_name: string;
-  contact_phone: string;
-  device_price: number;
-  service_price: number;
-  addon_price: number;
-  transport_fee: number;
-  total_price: number;
-  dp_percentage: number;
-  dp_amount: number;
-  remaining_amount: number;
-  status: string;
-  payments: PaymentInfo[];
-  created_at: string;
+  uuid: string; booking_number: string; category: string; camera_count: number; brand: string; addons: string[];
+  scheduled_date: string; time_slot: string; address: string; city: string; distance_km: number; contact_name: string; contact_phone: string;
+  device_price: number; service_price: number; addon_price: number; transport_fee: number; total_price: number;
+  dp_percentage: number; dp_amount: number; remaining_amount: number; status: string; payments: PaymentInfo[]; created_at: string;
 }
 
 const route = useRoute();
 const id = route.params.id as string;
-
-const { data: booking, pending, error, refresh } = await useAsyncData<Booking>(
-  `jasa-${id}`,
-  () => $fetch(`/api/jasa/${id}`)
-);
+const { data: booking, pending, error, refresh } = await useAsyncData<Booking>(`jasa-${id}`, () => $fetch(`/api/jasa/${id}`));
 
 const payLoading = ref(false);
 const toast = ref({ show: false, message: "", type: "success" as "success" | "error" });
 
-const SLOT_LABELS: Record<string, string> = {
-  "08:00-11:00": "08:00 - 11:00 WIB",
-  "11:00-14:00": "11:00 - 14:00 WIB",
-  "14:00-17:00": "14:00 - 17:00 WIB",
+const SLOT_LABELS: Record<string, string> = { "08:00-11:00": "Pagi (08:00 - 11:00)", "11:00-14:00": "Siang (11:00 - 14:00)", "14:00-17:00": "Sore (14:00 - 17:00)" };
+const CATEGORY_LABELS: Record<string, string> = { installation: "Pemasangan Baru", maintenance: "Maintenance", consultation: "Cek Lokasi", troubleshoot: "Perbaikan" };
+
+type StatusKey = "pending" | "confirmed" | "dp_paid" | "progress" | "done" | "lunas" | "cancel";
+const STATUS_CONFIG: Record<StatusKey, { label: string; color: string; icon: string }> = {
+  pending: { label: "Menunggu Konfirmasi", color: "text-amber-600 bg-amber-50 border-amber-100", icon: "i-heroicons-clock" },
+  confirmed: { label: "Menunggu Pembayaran DP", color: "text-orange-600 bg-orange-50 border-orange-100", icon: "i-heroicons-wallet" },
+  dp_paid: { label: "DP Diterima", color: "text-blue-600 bg-blue-50 border-blue-100", icon: "i-heroicons-shield-check" },
+  progress: { label: "Sedang Dikerjakan", color: "text-purple-600 bg-purple-50 border-purple-100", icon: "i-heroicons-wrench" },
+  done: { label: "Selesai", color: "text-teal-600 bg-teal-50 border-teal-100", icon: "i-heroicons-check-badge" },
+  lunas: { label: "Lunas", color: "text-[#03AC0E] bg-emerald-50 border-emerald-100", icon: "i-heroicons-check-circle" },
+  cancel: { label: "Dibatalkan", color: "text-red-600 bg-red-50 border-red-100", icon: "i-heroicons-x-circle" },
 };
 
-const CATEGORY_LABELS: Record<string, string> = {
-  installation: "Pemasangan Baru",
-  maintenance: "Maintenance",
-  consultation: "Konsultasi Cek Lokasi",
-  troubleshoot: "Perbaikan",
-};
+const statusStyle = computed(() => STATUS_CONFIG[booking.value?.status as StatusKey] || STATUS_CONFIG.pending);
 
-type StatusKey =
-  | "pending"
-  | "confirmed"
-  | "dp_paid"
-  | "progress"
-  | "done"
-  | "lunas"
-  | "cancel";
-
-// Styling untuk Banner Status di atas
-const STATUS_CONFIG: Record<StatusKey, { label: string; badge: string }> = {
-  pending: { label: "Menunggu Konfirmasi", badge: "bg-yellow-100 text-yellow-800" },
-  confirmed: { label: "Menunggu Pembayaran DP", badge: "bg-orange-100 text-orange-800" },
-  dp_paid: { label: "Pembayaran DP Berhasil", badge: "bg-blue-100 text-blue-800" },
-  progress: { label: "Sedang Dalam Pengerjaan", badge: "bg-purple-100 text-purple-800" },
-  done: { label: "Pekerjaan Selesai", badge: "bg-teal-100 text-teal-800" },
-  lunas: { label: "Transaksi Selesai", badge: "bg-green-100 text-green-800" },
-  cancel: { label: "Transaksi Dibatalkan", badge: "bg-red-100 text-red-800" },
-};
-
-const statusStyle = computed(
-  () => STATUS_CONFIG[booking.value?.status as StatusKey] || STATUS_CONFIG.pending
-);
-
-// Konfigurasi Horizontal Stepper persis seperti Tokopedia
 const TIMELINE = [
-  { key: "pending", label: "Pesanan Dibuat", icon: "lucide:file-text" },
-  { key: "confirmed", label: "Dikonfirmasi", icon: "lucide:package" },
-  { key: "dp_paid", label: "DP Dibayar", icon: "lucide:wallet" },
-  { key: "progress", label: "Pengerjaan", icon: "lucide:wrench" },
-  { key: "done", label: "Selesai", icon: "lucide:check-circle" },
-  { key: "lunas", label: "Lunas", icon: "lucide:receipt" },
+  { key: "pending", label: "Dibuat", icon: "i-heroicons-document-plus" },
+  { key: "confirmed", label: "Konfirmasi", icon: "i-heroicons-user-group" },
+  { key: "dp_paid", label: "Bayar DP", icon: "i-heroicons-credit-card" },
+  { key: "progress", label: "Pengerjaan", icon: "i-heroicons-cog" },
+  { key: "done", label: "Selesai", icon: "i-heroicons-check-badge" },
 ];
 
 const statusSteps = computed(() => {
   const current = booking.value?.status || "pending";
   const order = ["pending", "confirmed", "dp_paid", "progress", "done", "lunas"];
   const currentIdx = order.indexOf(current);
-
-  return TIMELINE.map((step, i) => {
-    // Menyematkan tanggal pada step yang sudah dilewati (mocking dengan created_at untuk contoh tampilan)
-    let dateStr = "";
-    if (i === 0 && booking.value?.created_at) {
-      dateStr = formatSimpleDate(booking.value.created_at);
-    }
-    return {
-      ...step,
-      done: i < currentIdx,
-      active: i === currentIdx,
-      date: dateStr,
-    };
-  });
+  return TIMELINE.map((step, i) => ({ ...step, done: i < currentIdx, active: i === currentIdx }));
 });
 
-const isDpPaid = computed(() =>
-  ["dp_paid", "progress", "done", "lunas"].includes(booking.value?.status || "")
-);
 const isFullyPaid = computed(() => booking.value?.status === "lunas");
 const canPayDp = computed(() => booking.value?.status === "confirmed");
 const canPayLunas = computed(() => booking.value?.status === "done");
 
-const slotLabel = computed(
-  () => SLOT_LABELS[booking.value?.time_slot || ""] || booking.value?.time_slot
-);
-
-function payStatusStyle(status: string) {
-  const map: Record<string, any> = {
-    success: { label: "Berhasil", badge: "bg-[#E5F9F1] text-[#00AA5B]" },
-    pending: { label: "Menunggu", badge: "bg-yellow-50 text-yellow-700" },
-    failed: { label: "Gagal", badge: "bg-red-50 text-red-700" },
-  };
-  return map[status] || map.pending;
-}
-
 async function payNow(type: "dp" | "lunas") {
-  if (!booking.value) return;
-  payLoading.value = true;
+  if (!booking.value) return; payLoading.value = true;
   try {
-    const res = await $fetch<any>(
-      `/api/jasa/${booking.value.uuid}/pay?payment_type=${type}`,
-      { method: "POST" }
-    );
+    const res = await $fetch<any>(`/api/jasa/${booking.value.uuid}/pay?payment_type=${type}`, { method: "POST" });
     if (res.payment_token && (window as any).snap) {
-      (window as any).snap.pay(res.payment_token, {
-        onSuccess: async () => {
-          showToast("Pembayaran berhasil!", "success");
-          await refresh();
-        },
-        onPending: () => {
-          showToast("Menunggu pembayaran...", "success");
-          refresh();
-        },
-        onClose: () => showToast("Halaman pembayaran ditutup", "error"),
-      });
-    } else if (res.payment_url) {
-      window.open(res.payment_url, "_blank");
-    }
-  } catch (e: any) {
-    showToast(e?.data?.detail || "Gagal membuat pembayaran", "error");
-  } finally {
-    payLoading.value = false;
-  }
+      (window as any).snap.pay(res.payment_token, { onSuccess: async () => { showToast("Berhasil!", "success"); await refresh(); } });
+    } else if (res.payment_url) { window.open(res.payment_url, "_blank"); }
+  } catch (e: any) { showToast("Gagal!", "error"); } finally { payLoading.value = false; }
 }
 
-// Helpers Formatter
-function formatRp(n: number) {
-  return new Intl.NumberFormat("id-ID", {
-    style: "currency",
-    currency: "IDR",
-    maximumFractionDigits: 0,
-  }).format(n);
-}
-
-function formatDate(iso: string) {
-  return new Date(iso).toLocaleDateString("id-ID", {
-    weekday: "long",
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  });
-}
-
-function formatSimpleDate(iso: string) {
-  return new Date(iso)
-    .toLocaleString("id-ID", {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    })
-    .replace(".", ":");
-}
-
-function formatDateTime(iso: string) {
-  return (
-    new Date(iso).toLocaleString("id-ID", {
-      day: "numeric",
-      month: "long",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    }) + " WIB"
-  );
-}
-
-function showToast(message: string, type: "success" | "error") {
-  toast.value = { show: true, message, type };
-  setTimeout(() => {
-    toast.value.show = false;
-  }, 4000);
-}
+function formatRp(n: number) { return new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(n); }
+function formatDate(iso: string) { return new Date(iso).toLocaleDateString("id-ID", { weekday: "long", day: "numeric", month: "long", year: "numeric" }); }
+function showToast(message: string, type: "success" | "error") { toast.value = { show: true, message, type }; setTimeout(() => toast.value.show = false, 3000); }
 </script>
 
-<style scoped>
-/* Transisi Smooth Notification */
-.toast-enter-active,
-.toast-leave-active {
-  transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-}
-.toast-enter-from {
-  opacity: 0;
-  transform: translate(-50%, 20px);
-}
-.toast-leave-to {
-  opacity: 0;
-  transform: translate(-50%, 20px) scale(0.95);
-}
+<template>
+  <div class="min-h-screen bg-white">
+    <!-- HEADER -->
+    <div class="px-8 py-4 border-b border-gray-200 flex items-center justify-between sticky top-0 bg-white z-10">
+      <div class="flex items-center gap-4">
+        <button @click="$router.back()" class="p-2 -ml-2 text-gray-400 hover:text-gray-900 transition-colors">
+          <UIcon name="i-heroicons-arrow-left" class="w-5 h-5" />
+        </button>
+        <h1 class="text-base font-bold text-gray-900">Detail Booking Jasa</h1>
+      </div>
+      <a v-if="booking" :href="`https://wa.me/6282218828108?text=Halo Admin, bantu cek booking ${booking.booking_number}`" target="_blank" class="flex items-center gap-2 text-[#03AC0E] font-bold text-sm hover:underline">
+        <UIcon name="i-heroicons-chat-bubble-left-right" class="w-4 h-4" />
+        Tanya Admin
+      </a>
+    </div>
 
-/* Hide Scrollbar for Horizontal Stepper */
-.no-scrollbar::-webkit-scrollbar {
-  display: none;
-}
-.no-scrollbar {
-  -ms-overflow-style: none; /* IE and Edge */
-  scrollbar-width: none; /* Firefox */
-}
+    <div v-if="pending" class="p-8 space-y-6">
+      <div class="h-24 bg-gray-50 rounded-xl animate-pulse"></div>
+      <div class="h-48 bg-gray-50 rounded-xl animate-pulse"></div>
+    </div>
+
+    <div v-else-if="!booking" class="py-20 text-center border-2 border-dashed border-gray-100 rounded-xl m-8">
+      <p class="text-gray-400 font-bold">Booking tidak ditemukan.</p>
+    </div>
+
+    <div v-else class="p-8 space-y-8">
+      
+      <!-- 1. STATUS & NUMBER -->
+      <section :class="statusStyle.color" class="p-6 rounded-xl border flex flex-col sm:flex-row sm:items-center justify-between gap-6">
+        <div>
+          <p class="text-[10px] font-bold uppercase tracking-widest mb-1 opacity-70">Status Booking</p>
+          <p class="text-lg font-black uppercase tracking-tight">{{ statusStyle.label }}</p>
+        </div>
+        <div class="sm:text-right">
+          <p class="text-[10px] font-bold uppercase tracking-widest mb-1 opacity-70">No. Booking</p>
+          <p class="text-sm font-mono font-bold tracking-widest text-[#03AC0E]">#{{ booking.booking_number }}</p>
+          <p class="text-[10px] text-gray-400 font-medium mt-1">Dibuat: {{ new Date(booking.created_at).toLocaleDateString() }}</p>
+        </div>
+      </section>
+
+      <!-- 2. STEPPER -->
+      <section v-if="booking.status !== 'cancel'" class="bg-white border border-gray-200 rounded-xl p-8 overflow-x-auto no-scrollbar shadow-sm">
+        <div class="min-w-[600px] flex justify-between relative py-4">
+          <div class="absolute top-1/2 -translate-y-1/2 left-[5%] right-[5%] h-0.5 bg-gray-100"></div>
+          <div v-for="(step, i) in statusSteps" :key="step.key" class="relative z-10 flex flex-col items-center gap-3 w-1/5">
+            <div :class="step.done || step.active ? 'bg-[#03AC0E] text-white' : 'bg-white text-gray-200 border-gray-100 border'" class="w-10 h-10 rounded-full flex items-center justify-center transition-all shadow-sm">
+              <UIcon :name="step.icon" class="w-5 h-5" />
+            </div>
+            <span :class="step.done || step.active ? 'text-gray-900 font-bold' : 'text-gray-400 font-medium'" class="text-[11px] uppercase tracking-wider text-center px-2">{{ step.label }}</span>
+          </div>
+        </div>
+      </section>
+
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        
+        <!-- LEFT: SERVICE DETAILS -->
+        <div class="lg:col-span-2 space-y-8">
+          <section class="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">
+            <div class="px-6 py-4 border-b border-gray-100 bg-gray-50/50">
+              <h3 class="text-xs font-bold text-gray-900 uppercase tracking-widest">Informasi Layanan</h3>
+            </div>
+            <div class="p-6">
+              <div class="flex items-start gap-6 p-4 bg-gray-50 rounded-xl border border-gray-100 mb-6">
+                <div class="w-16 h-16 bg-white rounded-lg flex items-center justify-center border border-gray-100 shrink-0 shadow-sm">
+                  <UIcon name="i-heroicons-wrench-screwdriver" class="w-8 h-8 text-[#03AC0E]" />
+                </div>
+                <div>
+                  <h4 class="text-base font-bold text-gray-900">{{ CATEGORY_LABELS[booking.category] || booking.category }}</h4>
+                  <p class="text-xs text-gray-500 mt-1">{{ booking.camera_count }} Titik Pemasangan • {{ booking.brand }}</p>
+                  <p class="text-[10px] font-bold text-[#03AC0E] uppercase mt-2 tracking-widest">Jarak Lokasi: {{ booking.distance_km }} KM</p>
+                </div>
+              </div>
+
+              <div v-if="booking.addons?.length" class="space-y-3">
+                <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Tambahan Layanan:</p>
+                <div class="flex flex-wrap gap-2">
+                  <span v-for="addon in booking.addons" :key="addon" class="px-3 py-1 bg-[#03AC0E]/5 text-[#03AC0E] border border-[#03AC0E]/10 rounded-lg text-[10px] font-bold uppercase tracking-wider">{{ addon }}</span>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section class="bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
+            <h3 class="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-6">Lokasi & Jadwal</h3>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+              <div class="space-y-4">
+                <div>
+                  <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Jadwal Kunjungan</p>
+                  <p class="text-sm font-bold text-gray-900 mt-1">{{ formatDate(booking.scheduled_date) }}</p>
+                  <p class="text-xs text-gray-500 font-medium">{{ SLOT_LABELS[booking.time_slot] || booking.time_slot }}</p>
+                </div>
+                <div>
+                  <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest">PIC Kunjungan</p>
+                  <p class="text-sm font-bold text-gray-900 mt-1">{{ booking.contact_name }}</p>
+                  <p class="text-xs text-gray-500 font-mono">{{ booking.contact_phone }}</p>
+                </div>
+              </div>
+              <div>
+                <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Alamat Lengkap</p>
+                <p class="text-sm font-medium text-gray-700 mt-2 leading-relaxed">{{ booking.address }}</p>
+                <p class="text-xs font-bold text-gray-900 mt-2 uppercase tracking-widest">{{ booking.city }}</p>
+              </div>
+            </div>
+          </section>
+        </div>
+
+        <!-- RIGHT: PRICING SUMMARY -->
+        <div class="space-y-8">
+          <section class="bg-white border border-gray-200 rounded-xl p-6 shadow-sm sticky top-24">
+            <h3 class="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-6">Rincian Biaya</h3>
+            <div class="space-y-4">
+              <div v-if="booking.device_price > 0" class="flex justify-between text-xs font-medium">
+                <span class="text-gray-500">Estimasi Perangkat</span>
+                <span class="text-gray-900">{{ formatRp(booking.device_price) }}</span>
+              </div>
+              <div class="flex justify-between text-xs font-medium">
+                <span class="text-gray-500">Jasa Pemasangan</span>
+                <span class="text-gray-900">{{ formatRp(booking.service_price) }}</span>
+              </div>
+              <div v-if="booking.addon_price > 0" class="flex justify-between text-xs font-medium">
+                <span class="text-gray-500">Biaya Tambahan</span>
+                <span class="text-gray-900">{{ formatRp(booking.addon_price) }}</span>
+              </div>
+              <div v-if="booking.transport_fee > 0" class="flex justify-between text-xs font-medium">
+                <span class="text-gray-500">Biaya Transport</span>
+                <span class="text-gray-900">{{ formatRp(booking.transport_fee) }}</span>
+              </div>
+              <div class="pt-4 border-t border-gray-100 flex justify-between items-center">
+                <span class="text-sm font-bold text-gray-900">Total Estimasi</span>
+                <span class="text-xl font-black text-[#03AC0E] tracking-tight">{{ formatRp(booking.total_price) }}</span>
+              </div>
+            </div>
+
+            <div class="mt-6 p-4 bg-gray-50 rounded-xl border border-gray-100 space-y-3">
+              <div class="flex justify-between text-[11px] font-bold">
+                <span class="text-gray-400 uppercase tracking-wider">DP Dibayar</span>
+                <span class="text-gray-900">{{ formatRp(booking.dp_amount) }}</span>
+              </div>
+              <div class="flex justify-between text-[11px] font-bold">
+                <span class="text-gray-400 uppercase tracking-wider">Sisa Pelunasan</span>
+                <span :class="isFullyPaid ? 'text-[#03AC0E]' : 'text-red-500'">{{ formatRp(booking.remaining_amount) }}</span>
+              </div>
+            </div>
+
+            <div v-if="canPayDp || canPayLunas" class="mt-8">
+              <button @click="payNow(canPayDp ? 'dp' : 'lunas')" :disabled="payLoading" class="w-full py-4 bg-[#03AC0E] text-white text-xs font-black rounded-lg hover:bg-[#028a0b] transition-all flex items-center justify-center gap-2 shadow-sm">
+                <UIcon v-if="payLoading" name="i-heroicons-arrow-path" class="w-4 h-4 animate-spin" />
+                <UIcon v-else name="i-heroicons-credit-card" class="w-5 h-5" />
+                {{ canPayDp ? 'Bayar DP Sekarang' : 'Bayar Pelunasan' }}
+              </button>
+            </div>
+            <div v-else-if="isFullyPaid" class="mt-8 p-4 bg-emerald-50 rounded-lg border border-emerald-100 text-center">
+              <UIcon name="i-heroicons-check-circle" class="w-8 h-8 text-[#03AC0E] mx-auto mb-2" />
+              <p class="text-[10px] font-bold text-[#03AC0E] uppercase tracking-widest">Pembayaran Lunas</p>
+            </div>
+          </section>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Toast -->
+    <Transition
+      enter-active-class="transition duration-300 ease-out"
+      enter-from-class="translate-y-10 opacity-0"
+      enter-to-class="translate-y-0 opacity-100"
+      leave-active-class="transition duration-200 ease-in"
+      leave-from-class="translate-y-0 opacity-100"
+      leave-to-class="translate-y-10 opacity-0"
+    >
+      <div v-if="toast.show" class="fixed bottom-10 left-1/2 -translate-x-1/2 z-[100] px-6 py-3 bg-gray-900 text-white text-xs font-bold rounded-xl shadow-xl uppercase tracking-widest">
+        {{ toast.message }}
+      </div>
+    </Transition>
+  </div>
+</template>
+
+<style scoped>
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 </style>

@@ -9,6 +9,8 @@ from sqlalchemy import func, ForeignKey
 
 if TYPE_CHECKING:
     from backend.data.ongkir.model import Shipment
+    from backend.auth.model import User
+    from backend.data.stock.model import Stock
 
 
 class TransactionItem(SQLModel, table=True):
@@ -40,8 +42,13 @@ class TransactionItem(SQLModel, table=True):
     unit_price: int = Field(sa_column=Column(pg.INTEGER, nullable=False))
     subtotal: int = Field(sa_column=Column(pg.INTEGER, nullable=False))
 
+    # Snapshot addon saat transaksi (immutable)
+    # Format: [{"name": "Kabel 10m", "price": 50000, "quantity": 1}, ...]
+    addons: Optional[list] = Field(default=None, sa_column=Column(pg.JSONB, nullable=True))
+
     # ✅ Wajib ada — back_populates ke Transaction.items
     transaction: Optional["Transaction"] = Relationship(back_populates="items")
+    stock: Optional["Stock"] = Relationship()
 
 
 class Transaction(SQLModel, table=True):
@@ -69,6 +76,7 @@ class Transaction(SQLModel, table=True):
     items_subtotal: int = Field(sa_column=Column(pg.INTEGER, nullable=False))
     shipping_cost: int = Field(default=0, sa_column=Column(pg.INTEGER))
     discount_amount: int = Field(default=0, sa_column=Column(pg.INTEGER))
+    coupon_code: Optional[str] = Field(default=None, sa_column=Column(pg.VARCHAR(50), index=True))
 
     transaction_status: Optional[str] = Field(default=None, sa_column=Column(pg.VARCHAR(50)))
     payment_type: Optional[str] = Field(default=None, sa_column=Column(pg.VARCHAR(50)))
@@ -86,9 +94,10 @@ class Transaction(SQLModel, table=True):
         sa_column=Column(pg.TIMESTAMP(timezone=True), server_default=func.now(), onupdate=func.now())
     )
 
-    # ✅ Relationship ke TransactionItem dan Shipment
+    # ✅ Relationship ke TransactionItem, Shipment, dan User
     items: List["TransactionItem"] = Relationship(back_populates="transaction")
     shipment: Optional["Shipment"] = Relationship(
         back_populates="transaction",
         sa_relationship_kwargs={"uselist": False}
     )
+    user: Optional["User"] = Relationship()

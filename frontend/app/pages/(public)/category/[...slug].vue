@@ -26,14 +26,24 @@ const loadMoreTrigger = ref<HTMLElement | null>(null)
 let debounceTimer: ReturnType<typeof setTimeout>
 let observer: IntersectionObserver | null = null
 
-// ─── Slug ────────────────────────────────────────────────────────
-const slugArray = route.params.slug as string[] | undefined
-const activeSlug = computed(() =>
-  slugArray?.length ? slugArray[slugArray.length - 1].toLowerCase() : 'semua-kategori'
+// ─── Slug & URL Logic ─────────────────────────────────────────────
+const rawSlug = route.params.slug as string | string[] | undefined
+const slugArray = Array.isArray(rawSlug)
+  ? rawSlug.filter(Boolean)
+  : rawSlug ? [rawSlug] : []
+
+// Define activeSlug (last part of the slug or default)
+const activeSlug = computed(() => 
+  slugArray.length > 0 ? slugArray[slugArray.length - 1].toLowerCase() : 'semua-kategori'
 )
+
+// Parent slug for breadcrumb logic
 const parentSlug = computed(() =>
   slugArray && slugArray.length > 1 ? slugArray[0].toLowerCase() : null
 )
+
+// Single canonical URL declaration
+const canonicalUrl = computed(() => `${siteUrl}/category/${slugArray.join('/')}`)
 
 // ─── Title & SEO ─────────────────────────────────────────────────
 const pageTitle = computed(() => {
@@ -43,11 +53,10 @@ const pageTitle = computed(() => {
   return `Jual ${f} Terbaik`
 })
 
-const seoTitle = computed(() => `${pageTitle.value} — Padjajaran CCTV`)
+const seoTitle = computed(() => `${pageTitle.value} — PasarCctv`)
 const seoDesc = computed(() =>
   `Beli ${pageTitle.value} original bergaransi. Harga terbaik, pengiriman ke seluruh Indonesia. Temukan ${totalProducts.value}+ pilihan produk CCTV berkualitas.`
 )
-const canonicalUrl = computed(() => `${siteUrl}/${slugArray?.join('/') || ''}`)
 
 useSeoMeta({
   title: seoTitle,
@@ -199,6 +208,17 @@ const applySuggestion = () => {
 // Tutup filter drawer saat navigasi
 watch(() => route.path, () => { isFilterOpen.value = false })
 
+// ─── SCROLL AUTO CLOSE ───────────────────────────────────────────
+const handleScroll = () => {
+  if (isFilterOpen.value) {
+    // Tutup jika scroll lebih dari 30% tinggi layar
+    const threshold = window.innerHeight * 0.3
+    if (window.scrollY > threshold) {
+      isFilterOpen.value = false
+    }
+  }
+}
+
 onMounted(() => {
   if (activeSlug.value !== 'semua-kategori') {
     selectedCategories.value = [activeSlug.value]
@@ -206,11 +226,13 @@ onMounted(() => {
     fetchProducts(false)
   }
   nextTick(() => setTimeout(setupObserver, 800))
+  window.addEventListener('scroll', handleScroll, { passive: true })
 })
 
 onBeforeUnmount(() => {
   observer?.disconnect()
   clearTimeout(debounceTimer)
+  window.removeEventListener('scroll', handleScroll)
 })
 </script>
 

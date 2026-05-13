@@ -7,7 +7,7 @@ from uuid import UUID
 from datetime import datetime
 from typing import Optional, List
 from pydantic import BaseModel, Field, field_validator
-from backend.models.portfolio import ImageRole, ProjectCategory
+from .model import ImageRole, ProjectCategory
 
 
 # ══════════════════════════════════════════════════════════════════

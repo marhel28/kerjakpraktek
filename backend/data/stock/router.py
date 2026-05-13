@@ -35,6 +35,7 @@ async def admin_create_stock(
     discount_percentage: int = Form(0),
     online_price: int = Form(0),
     stok: int = Form(...),
+    weight: int = Form(700),
     specs: str = Form("{}"),
     images: List[UploadFile] = File(default=[]),
     session: AsyncSession = Depends(get_session),
@@ -52,91 +53,11 @@ async def admin_create_stock(
         "title": title, "brand": brand, "category_slug": category_slug,
         "subcategory_slug": subcategory_slug, "type": type_item,
         "original_price": original_price, "discount_percentage": discount_percentage,
-        "online_price": final_price, "stok": stok, "specs": json.loads(specs),
+        "online_price": final_price, "stok": stok, "weight": weight, "specs": json.loads(specs),
     }
     files = [await img.read() for img in images if img.filename]
     result = await service.create_stock(session, data, files)
     return {"status": "success", "data": {"uuid": str(result.uuid), "title": result.title}}
-
-
-# ══════════════════════════════════════════════════════════════════
-# 🎟️ COUPON ADMIN ENDPOINTS
-# ══════════════════════════════════════════════════════════════════
-
-@router.post("/admin/coupon", response_model=CouponResponse, tags=["Admin Coupon"])
-async def admin_create_coupon(
-    data: CouponCreateRequest,
-    session: AsyncSession = Depends(get_session),
-    _: any = Depends(get_admin),   # hanya admin
-):
-    """Buat kupon baru."""
-    coupon = await service.create_coupon(session, data)
-    return coupon
-
-
-@router.get("/admin/coupon", tags=["Admin Coupon"])
-async def admin_list_coupons(
-    include_inactive: bool = Query(False),
-    page: int = Query(1, ge=1),
-    size: int = Query(20, le=100),
-    session: AsyncSession = Depends(get_session),
-    _: any = Depends(get_admin),
-):
-    """List semua kupon (aktif & non-aktif, exclude deleted)."""
-    result = await service.get_all_coupons(session, include_inactive, page, size)
-    return {
-        "status": "success",
-        "total": result["total"],
-        "page": result["page"],
-        "size": result["size"],
-        "items": result["items"],
-    }
-
-
-@router.get("/admin/coupon/{code}", response_model=CouponResponse, tags=["Admin Coupon"])
-async def admin_get_coupon(
-    code: str,
-    session: AsyncSession = Depends(get_session),
-    _: any = Depends(get_admin),
-):
-    """Detail satu kupon by code."""
-    coupon = await service.get_coupon_by_code(session, code)
-    if not coupon:
-        raise HTTPException(404, detail="Kupon tidak ditemukan")
-    return coupon
-
-
-@router.patch("/admin/coupon/{code}", response_model=CouponResponse, tags=["Admin Coupon"])
-async def admin_update_coupon(
-    code: str,
-    data: CouponUpdateRequest,
-    session: AsyncSession = Depends(get_session),
-    _: any = Depends(get_admin),
-):
-    """Update sebagian field kupon."""
-    return await service.update_coupon(session, code, data)
-
-
-@router.delete("/admin/coupon/{code}", tags=["Admin Coupon"])
-async def admin_delete_coupon(
-    code: str,
-    session: AsyncSession = Depends(get_session),
-    _: any = Depends(get_admin),
-):
-    """
-    Soft delete kupon.
-    Hard delete dijadwalkan Celery task setelah 30 hari.
-    """
-    result = await service.soft_delete_coupon(session, code)
-
-    # Jadwalkan hard delete via Celery setelah 30 hari
-    from backend.tasks.coupon_tasks import hard_delete_coupon_task
-    hard_delete_coupon_task.apply_async(
-        args=[code],
-        countdown=60 * 60 * 24 * 30,  # 30 hari
-    )
-
-    return {"status": "success", **result}
 
 
 # ── Public: Coupon validate ────────────────────────────────────────
@@ -147,8 +68,8 @@ async def validate_coupon_endpoint(
 ):
     result = await service.validate_coupon(session, req.code, req.cart_total)
     if not result["is_valid"]:
-        return {"status": "error", "message": result["message"]}
-    return {"status": "success", "message": "Kupon berhasil dipasang!", "data": result["data"]}
+        return {"success": False, "message": result["message"]}
+    return {"success": True, "message": "Kupon berhasil dipasang!", "data": result["data"]}
 
 
 # ══════════════════════════════════════════════════════════════════
@@ -183,6 +104,9 @@ async def admin_get_products(
     item_type: Optional[str] = Query(None, alias="type"),
 
     # 🔥 tambahan admin
+    session: AsyncSession = Depends(get_session),
+
+    # 🔥 tambahan admin
     is_active: Optional[bool] = Query(None),
     stock_status: Optional[str] = Query(None),  # kosong | tersedia
 
@@ -209,6 +133,7 @@ async def admin_get_products(
         sort_by=sort,
         limit=size,
         offset=offset,
+        session=session,
     )
 
     # 🔥 optional filter tambahan (post-process)
@@ -613,3 +538,69 @@ async def admin_delete_stock(
             "message": f"Produk '{stock_title}' dinonaktifkan. Gunakan ?hard=true untuk hapus permanen.",
             "uuid":    str(stock_uuid),
         }
+
+
+# ── Admin: Coupon Management ──────────────────────────────────────
+
+@router.get("/admin/coupon")
+async def admin_get_coupons(
+    include_inactive: bool = Query(True),
+    page: int = Query(1, ge=1),
+    size: int = Query(50, le=100),
+    session: AsyncSession = Depends(get_session),
+    # _: any = Depends(get_admin),
+):
+    return {
+        "success": True,
+        "data": await service.get_all_coupons(session, include_inactive, page, size)
+    }
+
+
+@router.post("/admin/coupon")
+async def admin_create_coupon(
+    data: CouponCreateRequest,
+    session: AsyncSession = Depends(get_session),
+    # _: any = Depends(get_admin),
+):
+    try:
+        result = await service.create_coupon(session, data)
+        return {"success": True, "message": "Kupon berhasil dibuat", "data": result}
+    except HTTPException as e:
+        raise e
+    except Exception as e:
+        raise HTTPException(500, detail=str(e))
+
+
+@router.patch("/admin/coupon/{code}")
+async def admin_update_coupon(
+    code: str,
+    data: CouponUpdateRequest,
+    session: AsyncSession = Depends(get_session),
+    # _: any = Depends(get_admin),
+):
+    try:
+        result = await service.update_coupon(session, code, data)
+        return {"success": True, "message": "Kupon berhasil diperbarui", "data": result}
+    except HTTPException as e:
+        raise e
+    except Exception as e:
+        raise HTTPException(500, detail=str(e))
+
+
+@router.delete("/admin/coupon/{code}")
+async def admin_delete_coupon(
+    code: str,
+    hard: bool = Query(False),
+    session: AsyncSession = Depends(get_session),
+    # _: any = Depends(get_admin),
+):
+    try:
+        if hard:
+            result = await service.hard_delete_coupon(session, code)
+        else:
+            result = await service.soft_delete_coupon(session, code)
+        return {"success": True, "message": result["message"]}
+    except HTTPException as e:
+        raise e
+    except Exception as e:
+        raise HTTPException(500, detail=str(e))

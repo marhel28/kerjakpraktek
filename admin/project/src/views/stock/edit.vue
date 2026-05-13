@@ -119,7 +119,7 @@
                             Harga Final: Rp {{ calculatedPrice.toLocaleString('id-ID') }}
                         </span>
                     </div>
-                    <div class="p-6 grid grid-cols-1 sm:grid-cols-3 gap-5">
+                    <div class="p-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
                         <div>
                             <label class="block text-xs font-semibold text-gray-600 mb-1.5">
                                 Harga Asli (Rp) <span class="text-red-500">*</span>
@@ -142,6 +142,15 @@
                                 :class="['w-full px-4 py-2.5 text-sm border rounded-xl focus:outline-none focus:ring-2 transition-all font-mono',
                                     errors.stok ? 'border-red-300 focus:ring-red-500 bg-red-50/30' : 'border-gray-200 focus:ring-indigo-500 bg-gray-50 focus:bg-white']" />
                             <p v-if="errors.stok" class="text-xs text-red-500 mt-1.5">{{ errors.stok }}</p>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-gray-600 mb-1.5">
+                                Berat (Gram) <span class="text-red-500">*</span>
+                            </label>
+                            <input v-model.number="form.weight" type="number" min="1" placeholder="700"
+                                :class="['w-full px-4 py-2.5 text-sm border rounded-xl focus:outline-none focus:ring-2 transition-all font-mono',
+                                    errors.weight ? 'border-red-300 focus:ring-red-500 bg-red-50/30' : 'border-gray-200 focus:ring-indigo-500 bg-gray-50 focus:bg-white']" />
+                            <p v-if="errors.weight" class="text-xs text-red-500 mt-1.5">{{ errors.weight }}</p>
                         </div>
                     </div>
                 </div>
@@ -226,7 +235,76 @@
                     </div>
                 </div>
 
-                <!-- 5. Status Aktif -->
+                <!-- 5. Addon Resolution -->
+                <div class="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+                    <div class="px-6 py-4 border-b border-gray-100 bg-gray-50/50 flex items-center justify-between">
+                        <h2 class="text-sm font-bold text-gray-800">Sistem Layanan Tambahan (Addons)</h2>
+                        <div class="flex bg-white p-1 rounded-lg border border-gray-200">
+                            <button @click="form.addon_scope = 'inherit'" 
+                                :class="['px-4 py-1.5 text-xs font-bold rounded-md transition-all', form.addon_scope === 'inherit' ? 'bg-indigo-600 text-white shadow-sm' : 'text-gray-400 hover:text-gray-600']">
+                                Inherit
+                            </button>
+                            <button @click="form.addon_scope = 'custom'" 
+                                :class="['px-4 py-1.5 text-xs font-bold rounded-md transition-all', form.addon_scope === 'custom' ? 'bg-indigo-600 text-white shadow-sm' : 'text-gray-400 hover:text-gray-600']">
+                                Custom
+                            </button>
+                        </div>
+                    </div>
+                    <div class="p-6">
+                        <div v-if="form.addon_scope === 'inherit'" class="flex items-center gap-3 p-4 bg-indigo-50/50 border border-indigo-100 rounded-xl">
+                            <div class="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 shrink-0">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                                </svg>
+                            </div>
+                            <div>
+                                <p class="text-sm font-bold text-indigo-900">Mode Inherit Aktif</p>
+                                <p class="text-[11px] text-indigo-600 leading-relaxed">Sistem akan otomatis mengambil layanan (addons) dari SubKategori atau Kategori induk produk ini. Tidak perlu konfigurasi manual.</p>
+                            </div>
+                        </div>
+
+                        <div v-else class="space-y-4">
+                            <div class="flex items-center gap-3 p-4 bg-amber-50/50 border border-amber-100 rounded-xl">
+                                <div class="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center text-amber-600 shrink-0">
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
+                                    </svg>
+                                </div>
+                                <div>
+                                    <p class="text-sm font-bold text-amber-900">Mode Custom Aktif</p>
+                                    <p class="text-[11px] text-amber-600 leading-relaxed">Silakan pilih layanan tambahan yang secara spesifik berlaku hanya untuk produk ini saja.</p>
+                                </div>
+                            </div>
+
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                <div v-for="group in allGroups" :key="group.uuid" 
+                                    @click="toggleGroupSelection(group.uuid)"
+                                    :class="['p-3 rounded-xl border transition-all cursor-pointer flex items-center gap-3', 
+                                        selectedGroupUuids.includes(group.uuid) 
+                                        ? 'border-indigo-600 bg-indigo-50/50 ring-1 ring-indigo-600' 
+                                        : 'border-gray-200 hover:border-gray-300 bg-white']">
+                                    <div :class="['w-5 h-5 rounded border flex items-center justify-center transition-colors', 
+                                        selectedGroupUuids.includes(group.uuid) ? 'bg-indigo-600 border-indigo-600' : 'bg-white border-gray-300']">
+                                        <svg v-if="selectedGroupUuids.includes(group.uuid)" class="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7" />
+                                        </svg>
+                                    </div>
+                                    <div class="min-w-0 flex-1">
+                                        <p class="text-xs font-bold text-gray-800 truncate">{{ group.name }}</p>
+                                        <p class="text-[10px] text-gray-400 mt-0.5 truncate">
+                                            {{ group.group_type === 'required' ? 'Wajib' : group.group_type === 'recommended' ? 'Rekomendasi' : 'Opsional' }}
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div v-if="!allGroups.length" class="text-center py-6 border border-dashed border-gray-200 rounded-xl">
+                                <p class="text-xs text-gray-400">Belum ada grup layanan yang tersedia.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 6. Status Aktif -->
                 <div class="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
                     <div class="px-6 py-4 border-b border-gray-100 bg-gray-50/50">
                         <h2 class="text-sm font-bold text-gray-800">Status Produk</h2>
@@ -277,7 +355,20 @@
 <script setup>
 import { ref, reactive, computed, watch, onMounted, onBeforeUnmount } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
-import { brandApi, categoryApi, stockApi } from '@/service/stock'
+import { brandApi, categoryApi, stockApi, addonApi } from '@/service/stock'
+
+// ── Addon State ───────────────────────────────────────────────────
+const allGroups = ref([])
+const selectedGroupUuids = ref([])
+
+function toggleGroupSelection(uuid) {
+    const idx = selectedGroupUuids.value.indexOf(uuid)
+    if (idx > -1) {
+        selectedGroupUuids.value.splice(idx, 1)
+    } else {
+        selectedGroupUuids.value.push(uuid)
+    }
+}
 
 const router   = useRouter()
 const route    = useRoute()
@@ -310,10 +401,10 @@ const form = reactive({
     original_price:      0,
     discount_percentage: 0,
     online_price:        0,
-    stok:                0,
     weight:              700,
     specs:               '{}',
     is_active:           true,
+    addon_scope:         'inherit',
 })
 
 // ── Computed ───────────────────────────────────────────────────────
@@ -384,10 +475,12 @@ function onCategoryChange() {
 async function fetchMetaAndData() {
     fetchingData.value = true
     try {
-        const [b, c, s] = await Promise.allSettled([
+        const [b, c, s, g, m] = await Promise.allSettled([
             brandApi.list(),
             categoryApi.list(),
             stockApi.detail(stockUuid),
+            addonApi.listGroups(),
+            addonApi.listStockMappings(stockUuid)
         ])
 
         // Brands: API /brands/ return array [{id,n,s,r,f,img}]
@@ -400,6 +493,18 @@ async function fetchMetaAndData() {
         if (c.status === 'fulfilled') {
             const raw = c.value?.data ?? c.value
             categories.value = Array.isArray(raw) ? raw : []
+        }
+
+        // Addon Groups
+        if (g.status === 'fulfilled') {
+            const raw = g.value?.data?.data ?? g.value?.data ?? g.value
+            allGroups.value = Array.isArray(raw) ? raw : []
+        }
+
+        // Stock Addon Mappings
+        if (m.status === 'fulfilled') {
+            const raw = m.value?.data?.data ?? m.value?.data ?? m.value
+            selectedGroupUuids.value = Array.isArray(raw) ? raw : []
         }
 
         // Stock detail: /public/detail/:uuid → { status, data: {...} }
@@ -426,9 +531,10 @@ async function fetchMetaAndData() {
                 stok:                Number(product?.stok       || 0),
                 weight:              Number(product?.weight      || 700),
                 specs:               product?.specs
-                                        ? JSON.stringify(product.specs, null, 2)
-                                        : '{}',
+                                         ? JSON.stringify(product.specs, null, 2)
+                                         : '{}',
                 is_active:           product?.is_active ?? true,
+                addon_scope:         product?.addon_scope || 'inherit',
             })
 
             existingImages.value = product?.images || []
@@ -457,6 +563,7 @@ function validateForm() {
     if (!form.category_slug)         e.category_slug  = 'Kategori wajib dipilih'
     if (Number(form.original_price) <= 0) e.original_price = 'Harga asli harus lebih dari 0'
     if (Number(form.stok) < 0)       e.stok           = 'Stok tidak boleh negatif'
+    if (Number(form.weight) <= 0)    e.weight         = 'Berat harus lebih dari 0 gram'
     if (imageFiles.value.length > 4) e.images         = 'Maksimal 4 gambar baru'
 
     try {
@@ -492,6 +599,7 @@ async function submitForm() {
 
         // is_active — multipart hanya bisa string
         fd.append('is_active', form.is_active ? 'true' : 'false')
+        fd.append('addon_scope', form.addon_scope || 'inherit')
 
         // brand — nama asli brand (bukan slug)
         // Backend Stock model menyimpan brand sebagai varchar nama, bukan slug
@@ -529,6 +637,11 @@ async function submitForm() {
 
         // ── Kirim ke backend ─────────────────────────────────────────────
         await stockApi.update(stockUuid, fd)
+
+        // ── Sync Addon Mappings jika custom ──────────────────────────────
+        if (form.addon_scope === 'custom') {
+            await addonApi.syncStockMappings(stockUuid, selectedGroupUuids.value)
+        }
 
         showToast('Produk berhasil diperbarui!')
         setTimeout(() => router.push('/stock'), 1500)

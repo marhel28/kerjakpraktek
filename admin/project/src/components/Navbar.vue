@@ -1,6 +1,6 @@
 <template>
     <header
-      class="sticky top-0 z-10 w-full bg-white/70 backdrop-blur-md border-b border-gray-200 transition-all duration-300">
+      class="sticky top-0  w-full bg-white/70 backdrop-blur-md border-b border-gray-200 transition-all duration-300">
       <div class="flex items-center justify-between h-16 px-4 md:px-6">
   
         <!-- Left: toggle + title -->

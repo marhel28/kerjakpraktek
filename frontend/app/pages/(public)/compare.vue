@@ -1,10 +1,14 @@
 <script setup lang="ts">
 import { computed } from 'vue'
+import { useRouter } from 'vue-router'
 import { useCompareStore } from '~/stores/compare'
 import { useWishlistStore } from '~/stores/wishlist'
+import { useCheckoutStore } from '~/stores/checkout'
 
 const compareStore = useCompareStore()
 const wishlistStore = useWishlistStore()
+const checkoutStore = useCheckoutStore()
+const router = useRouter()
 
 // ==========================================
 // 🚀 DYNAMIC SPECS EXTRACTOR
@@ -46,13 +50,29 @@ const formatPrice = (value: number) => {
   }).format(value).replace('Rp', 'Rp ')
 }
 
+const beliLangsung = (item: any) => {
+  checkoutStore.setCheckoutData([
+    {
+      id: item.id,
+      title: item.title,
+      price: item.price,
+      image: item.image,
+      quantity: 1,
+      weight: 1000, // Fallback berat 1kg jika data tidak tersedia di komparasi
+      options: null,
+      stock_uuid: item.id
+    }
+  ], 0, '')
+  router.push('/payment')
+}
+
 // ==========================================
 // 🔍 SEO META
 // ==========================================
 useSeoMeta({
-  title: 'Bandingkan Spesifikasi CCTV & Keamanan | Padjajaran CCTV',
+  title: 'Bandingkan Spesifikasi CCTV & Keamanan | PasarCctv',
   description: 'Bandingkan harga, fitur, dan spesifikasi teknis dari berbagai kamera CCTV secara berdampingan. Temukan produk yang paling sesuai dengan kebutuhan keamanan Anda.',
-  ogTitle: 'Bandingkan Produk Keamanan | Padjajaran CCTV',
+  ogTitle: 'Bandingkan Produk Keamanan | PasarCctv',
   ogDescription: 'Analisis produk CCTV secara detail dan berdampingan.',
 })
 </script>
@@ -169,7 +189,10 @@ useSeoMeta({
                         </div>
 
                         <div class="flex gap-2 mt-auto">
-                          <button class="flex-1 bg-gray-900 text-white text-xs font-bold uppercase tracking-wider py-2 rounded-lg hover:bg-green-600 transition-colors flex items-center justify-center gap-1 shadow-sm">
+                          <button 
+                            @click="beliLangsung(item)"
+                            class="flex-1 bg-gray-900 text-white text-xs font-bold uppercase tracking-wider py-2 rounded-lg hover:bg-green-600 transition-colors flex items-center justify-center gap-1 shadow-sm"
+                          >
                             <UIcon name="i-heroicons-shopping-bag" class="w-3.5 h-3.5" />
                             Beli
                           </button>

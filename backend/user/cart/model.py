@@ -25,11 +25,16 @@ class Cart(SQLModel, table=True):
 
     quantity: int = Field(default=1)
 
+    options: Optional[dict] = Field(
+        default=None,
+        sa_column=Column(pg.JSONB, nullable=True)
+    )
+
     created_at: datetime = Field(
         sa_column=Column(pg.TIMESTAMP(timezone=True), server_default=func.now())
     )
     __table_args__ = (
-        UniqueConstraint("user_uuid", "stock_uuid", name="uq_user_stock_cart"),
+        UniqueConstraint("user_uuid", "stock_uuid", "options", name="uq_user_stock_options_cart"),
     )
 
     # Relationships

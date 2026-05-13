@@ -1,14 +1,14 @@
 <script setup lang="ts">
 /**
- * Halaman New Arrivals - Padjajaran CCTV
+ * Halaman New Arrivals - PasarCctv
  * Halaman ini bertindak sebagai parent yang mengontrol state awal filtering
  */
 import ListProduct from '~/components/product/ListProduct.vue'
 
 // 1. Meta Data & SEO
 const pageTitle = "New Arrivals CCTV & Keamanan"
-const pageDescription = "Jelajahi koleksi produk keamanan terbaru di Padjajaran CCTV. Dari IP Camera AI hingga NVR tercanggih, temukan teknologi terbaru untuk keamanan Anda."
-const siteName = "Padjajaran CCTV"
+const pageDescription = "Jelajahi koleksi produk keamanan terbaru di PasarCctv. Dari IP Camera AI hingga NVR tercanggih, temukan teknologi terbaru untuk keamanan Anda."
+const siteName = "PasarCctv"
 
 useSeoMeta({
   title: `${pageTitle} - ${siteName}`,
@@ -36,7 +36,7 @@ const heroImage = "https://images.unsplash.com/photo-1557862921-37829c790f19?q=8
 <template>
   <div class="new-arrivals-page">
     <Head>
-      <link rel="canonical" href="https://padjajarancctv.com/new-arrivals" />
+      <link rel="canonical" href="https://pasarcctv.com/new-arrivals" />
     </Head>
 
     <ListProduct

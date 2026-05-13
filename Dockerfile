@@ -12,6 +12,11 @@ WORKDIR /app
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     libpq-dev \
+    libjpeg-dev \
+    zlib1g-dev \
+    libfreetype6-dev \
+    pkg-config \
+    libcairo2-dev \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
