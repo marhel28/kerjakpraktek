@@ -3,7 +3,9 @@ const route = useRoute()
 </script>
 
 <template>
-  <NuxtLayout :name="route.meta.layout || 'public'">
-    <NuxtPage />
-  </NuxtLayout>
+  <UApp>
+    <NuxtLayout :name="route.meta.layout || 'public'">
+      <NuxtPage />
+    </NuxtLayout>
+  </UApp>
 </template>

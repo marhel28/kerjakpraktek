@@ -296,7 +296,10 @@
 
 <script setup>
 import { ref, computed } from 'vue'
+import { useToastStore } from '@/stores/toast'
 import api from '@/service/api' // Sesuaikan path ini dengan lokasi file api.js Anda
+
+const toastStore = useToastStore()
 
 const searchQuery = ref('')
 const booking = ref(null)
@@ -368,13 +371,13 @@ const processPayment = async () => {
     if (paymentUrl) {
       window.location.href = paymentUrl
     } else {
-      alert('Link pembayaran berhasil dibuat, silakan cek email / WhatsApp Anda.')
+      toastStore.success('Link pembayaran berhasil dibuat, silakan cek email / WhatsApp Anda.')
       await fetchBooking() // Refresh data
     }
     
   } catch (error) {
     console.error('Payment create error:', error)
-    alert('Gagal membuat link pembayaran. Silakan coba lagi.')
+    toastStore.error('Gagal membuat link pembayaran. Silakan coba lagi.')
   } finally {
     isPaymentLoading.value = false
   }

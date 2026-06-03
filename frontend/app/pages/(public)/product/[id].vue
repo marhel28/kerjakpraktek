@@ -22,23 +22,30 @@ const uuid = route.params.id as string;
 //         getCachedData menyebabkan Nuxt menulis payload file ke disk
 //         → ENOENT error di Windows karena path terlalu panjang.
 // ✅ FIX: Key diperpendek agar konsisten dengan server cache key.
+const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(uuid);
+
 const [{ data: apiResponse, pending, error }, { data: recResponse }] = await Promise.all([
   useFetch("/api/peritems", {
-    query: { uuid },
+    query: isUuid ? { uuid } : { slug: uuid },
     key: `p_${uuid.slice(0, 8)}`,
   }),
   useFetch("/api/recommendations", {
-    query: { uuid },
+    query: isUuid ? { uuid } : { slug: uuid },
     key: `r_${uuid.slice(0, 8)}`,
     lazy: true,
   }),
 ]);
 
-// ─── Fetch Addons (Dependent on apiResponse) ──────────────────────
-const { data: addonResponse } = await useFetch(() => `/api/addons/bundle/${uuid}`, {
-  query: { category_slug: apiResponse.value?.data?.category },
-  key: `addons_${uuid.slice(0, 8)}`,
-  immediate: !!apiResponse.value?.data?.category,
+// ─── Fetch Addons (Wait for product data to get real UUID) ────────
+const { data: addonResponse } = await useFetch(() => {
+  const realUuid = apiResponse.value?.data?.uuid;
+  if (!realUuid) return null;
+  return `/api/addons/bundle/${realUuid}`;
+}, {
+  query: { category_slug: computed(() => apiResponse.value?.data?.category) },
+  key: computed(() => `addons_${apiResponse.value?.data?.uuid || uuid.slice(0, 8)}`),
+  immediate: !!apiResponse.value?.data?.uuid,
+  watch: [apiResponse]
 });
 
 // ─── 404 guard ───────────────────────────────────────────────────
@@ -254,6 +261,14 @@ watch(
   { immediate: true }
 );
 
+// ─── Redirect UUID to Slug ───────────────────────────────────────
+watch(apiResponse, (newVal) => {
+  if (import.meta.client && newVal?.data?.slug && newVal.data.slug !== route.params.id) {
+    // Gunakan history.replaceState untuk ganti URL tanpa reload/push history baru
+    window.history.replaceState({}, '', `/product/${newVal.data.slug}`);
+  }
+}, { immediate: true });
+
 const isZoomed = ref(false);
 const zoomStyle = ref({ transformOrigin: "center center", transform: "scale(1)" });
 
@@ -276,12 +291,11 @@ const handleMouseLeave = () => {
 
 // ─── Harga & Varian ──────────────────────────────────────────────
 const quantity = ref(1);
-const selectedHdd = ref({ label: "Tanpa HDD", price: 0 });
 const isPaket = computed(() => product.value?.category === "paket-cctv");
 const selectedAddons = ref<Record<string, { uuid: string; quantity: number; price: number; name: string; weight: number }>>({});
 
 const unitPrice = computed(
-  () => (product.value?.price ?? 0) + (isPaket.value ? selectedHdd.value.price : 0)
+  () => (product.value?.price ?? 0)
 );
 
 const addonTotalPrice = computed(() => {
@@ -309,11 +323,7 @@ function formatPrice(value: number) {
     .replace("Rp", "Rp ");
 }
 
-const hddOptions = [
-  { label: "Tanpa HDD", price: 0 },
-  { label: "HDD 1TB (Surveillance)", price: 550000 },
-  { label: "HDD 2TB (Surveillance)", price: 950000 },
-];
+
 
 // ─── Wishlist ────────────────────────────────────────────────────
 const isWishlisted = computed(() =>
@@ -393,7 +403,6 @@ const cartItem = computed(() => {
     quantity: quantity.value,
     weight: totalWeight.value,
     options: { 
-      hdd: isPaket.value ? selectedHdd.value.label : null,
       addons: Object.values(selectedAddons.value)
     },
     stock_uuid: p.stockUuid,
@@ -669,46 +678,22 @@ function openChat() {
             </p>
           </div>
 
-          <!-- Varian HDD -->
-          <div
-            v-if="isPaket"
-            class="mb-8 p-4 rounded-xl border border-gray-100 bg-gray-50"
-          >
-            <h2 class="font-bold text-gray-900 mb-3 text-base">
-              Pilih Penyimpanan:
-              <span class="text-green-600">{{ selectedHdd.label }}</span>
-            </h2>
-            <div class="flex flex-wrap gap-2.5">
-              <button
-                v-for="opt in hddOptions"
-                :key="opt.label"
-                :aria-pressed="selectedHdd.label === opt.label"
-                class="px-4 py-2 border-2 rounded-xl text-sm font-bold transition-all"
-                :class="
-                  selectedHdd.label === opt.label
-                    ? 'border-green-500 bg-green-50 text-green-700'
-                    : 'border-gray-200 text-gray-600 hover:border-gray-300 bg-white'
-                "
-                @click="selectedHdd = opt"
-              >
-                {{ opt.label }}
-                <span
-                  v-if="opt.price > 0"
-                  class="block text-[10px] font-medium mt-0.5 opacity-70"
-                >
-                  + {{ formatPrice(opt.price) }}
-                </span>
-              </button>
-            </div>
-          </div>
+
 
           <!-- ── Dynamic Addons ────────────────────────────────── -->
           <div v-if="addonResponse?.data?.length" class="mb-10 border-t border-gray-100 pt-8">
-            <h2 class="text-lg font-black text-gray-900 tracking-tight mb-6 flex items-center gap-2">
-              Lengkapi Kebutuhan Anda
-              <span class="px-2 py-0.5 bg-green-50 text-green-600 text-[10px] font-black rounded uppercase tracking-widest">Bundling Hemat</span>
+            <h2 class="text-xl font-black text-gray-900 tracking-tight mb-1">
+              Layanan Tambahan
             </h2>
-            <AddonPicker v-model="selectedAddons" :bundle="addonResponse.data" />
+            <p class="text-xs text-gray-400 font-bold mb-6 uppercase tracking-wider">
+              Opsi tambahan untuk kenyamanan Anda
+            </p>
+            
+            <AddonPicker 
+              v-model="selectedAddons" 
+              :bundle="addonResponse.data" 
+              variant="chips"
+            />
           </div>
 
           <!-- Spesifikasi & Deskripsi -->

@@ -31,6 +31,7 @@ class CheckoutRequest(BaseModel):
     courier_service: Optional[str] = Field(default="REG", max_length=50)
 
     coupon_code: Optional[str] = Field(default=None, max_length=50)
+    payment_type: str = Field(default="gopay", description="Metode: bca_va, mandiri_va, gopay, qris")
 
 
 class CheckoutResponse(BaseModel):
@@ -40,11 +41,13 @@ class CheckoutResponse(BaseModel):
     shipping_cost: int
     discount_amount: int
     gross_amount: int
-    qr_code_url: Optional[str] = None
-    payment_url: Optional[str] = None
+    payment_type: Optional[str] = None
     transaction_status: str = "pending"
     expiry_time: Optional[str] = None
-    snap_token:Optional[str] = None
+    snap_token: Optional[str] = None
+    va_numbers: Optional[list] = None
+    qr_code_url: Optional[str] = None
+    payment_url: Optional[str] = None
     message: str = "Silakan selesaikan pembayaran"
 
 

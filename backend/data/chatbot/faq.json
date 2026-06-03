@@ -1,0 +1,93 @@
+[
+  {
+    "keywords": ["lokasi", "alamat", "toko", "di mana", "dimana", "maps", "cabang", "kantor"],
+    "question": "Di mana lokasi toko PasarCCTV?",
+    "answer": "📍 **Lokasi Toko PasarCCTV**\nJl. Raya CCTV No. 88, Jakarta Barat\n\nTersedia juga di Google Maps — ketik **'PasarCCTV Jakarta'**.\nSenang menyambut kunjungan Kakak! 😊",
+    "no_related": true,
+    "category": "lokasi"
+  },
+  {
+    "keywords": ["jam", "buka", "operasional", "hari", "libur", "sabtu", "minggu"],
+    "question": "Jam operasional toko?",
+    "answer": "🕘 **Jam Operasional PasarCCTV**\n• Senin – Jumat: 09.00 – 18.00 WIB\n• Sabtu: 09.00 – 15.00 WIB\n• Minggu & Libur Nasional: **Tutup**\n\nPesanan via website tetap bisa dilakukan 24/7. 📦",
+    "no_related": true,
+    "category": "operasional"
+  },
+  {
+    "keywords": ["garansi", "klaim", "rusak", "servis", "claim", "distributor", "warranty"],
+    "question": "Bagaimana cara klaim garansi?",
+    "answer": "🛡️ **Klaim Garansi Produk**\nSemua produk bergaransi resmi distributor (1–2 tahun tergantung merek).\n\n**Langkah klaim:**\n1. Kirim unit beserta box & segel garansi ke alamat toko\n2. Lampirkan invoice pembelian\n3. Proses: 7–14 hari kerja\n\nHubungi WhatsApp Admin untuk bantuan lebih lanjut.",
+    "no_related": true,
+    "category": "garansi"
+  },
+  {
+    "keywords": ["pasang", "instalasi", "teknisi", "setting", "biaya pasang", "ongkos pasang"],
+    "question": "Berapa biaya jasa pasang CCTV?",
+    "answer": "🔧 **Jasa Instalasi CCTV** (Jabodetabek)\n• CCTV WiFi / Smart Camera: mulai **Rp 75.000/titik**\n• CCTV Kabel (Analog/IP): mulai **Rp 150.000/titik**\n  *(termasuk setting monitoring di HP)*\n\nSurvey & penawaran paket → chat Admin langsung.",
+    "no_related": true,
+    "category": "layanan"
+  },
+  {
+    "keywords": ["bayar", "pembayaran", "cod", "cicilan", "transfer", "kartu kredit", "gopay", "ovo", "dana", "kredit"],
+    "question": "Metode pembayaran apa saja?",
+    "answer": "💳 **Metode Pembayaran Tersedia**\n• Transfer Bank / VA (BCA, Mandiri, BNI, BRI)\n• E-Wallet (GoPay, OVO, DANA, ShopeePay)\n• COD via kurir ekspedisi\n• Cicilan 0% (Kredivo, Akulaku, Kartu Kredit)",
+    "no_related": true,
+    "category": "pembayaran"
+  },
+  {
+    "keywords": ["kirim", "pengiriman", "kurir", "jne", "jnt", "gojek", "grab", "sameday", "ongkir", "ekspedisi"],
+    "question": "Opsi pengiriman apa saja?",
+    "answer": "🚚 **Opsi Pengiriman**\n• Instan/Sameday: GoSend & GrabExpress *(order < 15.00 WIB)*\n• Reguler: JNE, J&T, SiCepat\n• Kargo berat: Sentral Cargo\n\nSemua produk dipacking bubble wrap **GRATIS**. Resi update otomatis malam hari.",
+    "no_related": true,
+    "category": "pengiriman"
+  },
+  {
+    "keywords": ["suara", "audio", "mic", "two way", "rekam suara", "speaker", "dua arah"],
+    "question": "CCTV apa yang bisa rekam suara / two-way audio?",
+    "answer": "🎤 **CCTV dengan Two-Way Audio**\nRekomendasi produk:\n• **Tapo C200 / C210** — indoor, 360°\n• **Imou Ranger 2** — indoor, deteksi manusia\n• **Imou Cruiser** — outdoor, tahan air\n\nKetik nama produk untuk cek harga & stok. 📱",
+    "related_query": "audio",
+    "category": "produk"
+  },
+  {
+    "keywords": ["cctv outdoor", "kamera luar", "tahan hujan", "ip66", "ip67", "waterproof", "cuaca"],
+    "question": "Rekomendasi CCTV outdoor tahan cuaca?",
+    "answer": "☁️ **CCTV Outdoor Tahan Cuaca**\nCari produk dengan rating **IP66 atau IP67** — tahan debu & air hujan.\n\nMerek andalan: Hikvision, Dahua, Imou, Tapo.\nKetik 'kamera outdoor' atau brand pilihan untuk rekomendasi lengkap.",
+    "related_query": "outdoor",
+    "category": "produk"
+  },
+  {
+    "keywords": ["nvr", "dvr", "recorder", "rekam", "storage", "penyimpanan", "hardisk", "hdd"],
+    "question": "Apa bedanya NVR dan DVR?",
+    "answer": "💾 **NVR vs DVR**\n• **DVR** — untuk kamera CCTV analog (kabel coaxial)\n• **NVR** — untuk kamera IP / WiFi (kabel LAN atau wireless)\n\nButuh saran setup lengkap? Ketik kebutuhan Kakak (berapa kamera, indoor/outdoor) atau chat Admin untuk konsultasi gratis.",
+    "related_query": "nvr",
+    "category": "produk"
+  },
+  {
+    "keywords": ["wifi", "wireless", "tanpa kabel", "nirkabel", "smart camera", "hp", "monitor hp"],
+    "question": "Rekomendasi CCTV WiFi yang bisa dipantau lewat HP?",
+    "answer": "📱 **CCTV WiFi Monitor HP**\nPilihan populer di toko kami:\n• **Tapo C100/C200** — indoor, mudah setup\n• **Imou Ranger / Bullet** — indoor & outdoor\n• **Hikvision WiFi Series** — kualitas enterprise\n\nSemua bisa dipantau realtime via app di iPhone & Android.",
+    "related_query": "wifi",
+    "category": "produk"
+  },
+  {
+    "keywords": ["membeli", "beli", "checkout", "cara beli", "cara membeli", "order", "pemesanan", "cara order", "langkah beli"],
+    "question": "Bagaimana cara membeli / memesan produk?",
+    "answer": "🛒 **Cara Membeli Produk di PasarCCTV**\n\nSangat mudah Kak! Ikuti langkah berikut:\n1. **Pilih Produk**: Cari produk CCTV pilihan Kakak lalu klik **Tambah ke Keranjang** atau **Beli Sekarang**.\n2. **Keranjang Belanja**: Klik ikon keranjang di kanan atas, cek kembali daftar produk, lalu klik **Checkout**.\n3. **Isi Alamat**: Masukkan alamat pengiriman lengkap Kakak secara detail.\n4. **Pilih Kurir**: Tentukan opsi pengiriman (Reguler/Kargo/Instan).\n5. **Pilih Pembayaran**: Pilih metode pembayaran (Transfer, E-Wallet, VA, atau COD) lalu klik **Bayar**.\n6. **Selesai**: Lakukan pembayaran dan pesanan Kakak akan segera diproses oleh tim kami! 📦",
+    "no_related": true,
+    "category": "pembayaran"
+  },
+  {
+    "keywords": ["lacak", "resi", "pesanan", "status pengiriman", "tracking", "dimana paket", "kiriman"],
+    "question": "Bagaimana cara melacak pesanan?",
+    "answer": "📦 **Cara Melacak Pesanan**\n\nUntuk melacak status pesanan Kakak:\n1. Masuk ke menu **Akun** > **Pesanan Saya**.\n2. Pilih pesanan yang ingin dilacak.\n3. Salin nomor resi pengiriman yang tertera.\n4. Kakak bisa melacaknya langsung di web kurir (JNE, J&T, SiCepat) atau melihat update realtime di halaman detail pesanan website kami.",
+    "no_related": true,
+    "category": "pengiriman"
+  },
+  {
+    "keywords": ["wa", "whatsapp", "telepon", "kontak", "admin cs", "cs whatsapp", "nomor wa", "cs via whatsapp"],
+    "question": "Hubungi CS via WhatsApp?",
+    "answer": "📞 **Hubungi CS via WhatsApp**\n\nJika Kakak memerlukan bantuan cepat atau konsultasi teknis:\n• **WhatsApp CS**: 0812-3456-7890\n• **Email**: support@pasarcctv.com\n\nKami siap membantu Kakak dari jam 09.00 hingga 18.00 WIB. Klik tab **Tanya Admin** di chat ini jika ingin chat langsung di website kami! 😊",
+    "no_related": true,
+    "category": "layanan"
+  }
+]

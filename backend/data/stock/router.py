@@ -232,6 +232,18 @@ async def get_recommendations(stock_uuid: str):
         return {"status": "error", "data": []}
 
 
+@router.get("/public/recommendations/slug/{slug}")
+async def get_recommendations_by_slug(slug: str, session: AsyncSession = Depends(get_session)):
+    try:
+        stock = await service.get_stock_detail_by_slug(session, slug)
+        if not stock:
+            return {"status": "success", "data": []}
+        items = await service.get_similar_products_es(str(stock.uuid), limit=8)
+        return {"status": "success", "data": items}
+    except Exception:
+        return {"status": "error", "data": []}
+
+
 @router.get("/public/megamenu-collections")
 async def get_megamenu_collections():
     r = get_redis_token()

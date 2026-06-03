@@ -81,18 +81,11 @@
         </div>
       </div>
   
-      <transition
-        enter-active-class="transition duration-200 ease-out"
-        enter-from-class="opacity-0 scale-95"
-        enter-to-class="opacity-100 scale-100"
-        leave-active-class="transition duration-150 ease-in"
-        leave-from-class="opacity-100 scale-100"
-        leave-to-class="opacity-0 scale-95"
-      >
+      <Transition name="modal-fade">
         <div v-if="isModalOpen" class="fixed inset-0 z-[9999] flex items-center justify-center p-4">
           <div class="absolute inset-0 bg-gray-900/40 backdrop-blur-sm" @click="closeModal"></div>
   
-          <div class="relative bg-white rounded-2xl shadow-xl w-full max-w-lg border border-gray-100 flex flex-col overflow-hidden max-h-[90vh]">
+          <div class="modal-card relative bg-white rounded-2xl shadow-xl w-full max-w-lg border border-gray-100 flex flex-col overflow-hidden max-h-[90vh]">
             
             <div class="flex items-center justify-between px-6 py-4 border-b border-gray-100 bg-gray-50/50">
               <h3 class="text-lg font-semibold text-gray-900">{{ editingId ? 'Edit Banner' : 'Tambah Banner' }}</h3>
@@ -191,17 +184,10 @@
         </div>
       </transition>
   
-      <transition
-        enter-active-class="transition duration-200 ease-out"
-        enter-from-class="opacity-0 scale-95"
-        enter-to-class="opacity-100 scale-100"
-        leave-active-class="transition duration-150 ease-in"
-        leave-from-class="opacity-100 scale-100"
-        leave-to-class="opacity-0 scale-95"
-      >
+      <Transition name="modal-fade">
         <div v-if="isDeleteModalOpen" class="fixed inset-0 z-[60] flex items-center justify-center p-4">
           <div class="absolute inset-0 bg-gray-900/40 backdrop-blur-sm" @click="isDeleteModalOpen = false"></div>
-          <div class="relative bg-white rounded-2xl shadow-xl w-full max-w-sm p-6 text-center border border-gray-100">
+          <div class="modal-card relative bg-white rounded-2xl shadow-xl w-full max-w-sm p-6 text-center border border-gray-100">
             <div class="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100 mb-4">
               <svg class="h-6 w-6 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
@@ -229,6 +215,9 @@
   <script setup>
 import { ref, reactive, onMounted } from 'vue'
 import api from '@/service/api' // <-- Mengambil instance API dari service kamu
+import { useToastStore } from '@/stores/toast'
+
+const toastStore = useToastStore()
 
 // Base path untuk endpoint xbanner
 const API_BASE = '/banner'
@@ -270,13 +259,12 @@ const fetchBanners = async () => {
       link: b.l,
       image: b.img,
       position: b.p
-    })).sort((a, b) => a.position - b.position) // Urutkan berdasarkan posisi
+    })).sort((a, b) => a.position - b.position)
     
   } catch (error) {
     console.error('Error fetching banners:', error)
-    // Menampilkan pesan error dari backend jika ada, atau pesan default
     const errorMsg = error.response?.data?.detail || 'Terjadi kesalahan saat memuat data.'
-    alert(errorMsg)
+    toastStore.error(errorMsg)
   } finally {
     isLoading.value = false
   }
@@ -303,7 +291,7 @@ const openModal = (banner = null) => {
 }
 
 const closeModal = () => {
-  if (isSubmitting.value) return // Cegah tutup saat loading
+  if (isSubmitting.value) return
   isModalOpen.value = false
 }
 
@@ -318,13 +306,12 @@ const handleFileChange = (event) => {
   
   // Validasi ukuran (Max 2MB)
   if (file.size > 2 * 1024 * 1024) {
-    alert('Ukuran gambar maksimal 2MB')
+    toastStore.error('Ukuran gambar maksimal 2MB')
     return
   }
 
   selectedFile.value = file
   
-  // Buat preview lokal
   const reader = new FileReader()
   reader.onload = (e) => {
     imagePreview.value = e.target.result
@@ -336,7 +323,7 @@ const handleFileChange = (event) => {
 const saveBanner = async () => {
   // Validasi: Wajib ada gambar untuk banner baru
   if (!editingId.value && !selectedFile.value) {
-    alert('Silakan pilih gambar banner terlebih dahulu.')
+    toastStore.error('Silakan pilih gambar banner terlebih dahulu.')
     return
   }
 
@@ -345,17 +332,16 @@ const saveBanner = async () => {
   
   if (selectedFile.value) formData.append('file', selectedFile.value)
   formData.append('title', form.title)
-  formData.append('link', form.link || '') // Hindari undefined
+  formData.append('link', form.link || '')
   formData.append('position', form.position)
 
   try {
-    // Axios otomatis mendeteksi FormData dan menset header Content-Type ke multipart/form-data
     if (editingId.value) {
-      // Mode Edit (PUT)
       await api.put(`${API_BASE}/admin/${editingId.value}`, formData)
+      toastStore.success('Banner berhasil diperbarui!')
     } else {
-      // Mode Create (POST)
       await api.post(`${API_BASE}/admin/create`, formData)
+      toastStore.success('Banner baru berhasil ditambahkan!')
     }
 
     await fetchBanners()
@@ -363,7 +349,7 @@ const saveBanner = async () => {
   } catch (error) {
     console.error('Error saving banner:', error)
     const errorMsg = error.response?.data?.detail || 'Terjadi kesalahan saat menyimpan banner.'
-    alert(errorMsg)
+    toastStore.error(errorMsg)
   } finally {
     isSubmitting.value = false
   }
@@ -380,15 +366,14 @@ const deleteBanner = async () => {
   isSubmitting.value = true
 
   try {
-    // Mode Hapus (DELETE)
     await api.delete(`${API_BASE}/admin/${bannerToDelete.value}`)
-
+    toastStore.success('Banner berhasil dihapus!')
     await fetchBanners()
     isDeleteModalOpen.value = false
   } catch (error) {
     console.error('Error deleting banner:', error)
     const errorMsg = error.response?.data?.detail || 'Terjadi kesalahan saat menghapus data.'
-    alert(errorMsg)
+    toastStore.error(errorMsg)
   } finally {
     isSubmitting.value = false
     bannerToDelete.value = null
@@ -400,3 +385,24 @@ onMounted(() => {
   fetchBanners()
 })
 </script>
+
+<style scoped>
+/* Modal Animation */
+.modal-fade-enter-active, .modal-fade-leave-active {
+  transition: opacity 0.25s ease;
+}
+.modal-fade-enter-active .modal-card, .modal-fade-leave-active .modal-card {
+  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.25s ease;
+}
+.modal-fade-enter-from, .modal-fade-leave-to {
+  opacity: 0;
+}
+.modal-fade-enter-from .modal-card {
+  transform: scale(0.95) translateY(12px);
+  opacity: 0;
+}
+.modal-fade-leave-to .modal-card {
+  transform: scale(0.95) translateY(10px);
+  opacity: 0;
+}
+</style>

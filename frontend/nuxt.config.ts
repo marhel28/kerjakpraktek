@@ -71,7 +71,8 @@ export default defineNuxtConfig({
     '@pinia/nuxt',
     '@nuxt/ui',
     '@nuxtjs/leaflet',
-    "@nuxtjs/supabase"
+    "@nuxtjs/supabase",
+    '@vueuse/motion/nuxt'
   ],
 
   supabase: {
@@ -79,6 +80,19 @@ export default defineNuxtConfig({
     key: process.env.SUPABASE_ANON_KEY,
     redirect: false,
     types: 'app/types/database.types.ts',
+    // ✅ Disable auto token refresh karena app punya JWT auth sendiri.
+    // Ini menghilangkan error "Failed to fetch" dari Supabase saat offline/dev lokal.
+    cookieOptions: {
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+    },
+    clientOptions: {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false,
+        detectSessionInUrl: false,
+      }
+    }
   },
 
   app: {

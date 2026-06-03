@@ -134,7 +134,7 @@
            MODAL: CREATE / EDIT SECTION
       ════════════════════════════════ -->
       <Teleport to="body">
-        <Transition name="modal">
+        <Transition name="modal-fade">
           <div v-if="showSectionModal" class="modal-overlay" @click.self="closeModals">
             <div class="modal modal--md">
   
@@ -245,7 +245,7 @@
            MODAL: UPLOAD BANNER
       ════════════════════════════════ -->
       <Teleport to="body">
-        <Transition name="modal">
+        <Transition name="modal-fade">
           <div v-if="showBannerModal" class="modal-overlay" @click.self="closeModals">
             <div class="modal modal--md">
   
@@ -331,7 +331,7 @@
            MODAL: DELETE CONFIRM
       ════════════════════════════════ -->
       <Teleport to="body">
-        <Transition name="modal">
+        <Transition name="modal-fade">
           <div v-if="showDeleteModal" class="modal-overlay" @click.self="showDeleteModal = false">
             <div class="modal modal--sm modal--danger">
               <div class="modal__head">
@@ -380,8 +380,11 @@
   
   <script setup>
   import { ref, reactive, onMounted } from 'vue'
+  import { useToastStore } from '@/stores/toast'
   import api from '@/service/api'
   import ImageSectionPreview from '@/components/ImageSectionPreview.vue'
+  
+  const toastStore = useToastStore()
   
   const API_BASE    = '/image-sections'
   const CATEGORY_API = '/category'
@@ -521,8 +524,8 @@
   
   const processFile = (file) => {
     if (!file) return
-    if (file.size > 2 * 1024 * 1024) { alert('Ukuran gambar maksimal 2MB'); return }
-    if (!file.type.startsWith('image/')) { alert('Format file harus berupa gambar'); return }
+    if (file.size > 2 * 1024 * 1024) { toastStore.warning('Ukuran gambar maksimal 2MB'); return }
+    if (!file.type.startsWith('image/')) { toastStore.warning('Format file harus berupa gambar'); return }
     selectedFile.value = file
     const reader = new FileReader()
     reader.onload = (e) => { imagePreview.value = e.target.result }
@@ -538,7 +541,7 @@
   // ── Save Section ──────────────────────────────────────
   const saveSection = async () => {
     if (!sectionForm.identifier || !sectionForm.title) {
-      alert('Identifier dan Judul wajib diisi.')
+      toastStore.warning('Identifier dan Judul wajib diisi.')
       return
     }
     isSubmitting.value = true
@@ -556,8 +559,9 @@
       }
       await fetchSections()
       closeModals()
+      toastStore.success('Section berhasil disimpan.')
     } catch (e) {
-      alert(e.response?.data?.detail || 'Gagal menyimpan section.')
+      toastStore.error(e.response?.data?.detail || 'Gagal menyimpan section.')
     } finally {
       isSubmitting.value = false
     }
@@ -565,8 +569,8 @@
   
   // ── Save Banner ───────────────────────────────────────
   const saveBanner = async () => {
-    if (!selectedFile.value)           { alert('Pilih gambar terlebih dahulu.'); return }
-    if (!bannerForm.target_url.trim()) { alert('Target URL wajib diisi.'); return }
+    if (!selectedFile.value)           { toastStore.warning('Pilih gambar terlebih dahulu.'); return }
+    if (!bannerForm.target_url.trim()) { toastStore.warning('Target URL wajib diisi.'); return }
   
     isSubmitting.value = true
     const fd = new FormData()
@@ -584,8 +588,9 @@
       if (!res.ok) throw new Error(data.detail || 'Upload gagal')
       await fetchSections()
       closeModals()
+      toastStore.success('Banner berhasil diupload.')
     } catch (e) {
-      alert(e.message)
+      toastStore.error(e.message)
     } finally {
       isSubmitting.value = false
     }
@@ -609,8 +614,9 @@
       }
       await fetchSections()
       showDeleteModal.value = false
+      toastStore.success('Data berhasil dihapus.')
     } catch (e) {
-      alert(e.response?.data?.detail || 'Gagal menghapus.')
+      toastStore.error(e.response?.data?.detail || 'Gagal menghapus.')
     } finally {
       isSubmitting.value = false
       itemToDelete.value = null
@@ -634,8 +640,9 @@
       await fetchSections()
       // Keep preview section reference fresh
       previewSection.value = sections.value.find(s => s.uuid === section.uuid) ?? null
+      toastStore.success('Mode layout berhasil diperbarui.')
     } catch (e) {
-      alert(e.response?.data?.detail || 'Gagal mengupdate mode.')
+      toastStore.error(e.response?.data?.detail || 'Gagal mengupdate mode.')
     } finally {
       isSubmitting.value = false
     }
@@ -1208,12 +1215,25 @@
   .delete-desc { font-size: 13px; color: #555; line-height: 1.6; margin: 0; }
   
   /* ══════════════════════════════════════════
-     MODAL TRANSITION
+     MODAL TRANSITION (modal-fade)
   ══════════════════════════════════════════ */
-  .modal-enter-active,
-  .modal-leave-active { transition: opacity 180ms, transform 180ms; }
-  .modal-enter-from,
-  .modal-leave-to { opacity: 0; transform: scale(0.97) translateY(8px); }
+  .modal-fade-enter-active, .modal-fade-leave-active {
+    transition: opacity 0.25s ease;
+  }
+  .modal-fade-enter-active .modal, .modal-fade-leave-active .modal {
+    transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.25s ease;
+  }
+  .modal-fade-enter-from, .modal-fade-leave-to {
+    opacity: 0;
+  }
+  .modal-fade-enter-from .modal {
+    transform: scale(0.95) translateY(12px);
+    opacity: 0;
+  }
+  .modal-fade-leave-to .modal {
+    transform: scale(0.95) translateY(10px);
+    opacity: 0;
+  }
   
   /* ══════════════════════════════════════════
      SPIN

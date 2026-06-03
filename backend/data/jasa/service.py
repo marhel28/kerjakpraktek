@@ -772,7 +772,7 @@ class BookingService:
         page: int = 1,
         size: int = 20,
     ) -> Dict[str, Any]:
-        stmt = select(ServiceBooking)
+        stmt = select(ServiceBooking).options(selectinload(ServiceBooking.technician))
         if status:
             stmt = stmt.where(ServiceBooking.status == status)
         if date_from:

@@ -19,22 +19,29 @@
       >
         <!-- ── Header ─────────────────────────────────────────── -->
         <header
-          class="bg-black text-white p-4 flex justify-between items-start cursor-move select-none shrink-0"
+          class="bg-[#0D1B12] text-white p-4 flex justify-between items-start cursor-move select-none shrink-0"
           @mousedown="onDragStart"
           @touchstart.passive="onDragStart"
         >
           <div class="flex gap-3 items-center pointer-events-none">
             <div
+              v-if="activeTab === 'bot'"
+              class="w-10 h-10 bg-[#03AC0E]/20 rounded-full flex items-center justify-center shrink-0 border border-[#03AC0E]/30"
+            >
+              <Icon name="lucide:bot" class="w-5 h-5 text-[#03AC0E]" />
+            </div>
+            <div
+              v-else
               class="w-10 h-10 bg-white/10 rounded-full flex items-center justify-center shrink-0 border border-white/20"
             >
               <Icon name="lucide:headset" class="w-5 h-5 text-white" />
             </div>
             <div class="flex flex-col">
-              <span class="text-sm font-black uppercase tracking-widest italic"
-                >PasarCctv Support</span
+              <span class="text-sm font-medium tracking-wide uppercase italic text-white"
+                >{{ activeTab === 'bot' ? 'PasarBot AI' : 'Pesan Admin' }}</span
               >
-              <span class="text-[10px] text-gray-400 font-medium"
-                >Online • Siap Membantu</span
+              <span class="text-[10px] text-gray-300 font-normal"
+                >{{ activeTab === 'bot' ? 'Online • Jawaban Instan' : 'Online • Siap Membantu' }}</span
               >
               <div class="barcode-element-mini mt-1.5" />
             </div>
@@ -48,8 +55,31 @@
           </button>
         </header>
 
-        <!-- ── Banner Produk ──────────────────────────────────── -->
-        <!-- Muncul saat ada pendingContext yang belum dikirim -->
+        <!-- ── Segmented Tab (Forest Green Style) ──────────────── -->
+        <div class="bg-gray-50 p-1 flex border-b border-gray-200 shrink-0">
+          <button
+            @click="activeTab = 'bot'"
+            class="flex-1 text-center py-2 text-xs font-medium rounded-lg transition-all duration-200"
+            :class="activeTab === 'bot' ? 'bg-[#0D1B12] text-white shadow-sm' : 'text-gray-600 hover:bg-gray-150'"
+          >
+            <Icon name="lucide:sparkles" class="w-3.5 h-3.5 inline-block mr-1.5 -mt-0.5" />
+            PasarBot AI
+          </button>
+          <button
+            @click="activeTab = 'admin'"
+            class="flex-1 text-center py-2 text-xs font-medium rounded-lg transition-all duration-200 relative"
+            :class="activeTab === 'admin' ? 'bg-[#0D1B12] text-white shadow-sm' : 'text-gray-600 hover:bg-gray-150'"
+          >
+            <Icon name="lucide:user" class="w-3.5 h-3.5 inline-block mr-1.5 -mt-0.5" />
+            Tanya Admin
+            <span
+              v-if="store.unreadCount > 0"
+              class="absolute top-1.5 right-2 w-2 h-2 bg-red-600 rounded-full"
+            />
+          </button>
+        </div>
+
+        <!-- ── Banner Produk (Hanya untuk Tanya Admin) ────────── -->
         <Transition
           enter-active-class="transition-all duration-300 ease-out"
           enter-from-class="opacity-0 max-h-0"
@@ -59,7 +89,7 @@
           leave-to-class="opacity-0 max-h-0"
         >
           <div
-            v-if="showProductBanner"
+            v-if="activeTab === 'admin' && showProductBanner"
             class="bg-amber-50 border-b border-amber-200 px-3 py-2.5 flex items-center gap-3 shrink-0 overflow-hidden"
           >
             <img
@@ -93,8 +123,195 @@
           </div>
         </Transition>
 
-        <!-- ── Messages Area ──────────────────────────────────── -->
+        <!-- ── Messages Area ─────────────────────────────────────── -->
+        <!-- TAB 1: Chatbot (PasarBot AI) -->
         <main
+          v-if="activeTab === 'bot'"
+          ref="messagesContainer"
+          class="flex-1 overflow-y-auto p-4 bg-gray-50 flex flex-col gap-3 custom-scrollbar"
+        >
+          <div v-for="msg in chatbotStore.messages" :key="msg.uuid" class="flex flex-col w-full">
+            <!-- User bubble (kanan) -->
+            <div
+              v-if="msg.role === 'user'"
+              class="flex flex-col max-w-[85%] self-end ml-auto"
+            >
+              <div class="bg-[#0D1B12] text-white px-3.5 py-2.5 rounded-2xl rounded-tr-sm shadow-sm">
+                <p class="text-xs leading-relaxed whitespace-pre-wrap">{{ msg.content }}</p>
+              </div>
+              <span class="text-[9px] text-gray-400 mt-1 self-end">{{ formatTime(msg.sent_at) }}</span>
+            </div>
+
+            <!-- Bot bubble (kiri) -->
+            <div v-else class="flex gap-2 max-w-[90%] self-start">
+              <div class="w-7 h-7 bg-[#03AC0E] rounded-full flex items-center justify-center shrink-0 mt-0.5 shadow-sm">
+                <Icon name="lucide:bot" class="w-4 h-4 text-white" />
+              </div>
+              <div class="flex flex-col flex-1 min-w-0">
+                <!-- Main reply bubble -->
+                <div class="bg-white border border-gray-200 px-3.5 py-2.5 rounded-2xl rounded-tl-sm shadow-sm">
+                  <p
+                    class="text-xs text-gray-800 leading-relaxed"
+                    v-html="renderMarkdown(msg.content)"
+                  />
+
+                  <!-- Quick Action: CS Handoff in Welcome Message -->
+                  <div v-if="msg.uuid === 'welcome-msg-bot'" class="mt-3 pt-3 border-t border-gray-150 flex flex-col gap-2">
+                    <div class="bg-[#03AC0E]/5 border border-[#03AC0E]/20 rounded-xl p-2.5 flex items-center justify-between gap-3">
+                      <div class="flex-1 min-w-0">
+                        <p class="text-[11px] font-bold text-[#0D1B12]">Butuh bantuan manusia? 📞</p>
+                        <p class="text-[10px] text-gray-500 leading-tight">Hubungi tim Customer Service / Admin kami secara langsung.</p>
+                      </div>
+                      <button
+                        @click="handleCSRequest"
+                        class="bg-[#0D1B12] hover:bg-[#03AC0E] text-white text-[10px] font-extrabold px-3 py-2 rounded-lg transition-all shrink-0 uppercase tracking-wider active:scale-95"
+                      >
+                        Hubungi CS
+                      </button>
+                    </div>
+                  </div>
+
+                  <!-- ── Product Cards (RAG Recommendations) ─────── -->
+                  <div
+                    v-if="msg.products && msg.products.length"
+                    class="mt-3 pt-3 border-t border-gray-100"
+                  >
+                    <p class="text-[9px] font-bold text-gray-400 uppercase tracking-widest mb-2">Produk Terkait</p>
+                    <div class="flex flex-col gap-2">
+                      <div
+                        v-for="prod in msg.products.slice(0, 4)"
+                        :key="prod.uuid"
+                        class="flex gap-2.5 items-center bg-gray-50 hover:bg-[#03AC0E]/5 border border-gray-150 hover:border-[#03AC0E]/30 rounded-xl p-2 transition-all duration-200 cursor-pointer group"
+                        @click="navigateTo(`/product/${prod.uuid}`)"
+                      >
+                        <!-- Thumbnail -->
+                        <div class="w-11 h-11 rounded-lg overflow-hidden shrink-0 bg-gray-100 border border-gray-200">
+                          <img
+                            v-if="prod.image"
+                            :src="prod.image"
+                            :alt="prod.title"
+                            class="w-full h-full object-cover"
+                          />
+                          <div v-else class="w-full h-full flex items-center justify-center">
+                            <Icon name="lucide:camera" class="w-4 h-4 text-gray-300" />
+                          </div>
+                        </div>
+
+                        <!-- Info -->
+                        <div class="flex-1 min-w-0">
+                          <p class="text-[8px] font-bold text-[#03AC0E] uppercase tracking-wider leading-none mb-0.5">
+                            {{ prod.brand || 'NO BRAND' }}
+                          </p>
+                          <p class="text-[11px] font-semibold text-gray-900 leading-snug truncate">
+                            {{ prod.title }}
+                          </p>
+                          <div class="flex items-center gap-1.5 mt-0.5">
+                            <span class="text-[11px] font-bold text-[#028C0B]">{{ formatPrice(prod.price) }}</span>
+                            <span
+                              v-if="prod.discount_percentage"
+                              class="text-[8px] bg-red-50 text-red-600 border border-red-100 px-1.5 py-0.5 rounded-full font-bold"
+                            >
+                              -{{ prod.discount_percentage }}%
+                            </span>
+                          </div>
+                        </div>
+
+                        <!-- CTA Arrow -->
+                        <Icon
+                          name="lucide:chevron-right"
+                          class="w-4 h-4 text-gray-300 group-hover:text-[#03AC0E] transition-colors shrink-0"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- ── Timestamp ─────────────────────────────────── -->
+                <span class="text-[9px] text-gray-400 mt-1 ml-0.5">{{ formatTime(msg.sent_at) }}</span>
+
+                <!-- ── Feedback Bar ───────────────────────────────── -->
+                <div
+                  v-if="msg.uuid !== 'welcome-msg-bot' && msg.feedback === null"
+                  class="flex items-center gap-2 mt-1.5"
+                >
+                  <span class="text-[9px] text-gray-400">Apakah ini membantu?</span>
+                  <button
+                    @click="handleFeedback(msg, true)"
+                    class="flex items-center gap-1 text-[9px] text-gray-400 hover:text-green-600 transition-colors px-1.5 py-0.5 rounded-full hover:bg-green-50"
+                    title="Ya, membantu"
+                  >
+                    <Icon name="lucide:thumbs-up" class="w-3 h-3" />
+                    <span>Ya</span>
+                  </button>
+                  <button
+                    @click="handleFeedback(msg, false)"
+                    class="flex items-center gap-1 text-[9px] text-gray-400 hover:text-red-500 transition-colors px-1.5 py-0.5 rounded-full hover:bg-red-50"
+                    title="Tidak membantu"
+                  >
+                    <Icon name="lucide:thumbs-down" class="w-3 h-3" />
+                    <span>Tidak</span>
+                  </button>
+                </div>
+
+                <!-- Feedback submitted confirmation -->
+                <div
+                  v-else-if="msg.uuid !== 'welcome-msg-bot' && msg.feedback === 'satisfied'"
+                  class="flex items-center gap-1 mt-1.5 text-[9px] text-green-600"
+                >
+                  <Icon name="lucide:check-circle" class="w-3 h-3" />
+                  <span>Terima kasih! 😊</span>
+                </div>
+
+                <!-- ── Escalation Panel ───────────────────────────── -->
+                <Transition
+                  enter-active-class="transition-all duration-300 ease-out"
+                  enter-from-class="opacity-0 translate-y-1"
+                  enter-to-class="opacity-100 translate-y-0"
+                >
+                  <div
+                    v-if="(msg.needs_escalation || msg.feedback === 'unsatisfied') && msg.uuid !== 'welcome-msg-bot'"
+                    class="mt-2 bg-amber-50 border border-amber-200 rounded-xl p-3"
+                  >
+                    <p class="text-[11px] font-semibold text-amber-800 mb-1.5">
+                      Butuh bantuan lebih lanjut?
+                    </p>
+                    <p class="text-[10px] text-amber-700 mb-2.5 leading-relaxed">
+                      Tim Admin kami siap membantu Kakak secara langsung.
+                    </p>
+                    <button
+                      @click="handleEscalate(msg)"
+                      :disabled="chatbotStore.isEscalating"
+                      class="w-full bg-[#03AC0E] hover:bg-[#028C0B] disabled:opacity-60 text-white text-[11px] font-bold py-2 rounded-lg transition-colors flex items-center justify-center gap-1.5"
+                    >
+                      <Icon v-if="chatbotStore.isEscalating" name="lucide:loader-2" class="w-3.5 h-3.5 animate-spin" />
+                      <Icon v-else name="lucide:headset" class="w-3.5 h-3.5" />
+                      {{ chatbotStore.isEscalating ? 'Meneruskan...' : 'Teruskan ke Admin' }}
+                    </button>
+                  </div>
+                </Transition>
+              </div>
+            </div>
+          </div>
+
+          <!-- Typing Indicator -->
+          <div v-if="chatbotStore.isSending" class="flex gap-2 max-w-[85%] self-start">
+            <div class="w-7 h-7 bg-[#03AC0E] rounded-full flex items-center justify-center shrink-0 mt-0.5 shadow-sm">
+              <Icon name="lucide:bot" class="w-4 h-4 text-white" />
+            </div>
+            <div class="bg-white border border-gray-200 px-4 py-3 rounded-2xl rounded-tl-sm shadow-sm">
+              <div class="flex gap-1 items-center">
+                <span class="w-1.5 h-1.5 bg-[#03AC0E]/60 rounded-full animate-bounce" style="animation-delay: 0ms" />
+                <span class="w-1.5 h-1.5 bg-[#03AC0E]/60 rounded-full animate-bounce" style="animation-delay: 120ms" />
+                <span class="w-1.5 h-1.5 bg-[#03AC0E]/60 rounded-full animate-bounce" style="animation-delay: 240ms" />
+              </div>
+            </div>
+          </div>
+          <div ref="bottomAnchor" class="h-0 w-full" />
+        </main>
+
+        <!-- TAB 2: Live Support Admin -->
+        <main
+          v-else
           ref="messagesContainer"
           class="flex-1 overflow-y-auto p-4 bg-gray-50 flex flex-col gap-3 custom-scrollbar"
           @scroll="onScroll"
@@ -135,7 +352,7 @@
             <div
               class="w-6 h-6 bg-black rounded-full flex items-center justify-center shrink-0 mt-1"
             >
-              <Icon name="lucide:bot" class="w-3.5 h-3.5 text-white" />
+              <Icon name="lucide:headset" class="w-3.5 h-3.5 text-white" />
             </div>
             <div
               class="bg-white border border-gray-200 p-3 rounded-2xl rounded-tl-sm shadow-sm"
@@ -292,27 +509,52 @@
 
         <!-- ── Footer ─────────────────────────────────────────── -->
         <footer class="p-3 bg-white border-t border-gray-100 shrink-0">
-          <!-- Belum login -->
+          <!-- Belum login (hanya untuk tab admin) -->
           <div
-            v-if="!isAuthenticated"
+            v-if="activeTab === 'admin' && !isAuthenticated"
             class="bg-gray-50 border border-gray-200 rounded-xl p-4 text-center"
           >
             <Icon name="lucide:lock" class="w-6 h-6 mx-auto mb-2 text-gray-400" />
             <p class="text-[11px] font-bold text-gray-600 mb-3 uppercase tracking-wider">
-              Login untuk memulai percakapan
+              Login untuk Tanya Admin
             </p>
             <NuxtLink
               to="/login"
-              class="block w-full bg-black text-white py-2.5 text-[11px] font-black uppercase tracking-widest hover:bg-red-600 transition-colors rounded-lg"
+              class="block w-full bg-black text-white py-2.5 text-[11px] font-black uppercase tracking-widest hover:bg-[#03AC0E] transition-colors rounded-lg"
             >
               Masuk Sekarang
             </NuxtLink>
           </div>
 
-          <!-- Form kirim -->
+          <!-- Form kirim (untuk tab bot, ATAU tab admin saat sudah login) -->
           <div v-else class="flex flex-col gap-2">
-            <!-- Preview gambar terpilih -->
-            <div v-if="selectedImages.length" class="flex gap-2 flex-wrap">
+            <!-- Autocomplete Suggestions (Hanya untuk PasarBot AI) -->
+            <div
+              v-if="activeTab === 'bot'"
+              class="flex gap-2 overflow-x-auto pb-1.5 px-0.5 no-scrollbar scroll-smooth shrink-0"
+              style="-webkit-overflow-scrolling: touch;"
+            >
+              <!-- CS Help Button -->
+              <button
+                @click="handleCSRequest"
+                class="bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-800 text-[11px] font-black px-3.5 py-1.5 rounded-full shrink-0 transition-all shadow-sm flex items-center gap-1 active:scale-95"
+              >
+                <Icon name="lucide:headset" class="w-3.5 h-3.5 animate-pulse" />
+                Customer Service 📞
+              </button>
+
+              <button
+                v-for="sug in chatbotStore.suggestions"
+                :key="sug"
+                @click="sendSuggestion(sug)"
+                class="bg-[#03AC0E]/5 hover:bg-[#03AC0E]/10 border border-[#03AC0E]/20 text-[#0D1B12] hover:text-[#03AC0E] text-[11px] font-bold px-3 py-1.5 rounded-full shrink-0 transition-all shadow-sm max-w-[220px] truncate"
+              >
+                {{ sug }}
+              </button>
+            </div>
+
+            <!-- Preview gambar terpilih (hanya untuk Tanya Admin) -->
+            <div v-if="activeTab === 'admin' && selectedImages.length" class="flex gap-2 flex-wrap">
               <div
                 v-for="(img, i) in selectedImages"
                 :key="i"
@@ -333,8 +575,9 @@
             </div>
 
             <div class="flex items-end gap-2">
-              <!-- Attach -->
+              <!-- Attach (hanya untuk Tanya Admin) -->
               <button
+                v-if="activeTab === 'admin'"
                 type="button"
                 :disabled="selectedImages.length >= 2"
                 @click="imageInput?.click()"
@@ -358,9 +601,9 @@
                 <textarea
                   ref="textareaRef"
                   v-model="newMessage"
-                  :placeholder="showProductBanner
-                    ? `Tanya tentang ${store.pendingContext!.title}...`
-                    : 'Ketik pesan...'"
+                  :placeholder="activeTab === 'bot'
+                    ? 'Tanya PasarBot AI...'
+                    : (showProductBanner ? `Tanya tentang ${store.pendingContext!.title}...` : 'Ketik pesan...')"
                   rows="1"
                   class="w-full bg-white border-2 border-black rounded-2xl py-2.5 pl-4 pr-10 text-xs font-medium focus:outline-none resize-none custom-scrollbar"
                   style="max-height: 80px; overflow-y: auto"
@@ -370,13 +613,14 @@
                 <button
                   type="button"
                   :disabled="
-                    (!newMessage.trim() && !selectedImages.length) || store.isSending
+                    (!newMessage.trim() && (activeTab === 'bot' || !selectedImages.length)) || 
+                    (activeTab === 'admin' ? store.isSending : chatbotStore.isSending)
                   "
                   @click="handleSend"
                   class="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-black disabled:text-gray-300 transition-colors"
                 >
                   <Icon
-                    v-if="store.isSending"
+                    v-if="activeTab === 'admin' ? store.isSending : chatbotStore.isSending"
                     name="lucide:loader-2"
                     class="w-4 h-4 animate-spin"
                   />
@@ -394,12 +638,12 @@
       @mousedown="onDragStart"
       @touchstart.passive="onDragStart"
       @click="handleToggle"
-      class="relative flex items-center justify-center w-14 h-14 bg-black text-white rounded-full shadow-[0_10px_40px_rgba(0,0,0,0.3)] hover:scale-110 hover:bg-zinc-800 transition-all duration-300 touch-none cursor-move ml-auto"
+      class="relative flex items-center justify-center w-14 h-14 bg-[#03AC0E] text-white rounded-full shadow-[0_10px_40px_rgba(3,172,14,0.35)] hover:scale-110 hover:bg-[#028C0B] transition-all duration-300 touch-none cursor-move ml-auto"
       :aria-expanded="isOpen"
       aria-label="Toggle Live Chat"
     >
       <Icon
-        :name="isOpen ? 'lucide:x' : 'lucide:headset'"
+        :name="isOpen ? 'lucide:x' : 'lucide:message-circle'"
         class="w-6 h-6 transition-transform duration-300 pointer-events-none"
         :class="isOpen ? 'rotate-90' : 'rotate-0'"
       />
@@ -446,22 +690,18 @@
 /**
  * components/FloatingChat.vue
  * ============================
- * Marketplace-grade floating chat. Diletakkan di layouts/default.vue.
- *
- * Auto-open flow (dari halaman produk):
- *   product/[uuid].vue:
- *     1. store.setPendingContext(ctx)  ← simpan info produk
- *     2. router.push('/')              ← navigasi ke home
- *   FloatingChat (di layout, sudah mounted):
- *     3. watch(store.pendingContext)   ← berubah = auto openChat()
- *     4. Banner kuning muncul di atas messages
- *     5. User ketik + kirim → ctx di-embed ke body, banner hilang
+ * Updated to support both Live Support Admin and PasarBot AI (RAG).
  */
 
 import { ref, computed, watch, nextTick, onMounted, onUnmounted } from 'vue'
-import { usePesanStore, type ProductContext } from '~/stores/UsePesanStore'
+import { usePesanStore } from '~/stores/UsePesanStore'
+import { useChatbotStore } from '~/stores/UseChatbotStore'
 
 const store = usePesanStore()
+const chatbotStore = useChatbotStore()
+
+// ── Active Tab ─────────────────────────────────────────────────────
+const activeTab = ref<'bot' | 'admin'>('bot')
 
 // ── Auth ───────────────────────────────────────────────────────────
 const authToken      = useCookie('token')
@@ -479,7 +719,6 @@ const selectedImages    = ref<{ file: File; preview: string }[]>([])
 
 /**
  * bannerDismissed — user bisa nutup banner tanpa kirim.
- * Reset setiap kali pendingContext berubah ke produk baru.
  */
 const bannerDismissed = ref(false)
 
@@ -487,6 +726,7 @@ const bannerDismissed = ref(false)
 const contextSentUuids = ref<Set<string>>(new Set())
 
 const showProductBanner = computed(() =>
+  activeTab.value === 'admin' &&
   !!store.pendingContext &&
   !bannerDismissed.value &&
   !contextSentUuids.value.has(store.pendingContext.uuid)
@@ -516,8 +756,21 @@ function formatTime(dateString: string) {
 }
 
 /**
+ * Basic markdown parser to render bold text and links properly.
+ */
+function renderMarkdown(text: string | null): string {
+  if (!text) return ''
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\*(.*?)\*/g, '<em>$1</em>')
+    .replace(/\n/g, '<br />')
+}
+
+/**
  * Ekstrak teks user: strip metadata produk '---' yang disisipkan ke body.
- * Bubble hanya tampil teks yang user ketik, bukan metadata untuk admin.
  */
 function extractUserBody(body: string | null): string {
   if (!body) return ''
@@ -534,6 +787,7 @@ function autoResize() {
 
 // ── Scroll ─────────────────────────────────────────────────────────
 const onScroll = async () => {
+  if (activeTab.value !== 'admin') return
   if (!messagesContainer.value || scrollLoadLock) return
   if (messagesContainer.value.scrollTop < 60 && store.hasMoreHistory) {
     scrollLoadLock = true
@@ -564,7 +818,7 @@ const scrollToBottom = async (behavior: ScrollBehavior = 'smooth') => {
 watch(
   () => store.messages.length,
   async (newLen, oldLen) => {
-    if (!isOpen.value || newLen <= oldLen) return
+    if (!isOpen.value || activeTab.value !== 'admin' || newLen <= oldLen) return
     const el = messagesContainer.value
     if (!el) return
     const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 150
@@ -575,36 +829,62 @@ watch(
   }
 )
 
+watch(
+  () => chatbotStore.messages.length,
+  async (newLen, oldLen) => {
+    if (!isOpen.value || activeTab.value !== 'bot' || newLen <= oldLen) return
+    scrollToBottom()
+  }
+)
+
+// Watch activeTab changes to init corresponding stores
+watch(activeTab, async (newTab) => {
+  if (newTab === 'bot') {
+    chatbotStore.init()
+  } else {
+    store.onPopupOpen()
+    if (store.unreadCount > 0) store.markAllRead()
+  }
+  await nextTick()
+  scrollToBottom('instant')
+  newMessage.value = ''
+  if (textareaRef.value) textareaRef.value.style.height = 'auto'
+})
+
 // ── Open / Close ───────────────────────────────────────────────────
 const openChat = async () => {
   isOpen.value = true
-  store.onPopupOpen()
+  if (activeTab.value === 'bot') {
+    chatbotStore.init()
+  } else {
+    store.onPopupOpen()
+    if (store.unreadCount > 0) store.markAllRead()
+  }
   await nextTick()
   scrollToBottom('instant')
-  if (store.unreadCount > 0) store.markAllRead()
   await nextTick()
   textareaRef.value?.focus()
 }
 
 const closeChat = () => {
   isOpen.value = false
-  store.onPopupClose()
+  if (activeTab.value === 'admin') {
+    store.onPopupClose()
+  }
 }
 
 /**
- * ✅ Watch pendingContext dari store.
- * Ketika halaman produk set context lalu navigate ke home,
- * store sudah berubah dan FloatingChat langsung bereaksi.
+ * Watch pendingContext dari store.
  */
 watch(
   () => store.pendingContext,
   async (ctx, prevCtx) => {
     if (!ctx) return
-    // Produk baru → reset dismiss flag
     if (ctx.uuid !== prevCtx?.uuid) {
       bannerDismissed.value = false
     }
-    // Auto-open chat
+    // Switch to admin tab if we get a product context to query human support
+    activeTab.value = 'admin'
     if (!isOpen.value) {
       await openChat()
     }
@@ -623,6 +903,7 @@ const handleToggle = (e: MouseEvent | TouchEvent) => {
 
 // ── Images ─────────────────────────────────────────────────────────
 const onImageSelected = (e: Event) => {
+  if (activeTab.value !== 'admin') return
   const input = e.target as HTMLInputElement
   if (!input.files) return
   const slots = 2 - selectedImages.value.length
@@ -637,57 +918,175 @@ const removeImage = (i: number) => {
   selectedImages.value.splice(i, 1)
 }
 
-const openLightbox = (url: string) => { lightboxUrl.value = url }
+// ── Autocomplete / Suggestions ─────────────────────────────────────
+let suggestionsTimeout: any = null
+
+watch(
+  [newMessage, activeTab, isOpen],
+  ([newVal, newTab, open]) => {
+    if (newTab === 'bot' && open) {
+      clearTimeout(suggestionsTimeout)
+      suggestionsTimeout = setTimeout(() => {
+        chatbotStore.fetchSuggestions(newVal)
+      }, 150)
+    }
+  },
+  { immediate: true }
+)
+
+const sendSuggestion = async (sug: string) => {
+  if (chatbotStore.isSending) return
+  newMessage.value = ''
+  if (textareaRef.value) textareaRef.value.style.height = 'auto'
+  await chatbotStore.sendMessage(sug)
+  await chatbotStore.fetchSuggestions('')
+  scrollToBottom()
+}
 
 // ── Send ───────────────────────────────────────────────────────────
 const handleSend = async () => {
   const bodyText = newMessage.value.trim()
-  const files    = selectedImages.value.map(i => i.file)
-
-  if (!bodyText && !files.length) return
-  if (!isAuthenticated.value || store.isSending) return
-
-  // Ambil konteks hanya jika banner aktif (belum dismiss & belum dikirim)
-  const ctx = showProductBanner.value ? store.pendingContext : null
-
-  /**
-   * Embed metadata produk di bawah body sebagai teks terstruktur.
-   * Admin membacanya di panel mereka (bisa diparse jadi card).
-   * Format dipisah '---' supaya extractUserBody() bisa strip saat render bubble.
-   */
-  let finalBody = bodyText
-  if (ctx) {
-    const meta = [
-      `\n\n---`,
-      `🏷️ Produk: ${ctx.brand ? ctx.brand + ' ' : ''}${ctx.title}`,
-      `💰 Harga: ${formatPrice(ctx.price)}`,
-      `🆔 UUID: ${ctx.uuid}`,
-      `🔗 URL: ${ctx.url}`,
-    ].join('\n')
-    finalBody = (bodyText + meta).trim()
-  }
-
-  const success = await store.sendMessage(finalBody, files, ctx ?? undefined)
-
-  if (success) {
+  
+  if (activeTab.value === 'bot') {
+    if (!bodyText || chatbotStore.isSending) return
     newMessage.value = ''
-    selectedImages.value.forEach(i => URL.revokeObjectURL(i.preview))
-    selectedImages.value = []
-
     if (textareaRef.value) textareaRef.value.style.height = 'auto'
+    await chatbotStore.sendMessage(bodyText)
+    scrollToBottom()
+  } else {
+    const files = selectedImages.value.map(i => i.file)
+    if (!bodyText && !files.length) return
+    if (!isAuthenticated.value || store.isSending) return
 
-    // Tandai uuid ini sudah dikirim → banner tidak akan muncul lagi untuk produk ini
+    const ctx = showProductBanner.value ? store.pendingContext : null
+
+    let finalBody = bodyText
     if (ctx) {
-      contextSentUuids.value.add(ctx.uuid)
-      // Clear dari store supaya bersih
-      store.clearPendingContext()
+      const meta = [
+        `\n\n---`,
+        `🏷️ Produk: ${ctx.brand ? ctx.brand + ' ' : ''}${ctx.title}`,
+        `💰 Harga: ${formatPrice(ctx.price)}`,
+        `🆔 UUID: ${ctx.uuid}`,
+        `🔗 URL: ${ctx.url}`,
+      ].join('\n')
+      finalBody = (bodyText + meta).trim()
     }
 
-    scrollToBottom()
+    const success = await store.sendMessage(finalBody, files, ctx ?? undefined)
+
+    if (success) {
+      newMessage.value = ''
+      selectedImages.value.forEach(i => URL.revokeObjectURL(i.preview))
+      selectedImages.value = []
+
+      if (textareaRef.value) textareaRef.value.style.height = 'auto'
+
+      if (ctx) {
+        contextSentUuids.value.add(ctx.uuid)
+        store.clearPendingContext()
+      }
+
+      scrollToBottom()
+    }
   }
 }
 
-// ── Drag ───────────────────────────────────────────────────────────
+// ── Feedback & Escalation ──────────────────────────────────────────
+const handleFeedback = async (msg: any, satisfied: boolean) => {
+  // Optimistic UI update happens inside store
+  const lastUserMsg = [...chatbotStore.messages]
+    .reverse()
+    .find(m => m.role === 'user' && m.uuid !== 'welcome-msg-bot')
+
+  await chatbotStore.submitFeedback(
+    msg.uuid,
+    satisfied,
+    lastUserMsg?.content,
+    msg.knowledge_uuid
+  )
+
+  // If thumbs down → escalation panel will show via msg.feedback === 'unsatisfied'
+}
+
+const handleEscalate = async (msg: any) => {
+  if (!isAuthenticated.value) {
+    // User is not logged in: show guidance and switch tab
+    chatbotStore.messages.push({
+      uuid: 'cs-rep-' + Math.random().toString(36).substr(2, 6),
+      role: 'model',
+      content: 'Tentu Kak! Untuk tersambung ke layanan Customer Service / Admin kami, Kakak perlu **login/masuk** terlebih dahulu. Saya alihkan ke tab **Tanya Admin** ya Kak.',
+      sent_at: new Date().toISOString(),
+      feedback: null,
+    } as any)
+    
+    scrollToBottom()
+    setTimeout(() => {
+      activeTab.value = 'admin'
+      scrollToBottom('smooth')
+    }, 2000)
+    return
+  }
+
+  const lastUserMsg = [...chatbotStore.messages]
+    .reverse()
+    .find(m => m.role === 'user')
+
+  const escalateMsg = await chatbotStore.escalateToAdmin(lastUserMsg?.content)
+
+  // Add system message in bot tab
+  chatbotStore.messages.push({
+    uuid: 'escalated-' + Math.random().toString(36).substr(2, 6),
+    role: 'model',
+    content: escalateMsg,
+    sent_at: new Date().toISOString(),
+    feedback: null,
+  } as any)
+
+  // Switch to Admin tab after short delay
+  setTimeout(async () => {
+    activeTab.value = 'admin'
+    await nextTick()
+    scrollToBottom('smooth')
+  }, 1200)
+}
+
+const handleCSRequest = async () => {
+  if (isAuthenticated.value) {
+    // User is logged in: add message and escalate
+    chatbotStore.messages.push({
+      uuid: 'cs-req-' + Math.random().toString(36).substr(2, 6),
+      role: 'user',
+      content: 'Saya butuh bantuan Customer Service / Admin.',
+      sent_at: new Date().toISOString(),
+    } as any)
+    scrollToBottom()
+    await handleEscalate({ uuid: 'cs-esc' })
+  } else {
+    // User is not logged in: show guidance and switch tab
+    chatbotStore.messages.push({
+      uuid: 'cs-req-' + Math.random().toString(36).substr(2, 6),
+      role: 'user',
+      content: 'Saya butuh bantuan Customer Service / Admin.',
+      sent_at: new Date().toISOString(),
+    } as any)
+    
+    chatbotStore.messages.push({
+      uuid: 'cs-rep-' + Math.random().toString(36).substr(2, 6),
+      role: 'model',
+      content: 'Tentu Kak! Untuk tersambung ke layanan Customer Service / Admin kami, Kakak perlu **login/masuk** terlebih dahulu. Saya alihkan ke tab **Tanya Admin** ya Kak.',
+      sent_at: new Date().toISOString(),
+      feedback: null,
+    } as any)
+    
+    scrollToBottom()
+    setTimeout(() => {
+      activeTab.value = 'admin'
+      scrollToBottom('smooth')
+    }, 2000)
+  }
+}
+
+
 const onDragStart = (e: MouseEvent | TouchEvent) => {
   if (e instanceof MouseEvent && e.button !== 0) return
   isDragging.value = true
@@ -759,5 +1158,13 @@ onUnmounted(() => {
 }
 .custom-scrollbar:hover::-webkit-scrollbar-thumb {
   background-color: #000;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }
 </style>

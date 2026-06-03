@@ -24,6 +24,7 @@ const toast = useToast();
 const defaultAddress = ref<any>(null);
 const shippingOptions = ref<any[]>([]);
 const selectedShipping = ref<any>(null);
+const selectedPaymentMethod = ref("gopay");
 
 const isLoadingAddress = ref(true);
 const isLoadingShipping = ref(false);
@@ -181,6 +182,7 @@ const handleCheckout = async () => {
     courier_name: getStandardCourierCode(selectedShipping.value.courier),
     courier_service: selectedShipping.value.service,
     coupon_code: checkoutStore.promoCode || null,
+    payment_type: selectedPaymentMethod.value,
   };
 
   try {
@@ -192,30 +194,11 @@ const handleCheckout = async () => {
 
     checkoutStore.clearCheckoutData();
 
-    if (response.snap_token && (window as any).snap) {
-      (window as any).snap.pay(response.snap_token, {
-        onSuccess: function (result: any) {
-          toast.add({ title: "Pembayaran Berhasil", color: "green" });
-          navigateTo(`/dashboard/order/${response.order_id}`);
-        },
-        onPending: function (result: any) {
-          toast.add({
-            title: "Menunggu Pembayaran",
-            description: "Selesaikan pembayaran Anda.",
-            color: "orange",
-          });
-          navigateTo(`/dashboard/order/${response.order_id}`);
-        },
-        onError: function (result: any) {
-          toast.add({ title: "Pembayaran Gagal", color: "red" });
-          navigateTo(`/dashboard/order/${response.order_id}`);
-        },
-        onClose: function () {
-          navigateTo(`/dashboard/order/${response.order_id}`);
-        },
-      });
+    if (response.order_id) {
+      toast.add({ title: "Pesanan Dibuat", description: "Mengalihkan ke halaman pembayaran...", color: "green" });
+      navigateTo(`/payment/${response.order_id}`);
     } else {
-      navigateTo(`/dashboard/order/${response.order_id}`);
+      navigateTo(`/dashboard/orders`);
     }
   } catch (err: any) {
     console.error("Checkout Error:", err);
@@ -463,6 +446,50 @@ const finalGrandTotal = computed(() => checkoutStore.grandTotal + shippingCost.v
             </div>
           </section>
 
+          <!-- 💳 Section Pembayaran -->
+          <section class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+            <div class="px-6 py-4 border-b border-gray-100 bg-gray-50/50">
+              <h2 class="font-bold text-gray-900">Pilih Metode Pembayaran</h2>
+            </div>
+            <div class="p-6">
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <label class="flex items-center gap-4 p-4 border rounded-xl cursor-pointer transition-all hover:border-[#03AC0E]"
+                  :class="selectedPaymentMethod === 'gopay' ? 'border-[#03AC0E] bg-green-50/20 shadow-[0_0_0_1px_#03AC0E]' : 'border-gray-200'">
+                  <input type="radio" v-model="selectedPaymentMethod" value="gopay" class="w-4 h-4 text-[#03AC0E] border-gray-300 focus:ring-[#03AC0E]" />
+                  <div class="flex-1 flex justify-between items-center">
+                    <span class="font-bold text-gray-900 text-sm">GoPay</span>
+                    <img src="https://upload.wikimedia.org/wikipedia/commons/8/86/Gopay_logo.svg" class="h-4" alt="GoPay" />
+                  </div>
+                </label>
+
+                <label class="flex items-center gap-4 p-4 border rounded-xl cursor-pointer transition-all hover:border-[#03AC0E]"
+                  :class="selectedPaymentMethod === 'qris' ? 'border-[#03AC0E] bg-green-50/20 shadow-[0_0_0_1px_#03AC0E]' : 'border-gray-200'">
+                  <input type="radio" v-model="selectedPaymentMethod" value="qris" class="w-4 h-4 text-[#03AC0E] border-gray-300 focus:ring-[#03AC0E]" />
+                  <div class="flex-1 flex justify-between items-center">
+                    <span class="font-bold text-gray-900 text-sm">QRIS</span>
+                    <img src="https://upload.wikimedia.org/wikipedia/commons/a/a2/Logo_QRIS.svg" class="h-4" alt="QRIS" />
+                  </div>
+                </label>
+
+                <label class="flex items-center gap-4 p-4 border rounded-xl cursor-pointer transition-all hover:border-[#03AC0E]"
+                  :class="selectedPaymentMethod === 'bca_va' ? 'border-[#03AC0E] bg-green-50/20 shadow-[0_0_0_1px_#03AC0E]' : 'border-gray-200'">
+                  <input type="radio" v-model="selectedPaymentMethod" value="bca_va" class="w-4 h-4 text-[#03AC0E] border-gray-300 focus:ring-[#03AC0E]" />
+                  <div class="flex-1 flex justify-between items-center">
+                    <span class="font-bold text-gray-900 text-sm">BCA Virtual Account</span>
+                  </div>
+                </label>
+
+                <label class="flex items-center gap-4 p-4 border rounded-xl cursor-pointer transition-all hover:border-[#03AC0E]"
+                  :class="selectedPaymentMethod === 'mandiri_va' ? 'border-[#03AC0E] bg-green-50/20 shadow-[0_0_0_1px_#03AC0E]' : 'border-gray-200'">
+                  <input type="radio" v-model="selectedPaymentMethod" value="mandiri_va" class="w-4 h-4 text-[#03AC0E] border-gray-300 focus:ring-[#03AC0E]" />
+                  <div class="flex-1 flex justify-between items-center">
+                    <span class="font-bold text-gray-900 text-sm">Mandiri Virtual Account</span>
+                  </div>
+                </label>
+              </div>
+            </div>
+          </section>
+
           <!-- 🎟️ Section Kupon -->
           <section class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden p-6 relative group">
             <div class="absolute top-0 right-0 w-24 h-24 bg-indigo-50 rounded-full -mr-12 -mt-12 transition-transform group-hover:scale-110"></div>
@@ -578,7 +605,7 @@ const finalGrandTotal = computed(() => checkoutStore.grandTotal + shippingCost.v
                   d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
                 ></path>
               </svg>
-              <span v-else>Buat Pesanan & Bayar</span>
+              <span v-else>Lanjut ke Pembayaran</span>
             </button>
 
             <p class="text-[10px] text-gray-400 mt-4 text-center">

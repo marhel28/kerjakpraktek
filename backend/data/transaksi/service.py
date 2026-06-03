@@ -55,7 +55,7 @@ def _midtrans_auth_header() -> str:
     return "Basic " + base64.b64encode(raw.encode()).decode()
 
 
-MIDTRANS_CHARGE_URL   = "https://app.sandbox.midtrans.com/snap/v1/transactions"
+MIDTRANS_SNAP_URL = "https://app.sandbox.midtrans.com/snap/v1/transactions"
 RAJAONGKIR_CHARGE_URL = "https://rajaongkir.komerce.id/api/v1/calculate/domestic-cost"
 ORIGIN_BOGOR_UTARA    = "16155"
 
@@ -324,7 +324,7 @@ class TransactionService:
         await session.flush()
 
         try:
-            midtrans_resp = await TransactionService._create_midtrans_snap(
+            midtrans_resp = await TransactionService._create_snap_transaction(
                 order_id=order_id,
                 gross_amount=gross_amount,
                 user=user,
@@ -332,7 +332,8 @@ class TransactionService:
                 locked_stocks=locked_stocks,
                 shipping_cost=shipping_cost,
                 addon_data_map=addon_data_map,
-                discount_amount=discount_amount
+                discount_amount=discount_amount,
+                payment_type=payload.payment_type
             )
         except Exception as e:
             logger.error(f"Midtrans error: {e}")
@@ -345,9 +346,9 @@ class TransactionService:
             raise ValueError("Gagal membuat pembayaran. Silakan coba lagi.")
 
         transaction.raw_response = midtrans_resp
-        transaction.transaction_status = midtrans_resp.get("transaction_status", "pending")
-        transaction.payment_type = midtrans_resp.get("payment_type")
-        transaction.transaction_time = _parse_dt(midtrans_resp.get("transaction_time"))
+        transaction.transaction_status = "pending"
+        transaction.payment_type = "midtrans_snap"
+        transaction.transaction_time = datetime.now(timezone.utc)
         session.add(transaction)
 
         await _clear_cart_items(session=session, user_uuid=user.uuid, stock_uuids=stock_uuids)
@@ -381,29 +382,29 @@ class TransactionService:
             shipping_cost=shipping_cost,
             discount_amount=discount_amount,
             gross_amount=gross_amount,
+            payment_type=payload.payment_type,
             transaction_status=transaction.transaction_status,
-            snap_token=midtrans_resp.get("token"),
+            va_numbers=midtrans_resp.get("va_numbers"),
             payment_url=midtrans_resp.get("redirect_url"),
             expiry_time=midtrans_resp.get("expiry_time"),
         )
 
     # ----------------------------------------------------------
-    # MIDTRANS SNAP (dipakai checkout + repay)
+    # MIDTRANS SNAP API (dipakai checkout + repay)
     # ----------------------------------------------------------
     @staticmethod
-    async def _create_midtrans_snap(
-        order_id, gross_amount, user, items, locked_stocks, shipping_cost, addon_data_map=None, discount_amount=0
+    async def _create_snap_transaction(
+        order_id, gross_amount, user, items, locked_stocks, shipping_cost, addon_data_map=None, discount_amount=0, payment_type=None
     ) -> dict:
         item_details = []
         for item in items:
             stock = locked_stocks[str(item.stock_uuid)]
             item_details.append({
-                "id": str(stock.uuid),
+                "id": str(stock.uuid)[:50],
                 "price": stock.online_price,
                 "quantity": item.quantity,
                 "name": stock.title[:50],
             })
-            # Add addons as separate items for Midtrans transparency
             if item.addons and addon_data_map:
                 for a in item.addons:
                     ad = addon_data_map[str(a.addon_uuid)]
@@ -426,15 +427,15 @@ class TransactionService:
             })
 
         payload = {
-            "payment_type": "qris",
-            "transaction_details": {"order_id": order_id, "gross_amount": gross_amount},
+            "transaction_details": {"order_id": order_id, "gross_amount": int(gross_amount)},
             "item_details": item_details,
             "customer_details": {"first_name": user.username, "email": user.email},
-            "qris": {"acquirer": "gopay"},
+            "custom_expiry": {"order_time": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S %z"), "expiry_duration": 1440, "unit": "minute"}
         }
+
         async with httpx.AsyncClient(timeout=15.0) as client:
             resp = await client.post(
-                MIDTRANS_CHARGE_URL,
+                MIDTRANS_SNAP_URL,
                 json=payload,
                 headers={
                     "Authorization": _midtrans_auth_header(),
@@ -443,7 +444,8 @@ class TransactionService:
                 },
             )
             if not resp.is_success:
-                raise ValueError(f"Midtrans error {resp.status_code}: {resp.text}")
+                logger.error(f"Midtrans error: {resp.text}")
+                raise ValueError(f"Midtrans error {resp.status_code}")
             return resp.json()
 
     # ----------------------------------------------------------
@@ -532,21 +534,18 @@ class TransactionService:
                 "name": "Diskon / Kupon"
             })
 
-        # Gunakan suffix untuk Midtrans agar tidak "order_id already taken"
-        # tapi tetap simpan order_id asli di DB kita.
         midtrans_order_id = f"{order_id}-R-{int(datetime.now().timestamp())}"
 
         payload = {
-            "payment_type": "qris",
             "transaction_details": {"order_id": midtrans_order_id, "gross_amount": trx.gross_amount},
             "item_details": item_details,
             "customer_details": {"first_name": user.username, "email": user.email},
-            "qris": {"acquirer": "gopay"},
+            "custom_expiry": {"order_time": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S %z"), "expiry_duration": 1440, "unit": "minute"}
         }
 
         async with httpx.AsyncClient(timeout=15.0) as client:
             resp = await client.post(
-                MIDTRANS_CHARGE_URL,
+                MIDTRANS_SNAP_URL,
                 json=payload,
                 headers={
                     "Authorization": _midtrans_auth_header(),
@@ -613,16 +612,15 @@ class TransactionService:
         midtrans_order_id = f"{order_id}-R-{int(datetime.now().timestamp())}"
 
         payload = {
-            "payment_type": "qris",
             "transaction_details": {"order_id": midtrans_order_id, "gross_amount": promo_trx.gross_amount},
             "item_details": item_details,
             "customer_details": {"first_name": user.username, "email": user.email},
-            "qris": {"acquirer": "gopay"},
+            "custom_expiry": {"order_time": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S %z"), "expiry_duration": 1440, "unit": "minute"}
         }
 
         async with httpx.AsyncClient(timeout=15.0) as client:
             resp = await client.post(
-                MIDTRANS_CHARGE_URL,
+                MIDTRANS_SNAP_URL,
                 json=payload,
                 headers={
                     "Authorization": _midtrans_auth_header(),

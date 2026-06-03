@@ -9,11 +9,16 @@
       </ClientOnly>
     </header>
 
-    <main class="flex-g row overflow-x-hidden flex flex-col">
+    <main class="flex-grow overflow-x-hidden flex flex-col">
       <div class="w-full mx-auto pb-6 flex-grow">
         <slot />
       </div>
     </main>
+
+    <!-- Global Promo Banner (Pre-Footer) -->
+    <div v-if="!isNoBannerRoute" class="w-full max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8 pb-10">
+      <BannerSection identifier="global:pre-footer" mode="marquee" class="rounded-2xl overflow-hidden" />
+    </div>
 
     <footer
       class="mt-auto transition-colors duration-300"
@@ -48,7 +53,7 @@
               class="w-8 h-8 mb-3 group-hover:scale-110 transition-all duration-300"
               :class="
                 isStoreLocator
-                  ? 'text-zinc-500 group-hover:text-[#00AA5B]'
+                  ? 'text-zinc-500 group-hover:text-[#03AC0E]'
                   : 'text-gray-600 group-hover:text-blue-600'
               "
               aria-hidden="true"
@@ -72,7 +77,7 @@
                   class="p-2 rounded-lg transition-colors"
                   :class="
                     isStoreLocator
-                      ? 'bg-zinc-800 group-hover:bg-[#00AA5B]'
+                      ? 'bg-zinc-800 group-hover:bg-gradient-to-r from-[#03AC0E] to-[#028C0B] shadow-sm'
                       : 'bg-gray-900 group-hover:bg-blue-600'
                   "
                 >
@@ -147,7 +152,7 @@
                   class="text-sm hover:translate-x-1 transition-all duration-200 inline-block font-medium"
                   :class="
                     isStoreLocator
-                      ? 'text-zinc-400 hover:text-[#00AA5B]'
+                      ? 'text-zinc-400 hover:text-[#03AC0E]'
                       : 'text-gray-500 hover:text-blue-600'
                   "
                 >
@@ -183,7 +188,7 @@
               to="/terms"
               class="transition-colors"
               :class="isStoreLocator ? 'hover:text-white' : 'hover:text-gray-900'"
-              >Syarat & Ketentuan</NuxtLink
+              >Syarat &amp; Ketentuan</NuxtLink
             >
           </div>
         </div>
@@ -198,9 +203,16 @@
 import { computed } from "vue";
 import { useRoute } from "vue-router"; // Import composable router
 
-// Deteksi apakah pengguna sedang berada di halaman store-locator
 const route = useRoute();
 const isStoreLocator = computed(() => route.path.includes("/store-locator"));
+
+// Cek apakah halaman harus bersih dari banner iklan (untuk konversi/operasional)
+const isNoBannerRoute = computed(() => {
+  const p = route.path;
+  return p.includes("/checkout") || 
+         p.includes("/store-locator") || 
+         p.includes("/layanan/booking");
+});
 
 interface Feature {
   name: string;

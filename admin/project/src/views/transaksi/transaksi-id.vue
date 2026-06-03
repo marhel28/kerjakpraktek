@@ -289,8 +289,10 @@ import { useRoute } from 'vue-router'
 import api from '@/service/api'
 import StatusBadge from '@/components/StatusBadge.vue'
 import InfoCard from '@/components/InfoCard.vue'
+import { useToastStore } from '@/stores/toast'
 
 const route = useRoute()
+const toastStore = useToastStore()
 const loading = ref(true)
 const trx = ref(null)
 const rawExpanded = ref(false)
@@ -321,11 +323,13 @@ async function fetchDetail() {
     } catch (e) {
         console.error("❌ Gagal memuat detail transaksi:", e)
         trx.value = null
+        toastStore.error("Gagal memuat detail transaksi")
     } finally {
         loading.value = false
     }
 }
 
+// Format IDR helper
 function formatRp(n) {
     if (n == null) return 'Rp 0'
     return 'Rp ' + Number(n).toLocaleString('id-ID')
@@ -349,7 +353,7 @@ function formatDate(d) {
 function copyOrderId() {
     if (!trx.value?.order_id) return
     navigator.clipboard.writeText(trx.value.order_id)
-    alert("Order ID berhasil disalin!")
+    toastStore.success("Order ID berhasil disalin!")
 }
 
 // Watcher untuk handle pergantian route ID di URL yang sama

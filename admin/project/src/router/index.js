@@ -151,6 +151,21 @@ const router = createRouter({
           path: '/settings/couriers',
           name: 'settings-couriers',
           component: () => import('@/views/settings/couriers.vue')
+        },
+        {
+          path: '/chatbot/faq',
+          name: 'chatbot-faq',
+          component: () => import('@/views/chatbot/faq.vue')
+        },
+        {
+          path: '/chatbot/logs',
+          name: 'chatbot-logs',
+          component: () => import('@/views/chatbot/logs.vue')
+        },
+        {
+          path: '/chatbot/settings',
+          name: 'chatbot-settings',
+          component: () => import('@/views/chatbot/settings.vue')
         }
       ]
       

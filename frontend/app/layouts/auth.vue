@@ -60,7 +60,7 @@
               class="w-8 h-8 mb-3 group-hover:scale-110 transition-all duration-300"
               :class="
                 isStoreLocator
-                  ? 'text-zinc-500 group-hover:text-[#00AA5B]'
+                  ? 'text-zinc-500 group-hover:text-[#03AC0E]'
                   : 'text-gray-600 group-hover:text-blue-600'
               "
               aria-hidden="true"
@@ -84,7 +84,7 @@
                   class="p-2 rounded-lg transition-colors"
                   :class="
                     isStoreLocator
-                      ? 'bg-zinc-800 group-hover:bg-[#00AA5B]'
+                      ? 'bg-zinc-800 group-hover:bg-gradient-to-r from-[#03AC0E] to-[#028C0B] shadow-sm'
                       : 'bg-gray-900 group-hover:bg-blue-600'
                   "
                 >
@@ -159,7 +159,7 @@
                   class="text-sm hover:translate-x-1 transition-all duration-200 inline-block font-medium"
                   :class="
                     isStoreLocator
-                      ? 'text-zinc-400 hover:text-[#00AA5B]'
+                      ? 'text-zinc-400 hover:text-[#03AC0E]'
                       : 'text-gray-500 hover:text-blue-600'
                   "
                 >
@@ -195,7 +195,7 @@
               to="/terms"
               class="transition-colors"
               :class="isStoreLocator ? 'hover:text-white' : 'hover:text-gray-900'"
-              >Syarat & Ketentuan</NuxtLink
+              >Syarat &amp; Ketentuan</NuxtLink
             >
           </div>
         </div>

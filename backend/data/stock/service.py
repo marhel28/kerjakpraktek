@@ -1,3 +1,4 @@
+import asyncio
 import io
 import re
 import json
@@ -15,7 +16,11 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 from .model import Stock, AssetStock, Coupon
 from backend.config import Config
 from backend.db.cdn import upload_file, delete_file
-from backend.db.es_client import es_client
+from backend.db.es_client import (
+    es_client, escape_sql_string, parse_manticore_match,
+    parse_manticore_match_strict, parse_manticore_match_loose, parse_manticore_match_wildcard,
+    get_synonyms
+)
 from backend.db.redis import (
     get_redis_token,
     cache_coupon,
@@ -37,47 +42,65 @@ class StockService:
     # 🛠️ HELPERS
     # ══════════════════════════════════════════════════════════════
 
-    async def _parse_hits_admin(self, hits: list) -> list:
-        """
-        Parse Elasticsearch hits untuk tampilan admin.
-        Mengembalikan semua field yang dibutuhkan termasuk terjual & sisa.
-        """
-        items = []
-        for h in hits:
-            src = h["_source"]
-            stok    = src.get("stok", 0) or 0
-            terjual = src.get("terjual", 0) or 0
-            sisa    = max(stok - terjual, 0)
+    def _parse_row_admin(self, row: dict) -> dict:
+        stok    = int(row.get("stok", 0) or 0)
+        terjual = int(row.get("terjual", 0) or 0)
+        sisa    = max(stok - terjual, 0)
+        
+        specs = row.get("specs", {})
+        if isinstance(specs, str):
+            try:
+                specs = json.loads(specs)
+            except Exception:
+                specs = {}
+                
+        return {
+            "uuid":         row.get("uuid"),
+            "title":        row.get("title"),
+            "slug":         row.get("slug"),
+            "brand":        row.get("brand", "NO BRAND"),
+            "category":     row.get("category_slug"),
+            "category_slug":row.get("category_slug"),
+            "subcategory":  row.get("subcategory_slug"),
+            "subcategory_slug": row.get("subcategory_slug"),
+            "type":         row.get("type"),
+            "price":        row.get("online_price"),
+            "online_price": row.get("online_price"),
+            "original_price":      row.get("original_price", 0),
+            "discount_percentage": row.get("discount_percentage", 0),
+            "stok":         stok,
+            "terjual":      terjual,
+            "sisa":         sisa,
+            "status_stok":  "habis" if sisa <= 0 else "tersedia",
+            "is_active":    bool(row.get("is_active")),
+            "is_popular":   terjual > 50,
+            "image":        row.get("image_url"),
+            "total_assets": 0,
+        }
 
-            items.append({
-                "uuid":         h["_id"],
-                "title":        src.get("title"),
-                "slug":         src.get("slug"),
-                "brand":        src.get("brand"),
-                # category bisa tersimpan sebagai category_slug di ES
-                "category":     src.get("category_slug") or src.get("category"),
-                "category_slug":src.get("category_slug") or src.get("category"),
-                "subcategory":  src.get("subcategory_slug") or src.get("subcategory"),
-                "subcategory_slug": src.get("subcategory_slug") or src.get("subcategory"),
-                "type":         src.get("type"),
-                "price":        src.get("online_price"),
-                "online_price": src.get("online_price"),
-                "original_price":      src.get("original_price", 0),
-                "discount_percentage": src.get("discount_percentage", 0),
-
-                # ── Stok data ──────────────────────────────────────
-                "stok":         stok,
-                "terjual":      terjual,
-                "sisa":         sisa,
-                "status_stok":  "habis" if sisa <= 0 else "tersedia",
-
-                # ── Status & meta ──────────────────────────────────
-                "is_active":    src.get("is_active", False),
-                "is_popular":   terjual > 50,
-                "image":        src.get("image_url"),
-                "total_assets": src.get("assets_count", 0),
-            })
-        return items
+    def _parse_row_public(self, row: dict) -> dict:
+        specs = row.get("specs", {})
+        if isinstance(specs, str):
+            try:
+                specs = json.loads(specs)
+            except Exception:
+                specs = {}
+        return {
+            "uuid":                row.get("uuid"),
+            "title":               row.get("title"),
+            "slug":                row.get("slug"),
+            "price":               row.get("online_price"),
+            "original_price":      row.get("original_price"),
+            "discount_percentage": row.get("discount_percentage"),
+            "image":               row.get("image_url"),
+            "category":            row.get("category_slug"),
+            "subcategory":         row.get("subcategory_slug"),
+            "brand":               row.get("brand", "NO BRAND"),
+            "type":                row.get("type", ""),
+            "specs":               specs,
+            "stok":                row.get("stok", 0),
+            "terjual":             row.get("terjual", 0),
+        }
 
     def _generate_slug(self, text_input: str) -> str:
         text_input = text_input.lower()
@@ -240,155 +263,98 @@ class StockService:
     ) -> Dict[str, Any]:
         safe_categories = [c for c in (categories or []) if c and c != "semua-kategori"]
 
-        # ── Query body ─────────────────────────────────────────────
-        query_body: Dict[str, Any] = {
-            "bool": {
-                "must":   [],
-                "filter": [],
-            }
-        }
-
-        # 🔒 is_active filter — admin bisa lihat semua, tapi bisa filter
+        where_clauses = []
         if is_active is not None:
-            query_body["bool"]["filter"].append({"term": {"is_active": is_active}})
-
-        # 📦 Ketersediaan stok — filter via field `sisa` yang sudah di-index
-        #    Jika field `sisa` belum ada di mapping lama, fallback ke `stok`
+            where_clauses.append(f"is_active = {1 if is_active else 0}")
+            
         if stock_status == "tersedia":
-            # sisa > 0 → tersedia
-            # Coba field sisa dulu, fallback ke stok
-            query_body["bool"]["filter"].append({
-                "bool": {
-                    "should": [
-                        {"range": {"sisa":  {"gt": 0}}},
-                        {"range": {"stok":  {"gt": 0}}},   # fallback jika sisa belum di-index
-                    ],
-                    "minimum_should_match": 1,
-                }
-            })
+            where_clauses.append("stok > 0")
         elif stock_status == "kosong":
-            # sisa = 0 → kosong/habis
-            query_body["bool"]["filter"].append({
-                "bool": {
-                    "should": [
-                        {"term":  {"sisa": 0}},
-                        # stok <= 0 sebagai fallback
-                        {"range": {"stok": {"lte": 0}}},
-                    ],
-                    "minimum_should_match": 1,
-                }
-            })
-
-        # 🔍 Full-text search
-        if q:
-            query_body["bool"]["must"].append({
-                "multi_match": {
-                    "query":     q,
-                    "fields":    ["title^3", "brand^2", "type", "category_slug"],
-                    "fuzziness": "AUTO",
-                    "operator":  "or",
-                }
-            })
-        else:
-            query_body["bool"]["must"].append({"match_all": {}})
-
-        # 📂 Category filter — coba keyword mapping, fallback ke term biasa
+            where_clauses.append("stok <= 0")
+            
         if safe_categories:
-            query_body["bool"]["filter"].append({
-                "bool": {
-                    "should": [
-                        {"terms": {"category_slug.keyword": safe_categories}},
-                        {"terms": {"category_slug":         safe_categories}},
-                        {"terms": {"category.keyword":      safe_categories}},
-                        {"terms": {"category":              safe_categories}},
-                    ],
-                    "minimum_should_match": 1,
-                }
-            })
-
-        # 🏷️ Brand filter
+            escaped_cats = ", ".join(f"'{escape_sql_string(c)}'" for c in safe_categories)
+            where_clauses.append(f"(category_slug IN ({escaped_cats}) OR subcategory_slug IN ({escaped_cats}))")
+            
         if brand and brand.lower() not in ("semua-brand", "all", ""):
-            query_body["bool"]["filter"].append(self._build_brand_filter(brand))
-
-        # 🧩 Type filter
+            where_clauses.append(f"brand_normalized = '{escape_sql_string(brand.lower().strip())}'")
+            
         if item_type and item_type.lower() not in ("semua-tipe", "all", ""):
-            query_body["bool"]["filter"].append({
-                "bool": {
-                    "should": [
-                        {"term":         {"type.keyword": item_type}},
-                        {"match_phrase": {"type": item_type}},
-                    ],
-                    "minimum_should_match": 1,
-                }
-            })
+            where_clauses.append(f"type_attr = '{escape_sql_string(item_type.lower().strip())}'")
+            
+        if min_p is not None:
+            where_clauses.append(f"online_price >= {int(min_p)}")
+        if max_p is not None:
+            where_clauses.append(f"online_price <= {int(max_p)}")
 
-        # 💰 Price range
-        if min_p is not None or max_p is not None:
-            price_range: Dict[str, Any] = {}
-            if min_p is not None: price_range["gte"] = min_p
-            if max_p is not None: price_range["lte"] = max_p
-            query_body["bool"]["filter"].append({"range": {"online_price": price_range}})
+        # Determine match query using smart fallback hierarchy
+        match_query = ""
+        if q:
+            strict_q = parse_manticore_match_strict(q)
+            strict_where = where_clauses + [f"MATCH('{escape_sql_string(strict_q)}')" if strict_q else ""]
+            strict_where = [c for c in strict_where if c]
+            where_sql_strict = "WHERE " + " AND ".join(strict_where) if strict_where else ""
+            try:
+                res_count_strict = await es_client.execute_sql(f"SELECT COUNT(*) as total FROM products {where_sql_strict}")
+                if res_count_strict and res_count_strict[0]["total"] > 0:
+                    match_query = strict_q
+            except Exception:
+                pass
+                
+            if not match_query:
+                loose_q = parse_manticore_match_loose(q)
+                loose_where = where_clauses + [f"MATCH('{escape_sql_string(loose_q)}')" if loose_q else ""]
+                loose_where = [c for c in loose_where if c]
+                where_sql_loose = "WHERE " + " AND ".join(loose_where) if loose_where else ""
+                try:
+                    res_count_loose = await es_client.execute_sql(f"SELECT COUNT(*) as total FROM products {where_sql_loose}")
+                    if res_count_loose and res_count_loose[0]["total"] > 0:
+                        match_query = loose_q
+                except Exception:
+                    pass
+            
+            if not match_query:
+                match_query = parse_manticore_match_wildcard(q)
+                
+            if match_query:
+                where_clauses.append(f"MATCH('{escape_sql_string(match_query)}')")
 
-        # 🔽 Sorting
-        sort_map: Dict[str, list] = {
-            "newest":     [{"created_at":   {"order": "desc"}}],
-            "oldest":     [{"created_at":   {"order": "asc"}}],
-            "price_asc":  [{"online_price": {"order": "asc"}}],
-            "price_desc": [{"online_price": {"order": "desc"}}],
-            "price_low":  [{"online_price": {"order": "asc"}}],
-            "price_high": [{"online_price": {"order": "desc"}}],
-            "stock_high": [{"stok":         {"order": "desc"}}],
-            "stock_low":  [{"stok":         {"order": "asc"}}],
-            "sold_high":  [{"terjual":      {"order": "desc"}}],
-            "sold_low":   [{"terjual":      {"order": "asc"}}],
+        where_sql = ""
+        if where_clauses:
+            where_sql = "WHERE " + " AND ".join(where_clauses)
+            
+        sort_map = {
+            "newest":     "created_at DESC",
+            "oldest":     "created_at ASC",
+            "price_asc":  "online_price ASC",
+            "price_desc": "online_price DESC",
+            "price_low":  "online_price ASC",
+            "price_high": "online_price DESC",
+            "stock_high": "stok DESC",
+            "stock_low":  "stok ASC",
+            "sold_high":  "terjual DESC",
+            "sold_low":   "terjual ASC",
         }
-        sort_body = sort_map.get(sort_by, [{"created_at": {"order": "desc"}}])
+        sort_clause = sort_map.get(sort_by, "created_at DESC")
 
-        # 📊 Aggregations — untuk facet filter di frontend
-        aggs = {
-            "categories": {
-                "terms": {"field": "category_slug.keyword", "size": 100, "missing": "unknown"}
-            },
-            "brands": {
-                "terms": {"field": "brand.keyword", "size": 100, "missing": "unknown"}
-            },
-            "price_stats": {
-                "stats": {"field": "online_price"}
-            },
-            "stok_stats": {
-                "stats": {"field": "stok"}
-            },
-            "terjual_stats": {
-                "stats": {"field": "terjual"}
-            },
-            # Jumlah produk tersedia vs kosong
-            "ketersediaan": {
-                "filters": {
-                    "filters": {
-                        "tersedia": {"range": {"stok": {"gt": 0}}},
-                        "kosong":   {"range": {"stok": {"lte": 0}}},
-                    }
-                }
-            },
-        }
+        sql_items = f"SELECT * FROM products {where_sql} ORDER BY {sort_clause} LIMIT {int(limit)} OFFSET {int(offset)} OPTION field_weights=(title=5, brand=3, type=2, specs_text=1), ranker=expr('sum(lcs*user_weight)*1000 + terjual*2 + discount_percentage*1')"
+        sql_count = f"SELECT COUNT(*) as total FROM products {where_sql}"
+        sql_cats  = f"SELECT category_slug, COUNT(*) as doc_count FROM products {where_sql} GROUP BY category_slug ORDER BY doc_count DESC LIMIT 100"
+        sql_brands = f"SELECT brand_attr as brand, COUNT(*) as doc_count FROM products {where_sql} GROUP BY brand_attr ORDER BY doc_count DESC LIMIT 100"
+        sql_stats = f"SELECT MIN(online_price) as min_p, MAX(online_price) as max_p, AVG(online_price) as avg_p, MIN(stok) as min_s, MAX(stok) as max_s, SUM(stok) as sum_s, MIN(terjual) as min_t, MAX(terjual) as max_t, SUM(terjual) as sum_t, AVG(terjual) as avg_t FROM products {where_sql}"
+        sql_avail = f"SELECT SUM(IF(stok > 0, 1, 0)) as tersedia, SUM(IF(stok <= 0, 1, 0)) as kosong FROM products {where_sql}"
 
-        try:
-            response = await es_client.search(
-                index="products",
-                query=query_body,
-                sort=sort_body,
-                aggs=aggs,
-                from_=offset,
-                size=limit,
-            )
-        except Exception as e:
-            logger.error(f"ES search_stock_admin failed: {e}")
-            raise
+        res_items, res_count, res_cats, res_brands, res_stats, res_avail = await asyncio.gather(
+            es_client.execute_sql(sql_items),
+            es_client.execute_sql(sql_count),
+            es_client.execute_sql(sql_cats),
+            es_client.execute_sql(sql_brands),
+            es_client.execute_sql(sql_stats),
+            es_client.execute_sql(sql_avail),
+        )
 
-        agg = response.get("aggregations", {})
-
-        # Hitung total terjual dari semua item di halaman ini
-        items = await self._parse_hits_admin(response["hits"]["hits"])
+        total = res_count[0]["total"] if res_count else 0
+        items = [self._parse_row_admin(row) for row in res_items]
 
         # Override stok and terjual with actual real-time DB data if session is available
         if session and items:
@@ -414,48 +380,51 @@ class StockService:
                     # Kita bersihkan ES secara async agar pencarian berikutnya bersih
                     try:
                         asyncio.create_task(es_client.delete(index="products", id=uid, ignore=[404]))
-                        logger.info(f"🧹 Auto-cleaned ghost item from ES: {uid}")
+                        logger.info(f"🧹 Auto-cleaned ghost item from Manticore: {uid}")
                     except Exception:
                         pass
             
             items = final_items
 
         total_terjual_page = sum(i["terjual"] for i in items)
+        
+        stats = res_stats[0] if res_stats else {}
+        avail = res_avail[0] if res_avail else {}
 
         return {
-            "total":              response["hits"]["total"]["value"],
+            "total":              total,
             "items":              items,
-            "total_terjual_page": total_terjual_page,   # bonus: total terjual di page ini
+            "total_terjual_page": total_terjual_page,
             "facets": {
                 "categories": {
-                    b["key"]: b["doc_count"]
-                    for b in agg.get("categories", {}).get("buckets", [])
-                    if b["key"] != "unknown"
+                    b["category_slug"]: b["doc_count"]
+                    for b in res_cats
+                    if b.get("category_slug")
                 },
                 "brands": {
-                    b["key"]: b["doc_count"]
-                    for b in agg.get("brands", {}).get("buckets", [])
-                    if b["key"] != "unknown"
+                    b["brand"]: b["doc_count"]
+                    for b in res_brands
+                    if b.get("brand")
                 },
                 "price_range": {
-                    "min": agg.get("price_stats", {}).get("min") or 0,
-                    "max": agg.get("price_stats", {}).get("max") or 0,
-                    "avg": round(agg.get("price_stats", {}).get("avg") or 0),
+                    "min": stats.get("min_p") or 0,
+                    "max": stats.get("max_p") or 0,
+                    "avg": round(stats.get("avg_p") or 0),
                 },
                 "stok_range": {
-                    "min": agg.get("stok_stats", {}).get("min") or 0,
-                    "max": agg.get("stok_stats", {}).get("max") or 0,
-                    "sum": agg.get("stok_stats", {}).get("sum") or 0,
+                    "min": stats.get("min_s") or 0,
+                    "max": stats.get("max_s") or 0,
+                    "sum": stats.get("sum_s") or 0,
                 },
                 "terjual_stats": {
-                    "min": agg.get("terjual_stats", {}).get("min") or 0,
-                    "max": agg.get("terjual_stats", {}).get("max") or 0,
-                    "sum": agg.get("terjual_stats", {}).get("sum") or 0,
-                    "avg": round(agg.get("terjual_stats", {}).get("avg") or 0),
+                    "min": stats.get("min_t") or 0,
+                    "max": stats.get("max_t") or 0,
+                    "sum": stats.get("sum_t") or 0,
+                    "avg": round(stats.get("avg_t") or 0),
                 },
                 "ketersediaan": {
-                    "tersedia": agg.get("ketersediaan", {}).get("buckets", {}).get("tersedia", {}).get("doc_count", 0),
-                    "kosong":   agg.get("ketersediaan", {}).get("buckets", {}).get("kosong",   {}).get("doc_count", 0),
+                    "tersedia": int(avail.get("tersedia") or 0),
+                    "kosong":   int(avail.get("kosong") or 0),
                 },
             },
         }
@@ -753,106 +722,111 @@ class StockService:
     # 🔍 PUBLIC SEARCH (tidak berubah)
     # ══════════════════════════════════════════════════════════════
 
-    def _build_brand_filter(self, brand: str) -> dict:
-        brand_clean = brand.strip()
-        return {
-            "bool": {
-                "should": [
-                    {"term": {"brand.keyword": {"value": brand_clean, "case_insensitive": True}}},
-                    {"term": {"brand_normalized": brand_clean.lower()}},
-                    {"match_phrase": {"brand": brand_clean}},
-                ],
-                "minimum_should_match": 1,
-            }
-        }
-
     async def search_stocks_es(
         self, q=None, categories=None, brand=None, item_type=None,
         min_p=None, max_p=None, sort_by="newest", limit=20, offset=0
     ):
         safe_categories = list(categories or [])
-        query_body = {"bool": {"must": [], "filter": [{"term": {"is_active": True}}]}}
-
         if "popular" in safe_categories:
             safe_categories.remove("popular")
             if sort_by == "newest":
                 sort_by = "popular_sort"
 
-        if q:
-            query_body["bool"]["must"].append({
-                "multi_match": {
-                    "query": q, "fields": ["title^3", "brand^2", "type"],
-                    "fuzziness": "AUTO", "operator": "or", "minimum_should_match": "60%",
-                }
-            })
-        else:
-            query_body["bool"]["must"].append({"match_all": {}})
-
+        where_clauses = ["is_active = 1"]
+        
         if safe_categories and "semua-kategori" not in safe_categories:
-            main_cats, sub_cats = set(), set()
-            for cat in safe_categories:
-                is_child = any(cat.startswith(f"{other}-") for other in safe_categories if other != cat)
-                (sub_cats if is_child else main_cats).add(cat)
-            should_clauses = []
-            if main_cats:
-                should_clauses += [
-                    {"terms": {"category_slug.keyword": list(main_cats)}},
-                    {"terms": {"category_slug":         list(main_cats)}},
-                ]
-            if sub_cats:
-                should_clauses += [
-                    {"terms": {"subcategory_slug.keyword": list(sub_cats)}},
-                    {"terms": {"subcategory_slug":         list(sub_cats)}},
-                ]
-            if should_clauses:
-                query_body["bool"]["filter"].append(
-                    {"bool": {"should": should_clauses, "minimum_should_match": 1}}
-                )
+            escaped_cats = ", ".join(f"'{escape_sql_string(c)}'" for c in safe_categories)
+            where_clauses.append(f"(category_slug IN ({escaped_cats}) OR subcategory_slug IN ({escaped_cats}))")
 
         if brand and brand.lower() not in ("semua-brand", "all", ""):
-            query_body["bool"]["filter"].append(self._build_brand_filter(brand))
+            where_clauses.append(f"brand_normalized = '{escape_sql_string(brand.lower().strip())}'")
 
         if item_type and item_type.lower() not in ("semua-tipe", "all", ""):
-            query_body["bool"]["filter"].append({
-                "bool": {"should": [
-                    {"term": {"type.keyword": {"value": item_type, "case_insensitive": True}}},
-                    {"match_phrase": {"type": item_type}},
-                ], "minimum_should_match": 1}
-            })
+            where_clauses.append(f"type_attr = '{escape_sql_string(item_type.lower().strip())}'")
 
-        if min_p is not None or max_p is not None:
-            price_range: Dict[str, Any] = {}
-            if min_p is not None: price_range["gte"] = min_p
-            if max_p is not None: price_range["lte"] = max_p
-            query_body["bool"]["filter"].append({"range": {"online_price": price_range}})
+        if min_p is not None:
+            where_clauses.append(f"online_price >= {int(min_p)}")
+        if max_p is not None:
+            where_clauses.append(f"online_price <= {int(max_p)}")
 
-        sort_body = self._build_sort(sort_by)
-        aggs = {
-            "categories_count":    {"terms": {"field": "category_slug.keyword", "size": 50}},
-            "subcategories_count": {"terms": {"field": "subcategory_slug.keyword", "size": 50}},
-            "brands_count":        {"terms": {"field": "brand.keyword", "size": 50}},
-            "price_stats":         {"stats": {"field": "online_price"}},
-            "popular_terms":       {"terms": {"field": "brand.keyword", "size": 5}},
+        # Determine match query using smart fallback hierarchy
+        match_query = ""
+        if q:
+            strict_q = parse_manticore_match_strict(q)
+            strict_where = where_clauses + [f"MATCH('{escape_sql_string(strict_q)}')" if strict_q else ""]
+            strict_where = [c for c in strict_where if c]
+            where_sql_strict = "WHERE " + " AND ".join(strict_where) if strict_where else ""
+            try:
+                res_count_strict = await es_client.execute_sql(f"SELECT COUNT(*) as total FROM products {where_sql_strict}")
+                if res_count_strict and res_count_strict[0]["total"] > 0:
+                    match_query = strict_q
+            except Exception:
+                pass
+                
+            if not match_query:
+                loose_q = parse_manticore_match_loose(q)
+                loose_where = where_clauses + [f"MATCH('{escape_sql_string(loose_q)}')" if loose_q else ""]
+                loose_where = [c for c in loose_where if c]
+                where_sql_loose = "WHERE " + " AND ".join(loose_where) if loose_where else ""
+                try:
+                    res_count_loose = await es_client.execute_sql(f"SELECT COUNT(*) as total FROM products {where_sql_loose}")
+                    if res_count_loose and res_count_loose[0]["total"] > 0:
+                        match_query = loose_q
+                except Exception:
+                    pass
+            
+            if not match_query:
+                match_query = parse_manticore_match_wildcard(q)
+                
+            if match_query:
+                where_clauses.append(f"MATCH('{escape_sql_string(match_query)}')")
+
+        where_sql = "WHERE " + " AND ".join(where_clauses)
+        
+        sort_map = {
+            "price_asc":    "online_price ASC",
+            "price_desc":   "online_price DESC",
+            "popular_sort": "terjual DESC",
+            "discount":     "discount_percentage DESC",
         }
-        suggest = {"spell_check": {"text": q, "term": {"field": "title", "suggest_mode": "missing"}}} if q else {}
+        sort_clause = sort_map.get(sort_by, "created_at DESC")
 
-        response = await es_client.search(
-            index="products", query=query_body, sort=sort_body,
-            aggs=aggs, suggest=suggest or None, from_=offset, size=limit,
+        sql_items = f"SELECT * FROM products {where_sql} ORDER BY {sort_clause} LIMIT {int(limit)} OFFSET {int(offset)} OPTION field_weights=(title=5, brand=3, type=2, specs_text=1), ranker=expr('sum(lcs*user_weight)*1000 + terjual*2 + discount_percentage*1')"
+        sql_count = f"SELECT COUNT(*) as total FROM products {where_sql}"
+        sql_cats  = f"SELECT category_slug, COUNT(*) as doc_count FROM products {where_sql} GROUP BY category_slug ORDER BY doc_count DESC LIMIT 50"
+        sql_subcats = f"SELECT subcategory_slug, COUNT(*) as doc_count FROM products {where_sql} AND subcategory_slug != '' GROUP BY subcategory_slug ORDER BY doc_count DESC LIMIT 50"
+        sql_brands = f"SELECT brand_attr as brand, COUNT(*) as doc_count FROM products {where_sql} GROUP BY brand_attr ORDER BY doc_count DESC LIMIT 50"
+        sql_stats  = f"SELECT MIN(online_price) as min_p, MAX(online_price) as max_p FROM products {where_sql}"
+        sql_pop_brands = f"SELECT brand_attr as brand, COUNT(*) as doc_count FROM products {where_sql} GROUP BY brand_attr ORDER BY doc_count DESC LIMIT 5"
+
+        res_items, res_count, res_cats, res_subcats, res_brands, res_stats, res_pop_brands = await asyncio.gather(
+            es_client.execute_sql(sql_items),
+            es_client.execute_sql(sql_count),
+            es_client.execute_sql(sql_cats),
+            es_client.execute_sql(sql_subcats),
+            es_client.execute_sql(sql_brands),
+            es_client.execute_sql(sql_stats),
+            es_client.execute_sql(sql_pop_brands),
         )
 
+        total = res_count[0]["total"] if res_count else 0
+        items = [self._parse_row_public(row) for row in res_items]
+        
+        stats = res_stats[0] if res_stats else {}
+        min_price = stats.get("min_p") or 0
+        max_price = stats.get("max_p") or 0
+
         return {
-            "total": response["hits"]["total"]["value"],
-            "items": self._parse_hits(response["hits"]["hits"]),
+            "total": total,
+            "items": items,
             "facets": {
-                "categories":    {b["key"]: b["doc_count"] for b in response["aggregations"]["categories_count"]["buckets"]},
-                "subcategories": {b["key"]: b["doc_count"] for b in response["aggregations"]["subcategories_count"]["buckets"]},
-                "brands":        {b["key"]: b["doc_count"] for b in response["aggregations"]["brands_count"]["buckets"]},
-                "price_range":   {"min": response["aggregations"]["price_stats"]["min"] or 0,
-                                  "max": response["aggregations"]["price_stats"]["max"] or 0},
-                "popular_terms": [b["key"] for b in response["aggregations"]["popular_terms"]["buckets"]],
+                "categories":    {b["category_slug"]: b["doc_count"] for b in res_cats if b.get("category_slug")},
+                "subcategories": {b["subcategory_slug"]: b["doc_count"] for b in res_subcats if b.get("subcategory_slug")},
+                "brands":        {b["brand"]: b["doc_count"] for b in res_brands if b.get("brand")},
+                "price_range":   {"min": min_price, "max": max_price},
+                "popular_terms": [b["brand"] for b in res_pop_brands if b.get("brand")],
             },
-            "suggestion": self._extract_suggestion(response),
+            "suggestion": None,
         }
 
     async def search_by_brand_es(
@@ -862,145 +836,216 @@ class StockService:
         if not brand or not brand.strip():
             return {"total": 0, "items": [], "facets": {}, "suggestion": None, "brand_info": None}
 
-        query_body = {"bool": {
-            "must":   [],
-            "filter": [{"term": {"is_active": True}}, self._build_brand_filter(brand)],
-        }}
+        where_clauses = ["is_active = 1"]
+        brand_clean = brand.strip().lower()
+        where_clauses.append(f"(brand_normalized = '{escape_sql_string(brand_clean)}' OR brand = '{escape_sql_string(brand_clean)}')")
 
+        # Determine match query using smart fallback hierarchy
+        match_query = ""
         if q:
-            query_body["bool"]["must"].append({
-                "multi_match": {
-                    "query": q, "fields": ["title^3", "type^2"],
-                    "fuzziness": "AUTO", "operator": "or", "minimum_should_match": "60%",
-                }
-            })
-        else:
-            query_body["bool"]["must"].append({"match_all": {}})
+            strict_q = parse_manticore_match_strict(q)
+            strict_where = where_clauses + [f"MATCH('{escape_sql_string(strict_q)}')" if strict_q else ""]
+            strict_where = [c for c in strict_where if c]
+            where_sql_strict = "WHERE " + " AND ".join(strict_where) if strict_where else ""
+            try:
+                res_count_strict = await es_client.execute_sql(f"SELECT COUNT(*) as total FROM products {where_sql_strict}")
+                if res_count_strict and res_count_strict[0]["total"] > 0:
+                    match_query = strict_q
+            except Exception:
+                pass
+                
+            if not match_query:
+                loose_q = parse_manticore_match_loose(q)
+                loose_where = where_clauses + [f"MATCH('{escape_sql_string(loose_q)}')" if loose_q else ""]
+                loose_where = [c for c in loose_where if c]
+                where_sql_loose = "WHERE " + " AND ".join(loose_where) if loose_where else ""
+                try:
+                    res_count_loose = await es_client.execute_sql(f"SELECT COUNT(*) as total FROM products {where_sql_loose}")
+                    if res_count_loose and res_count_loose[0]["total"] > 0:
+                        match_query = loose_q
+                except Exception:
+                    pass
+            
+            if not match_query:
+                match_query = parse_manticore_match_wildcard(q)
+                
+            if match_query:
+                where_clauses.append(f"MATCH('{escape_sql_string(match_query)}')")
 
         safe_cats = list(categories or [])
         if safe_cats and "semua-kategori" not in safe_cats:
-            clauses = []
-            for cat in safe_cats:
-                is_child = any(cat.startswith(f"{o}-") for o in safe_cats if o != cat)
-                if is_child:
-                    clauses += [
-                        {"term": {"subcategory_slug.keyword": cat}},
-                        {"term": {"subcategory_slug": cat}},
-                    ]
-                else:
-                    clauses += [
-                        {"term": {"category_slug.keyword": cat}},
-                        {"term": {"category_slug": cat}},
-                    ]
-            if clauses:
-                query_body["bool"]["filter"].append({"bool": {"should": clauses, "minimum_should_match": 1}})
+            escaped_cats = ", ".join(f"'{escape_sql_string(c)}'" for c in safe_cats)
+            where_clauses.append(f"(category_slug IN ({escaped_cats}) OR subcategory_slug IN ({escaped_cats}))")
 
-        if min_p is not None or max_p is not None:
-            price_range: Dict[str, Any] = {}
-            if min_p is not None: price_range["gte"] = min_p
-            if max_p is not None: price_range["lte"] = max_p
-            query_body["bool"]["filter"].append({"range": {"online_price": price_range}})
+        if min_p is not None:
+            where_clauses.append(f"online_price >= {int(min_p)}")
+        if max_p is not None:
+            where_clauses.append(f"online_price <= {int(max_p)}")
 
-        response = await es_client.search(
-            index="products", query=query_body, sort=self._build_sort(sort_by),
-            aggs={
-                "categories_count":    {"terms": {"field": "category_slug.keyword", "size": 30}},
-                "subcategories_count": {"terms": {"field": "subcategory_slug.keyword", "size": 30}},
-                "price_stats":         {"stats": {"field": "online_price"}},
-                "brand_name_sample":   {"top_hits": {"size": 1, "_source": ["brand"]}},
-            },
-            suggest={"spell_check": {"text": q, "term": {"field": "title", "suggest_mode": "missing"}}} if q else None,
-            from_=offset, size=limit,
+        where_sql = "WHERE " + " AND ".join(where_clauses)
+        
+        sort_map = {
+            "price_asc":    "online_price ASC",
+            "price_desc":   "online_price DESC",
+            "popular_sort": "terjual DESC",
+            "discount":     "discount_percentage DESC",
+        }
+        sort_clause = sort_map.get(sort_by, "created_at DESC")
+
+        sql_items = f"SELECT * FROM products {where_sql} ORDER BY {sort_clause} LIMIT {int(limit)} OFFSET {int(offset)} OPTION field_weights=(title=5, brand=3, type=2, specs_text=1), ranker=expr('sum(lcs*user_weight)*1000 + terjual*2 + discount_percentage*1')"
+        sql_count = f"SELECT COUNT(*) as total FROM products {where_sql}"
+        sql_cats  = f"SELECT category_slug, COUNT(*) as doc_count FROM products {where_sql} GROUP BY category_slug ORDER BY doc_count DESC LIMIT 30"
+        sql_subcats = f"SELECT subcategory_slug, COUNT(*) as doc_count FROM products {where_sql} AND subcategory_slug != '' GROUP BY subcategory_slug ORDER BY doc_count DESC LIMIT 30"
+        sql_stats  = f"SELECT MIN(online_price) as min_p, MAX(online_price) as max_p FROM products {where_sql}"
+        sql_brand_sample = f"SELECT brand FROM products {where_sql} LIMIT 1"
+
+        res_items, res_count, res_cats, res_subcats, res_stats, res_sample = await asyncio.gather(
+            es_client.execute_sql(sql_items),
+            es_client.execute_sql(sql_count),
+            es_client.execute_sql(sql_cats),
+            es_client.execute_sql(sql_subcats),
+            es_client.execute_sql(sql_stats),
+            es_client.execute_sql(sql_brand_sample),
         )
 
-        items  = self._parse_hits(response["hits"]["hits"])
-        sample = response["aggregations"]["brand_name_sample"]["hits"]["hits"]
-        brand_name_actual = sample[0]["_source"].get("brand", brand) if sample else brand
+        total = res_count[0]["total"] if res_count else 0
+        items = [self._parse_row_public(row) for row in res_items]
+        
+        stats = res_stats[0] if res_stats else {}
+        min_price = stats.get("min_p") or 0
+        max_price = stats.get("max_p") or 0
+        
+        brand_name_actual = res_sample[0]["brand"] if res_sample else brand
 
         return {
-            "total":      response["hits"]["total"]["value"],
-            "items":      items,
+            "total": total,
+            "items": items,
             "facets": {
-                "categories":    {b["key"]: b["doc_count"] for b in response["aggregations"]["categories_count"]["buckets"]},
-                "subcategories": {b["key"]: b["doc_count"] for b in response["aggregations"]["subcategories_count"]["buckets"]},
-                "price_range":   {"min": response["aggregations"]["price_stats"]["min"] or 0,
-                                  "max": response["aggregations"]["price_stats"]["max"] or 0},
+                "categories":    {b["category_slug"]: b["doc_count"] for b in res_cats if b.get("category_slug")},
+                "subcategories": {b["subcategory_slug"]: b["doc_count"] for b in res_subcats if b.get("subcategory_slug")},
+                "price_range":   {"min": min_price, "max": max_price},
             },
-            "suggestion": self._extract_suggestion(response),
+            "suggestion": None,
             "brand_info": {"slug": brand.lower().strip(), "name": brand_name_actual},
         }
 
     async def get_all_brands_es(self, min_product_count: int = 1) -> List[Dict]:
         try:
-            response = await es_client.search(index="products", body={
-                "size": 0, "query": {"term": {"is_active": True}},
-                "aggs": {"all_brands": {
-                    "terms": {
-                        "field": "brand.keyword", "size": 200,
-                        "order": {"_count": "desc"}, "min_doc_count": min_product_count,
-                    },
-                    "aggs": {"sample_image": {"top_hits": {"size": 1, "_source": ["image_url", "category_slug"]}}},
-                }},
-            })
-            buckets = response.get("aggregations", {}).get("all_brands", {}).get("buckets", [])
-            brands  = []
-            for b in buckets:
-                if not b["key"] or b["key"].lower() == "no brand":
-                    continue
-                hits = b.get("sample_image", {}).get("hits", {}).get("hits", [])
+            sql = f"""
+            SELECT brand_attr as brand, COUNT(*) as product_count, image_url, category_slug 
+            FROM products 
+            WHERE is_active = 1 AND brand_attr != '' AND brand_normalized != 'no brand' AND brand_normalized != 'no-brand'
+            GROUP BY brand_attr 
+            HAVING product_count >= {int(min_product_count)}
+            ORDER BY product_count DESC 
+            LIMIT 200
+            """
+            res = await es_client.execute_sql(sql)
+            brands = []
+            for row in res:
+                name = row["brand"]
                 brands.append({
-                    "name":          b["key"],
-                    "slug":          b["key"].lower().strip().replace(" ", "-"),
-                    "product_count": b["doc_count"],
-                    "sample_image":  hits[0]["_source"].get("image_url") if hits else None,
-                    "category":      hits[0]["_source"].get("category_slug") if hits else None,
+                    "name":          name,
+                    "slug":          name.lower().strip().replace(" ", "-"),
+                    "product_count": row["product_count"],
+                    "sample_image":  row.get("image_url"),
+                    "category":      row.get("category_slug"),
                 })
             return brands
         except Exception as e:
-            logger.error(f"ES Get All Brands Error: {e}")
+            logger.error(f"Manticore Get All Brands Error: {e}")
             return []
 
     async def get_similar_products_es(self, stock_uuid: str, limit: int = 5):
+        import random
         try:
-            source_res = await es_client.get(index="products", id=stock_uuid)
-            source_doc = source_res["_source"]
-        except Exception:
+            sql_source = f"SELECT * FROM products WHERE uuid = '{escape_sql_string(stock_uuid)}' LIMIT 1"
+            res_source = await es_client.execute_sql(sql_source)
+            if not res_source:
+                return []
+            source_doc = res_source[0]
+        except Exception as e:
+            logger.error(f"Error fetching similarity source: {e}")
             return []
 
-        category     = source_doc.get("category_slug", "")
-        brand        = source_doc.get("brand", "")
-        price        = source_doc.get("online_price", 0)
-        title        = source_doc.get("title", "")
-        price_origin = price if price > 0 else 100_000
+        category = source_doc.get("category_slug", "")
+        brand = source_doc.get("brand", "")
+        brand_normalized = source_doc.get("brand_normalized", brand.lower().strip() if brand else "")
+        price = source_doc.get("online_price", 0)
+        title = source_doc.get("title", "")
+        price_origin = price if price > 0 else 100000
 
-        response = await es_client.search(index="products", body={
-            "query": {"function_score": {
-                "query": {"bool": {
-                    "must_not": [{"term": {"_id": stock_uuid}}],
-                    "filter":   [{"term": {"is_active": True}}],
-                    "should": [
-                        {"term":  {"category_slug": {"value": category, "boost": 5.0}}},
-                        {"bool": {"should": [
-                            {"term": {"brand.keyword":    {"value": brand, "case_insensitive": True}}},
-                            {"term": {"brand_normalized": brand.lower().strip()}},
-                        ], "minimum_should_match": 1, "boost": 3.0}},
-                        {"match": {"title": {"query": title, "boost": 2.0}}},
-                    ],
-                    "minimum_should_match": 1,
-                }},
-                "functions": [
-                    {"gauss": {"online_price": {
-                        "origin": price_origin,
-                        "scale":  max(price_origin * 0.3, 50_000),
-                        "decay":  0.5,
-                    }}, "weight": 2.0},
-                    {"random_score": {}, "weight": 0.5},
-                ],
-                "score_mode": "sum", "boost_mode": "multiply",
-            }},
-        }, size=limit)
+        category_esc = escape_sql_string(category)
+        brand_esc = escape_sql_string(brand_normalized)
+        
+        # 1. Query by category or brand
+        sql_attrs = f"""
+            SELECT * FROM products 
+            WHERE is_active = 1 
+              AND uuid != '{escape_sql_string(stock_uuid)}' 
+              AND (category_slug = '{category_esc}' OR brand_normalized = '{brand_esc}')
+            LIMIT {int(limit * 2)}
+        """
+        
+        # 2. Query by title MATCH
+        words = [w.strip() for w in re.sub(r'[\\\'"()|\-!@~*&/]', ' ', title).split() if w.strip()]
+        res_title = []
+        if words:
+            title_q = " | ".join(words)
+            sql_title = f"""
+                SELECT * FROM products 
+                WHERE is_active = 1 
+                  AND uuid != '{escape_sql_string(stock_uuid)}' 
+                  AND MATCH('{escape_sql_string(title_q)}')
+                LIMIT {int(limit * 2)}
+            """
+            try:
+                res_title = await es_client.execute_sql(sql_title)
+            except Exception as e:
+                logger.error(f"Error querying similar titles: {e}")
 
-        return [self._parse_single_hit(h["_source"]) for h in response["hits"]["hits"]]
+        try:
+            res_attrs = await es_client.execute_sql(sql_attrs)
+        except Exception as e:
+            logger.error(f"Error querying similar attributes: {e}")
+            res_attrs = []
+
+        # Combine results
+        combined_docs = {}
+        title_matched_uuids = set()
+        
+        for doc in res_title:
+            uid = doc.get("uuid")
+            if uid:
+                combined_docs[uid] = doc
+                title_matched_uuids.add(uid)
+                
+        for doc in res_attrs:
+            uid = doc.get("uuid")
+            if uid:
+                combined_docs[uid] = doc
+
+        # Calculate scores in Python
+        scored_items = []
+        for uid, doc in combined_docs.items():
+            doc_category = doc.get("category_slug", "")
+            doc_brand_normalized = doc.get("brand_normalized", "")
+            doc_price = doc.get("online_price", 0)
+            
+            cat_score = 5.0 if doc_category == category else 0.0
+            brand_score = 3.0 if doc_brand_normalized == brand_normalized else 0.0
+            price_score = 2.0 / (1.0 + (abs(doc_price - price_origin) / price_origin))
+            title_score = 4.0 if uid in title_matched_uuids else 0.0
+            rand_score = random.random() * 0.5
+            
+            total_score = cat_score + brand_score + price_score + title_score + rand_score
+            scored_items.append((total_score, doc))
+
+        # Sort and take top limit
+        scored_items.sort(key=lambda x: x[0], reverse=True)
+        final_docs = [item[1] for item in scored_items[:limit]]
+        
+        return [self._parse_row_public(row) for row in final_docs]
 
     async def get_stock_detail(self, session: AsyncSession, stock_uuid: UUID):
         stmt   = select(Stock).where(Stock.uuid == stock_uuid).options(selectinload(Stock.assets))
@@ -1014,30 +1059,46 @@ class StockService:
 
     async def get_top_collections_es(self):
         try:
-            response = await es_client.search(
-                index="products", size=0,
-                query={"term": {"is_active": True}},
-                aggs={"top_brands": {
-                    "terms": {"field": "brand", "size": 6, "order": {"_count": "desc"}, "min_doc_count": 1},
-                    "aggs":  {"top_types": {"terms": {"field": "type", "size": 5, "min_doc_count": 1}}},
-                }},
-            )
-            buckets     = response.get("aggregations", {}).get("top_brands", {}).get("buckets", [])
+            sql_brands = """
+            SELECT brand_attr as brand, COUNT(*) as count 
+            FROM products 
+            WHERE is_active = 1 AND brand_attr != '' AND brand_normalized != 'no brand' AND brand_normalized != 'no-brand'
+            GROUP BY brand_attr 
+            ORDER BY count DESC 
+            LIMIT 6
+            """
+            res_brands = await es_client.execute_sql(sql_brands)
             collections = []
-            for b in buckets:
-                if not b["key"] or b["key"].lower().strip() in ("no brand", "nobrand", "-", ""):
-                    continue
+            
+            tasks = []
+            for b in res_brands:
+                brand_name = b["brand"]
+                brand_esc = escape_sql_string(brand_name)
+                sql_types = f"""
+                SELECT type_attr as type, COUNT(*) as cnt 
+                FROM products 
+                WHERE is_active = 1 AND brand_normalized = '{brand_esc}' AND type_attr != '' 
+                GROUP BY type_attr 
+                ORDER BY cnt DESC 
+                LIMIT 5
+                """
+                tasks.append(es_client.execute_sql(sql_types))
+                
+            res_types_list = await asyncio.gather(*tasks)
+            
+            for b, res_types in zip(res_brands, res_types_list):
+                brand_name = b["brand"]
                 collections.append({
-                    "brand":      f"Top {b['key'].capitalize()} Collection",
-                    "brand_raw":  b["key"],
-                    "items":      [t["key"] for t in b.get("top_types", {}).get("buckets", [])],
-                    "seeAllLink": f"/brands/{b['key'].lower().strip().replace(' ', '-')}",
+                    "brand":      f"Top {brand_name.capitalize()} Collection",
+                    "brand_raw":  brand_name,
+                    "items":      [t["type"] for t in res_types if t.get("type")],
+                    "seeAllLink": f"/brands/{brand_name.lower().strip().replace(' ', '-')}",
                 })
                 if len(collections) >= 3:
                     break
             return collections
         except Exception as e:
-            logger.error(f"Megamenu ES Error: {e}")
+            logger.error(f"Megamenu Manticore Error: {e}")
             return []
 
     async def get_merged_brands_with_products(
@@ -1051,57 +1112,48 @@ class StockService:
             return []
 
         try:
-            response = await es_client.search(index="products", body={
-                "size": 0,
-                "query": {"term": {"is_active": True}},
-                "aggs": {"brand_grouping": {
-                    "terms": {
-                        "field": "brand", "size": 50,
-                        "order": {"_count": "desc"},
-                        "exclude": ["NO BRAND", "no brand", "No Brand", ""],
-                    },
-                    "aggs": {"top_hits_items": {"top_hits": {
-                        "size": items_per_brand,
-                        "sort": [{"online_price": {"order": "desc"}}],
-                        "_source": [
-                            "uuid", "title", "slug", "online_price", "original_price",
-                            "discount_percentage", "image_url", "brand", "specs", "type",
-                        ],
-                    }}},
-                }},
-            })
-            buckets    = response.get("aggregations", {}).get("brand_grouping", {}).get("buckets", [])
+            tasks = []
+            brands_to_query = list(brand_lookup.keys())
+            
+            for brand_norm in brands_to_query[:50]:
+                brand_esc = escape_sql_string(brand_norm)
+                sql = f"""
+                SELECT * 
+                FROM products 
+                WHERE is_active = 1 AND brand_normalized = '{brand_esc}'
+                ORDER BY online_price DESC 
+                LIMIT {int(items_per_brand)}
+                """
+                tasks.append(es_client.execute_sql(sql))
+                
+            results = await asyncio.gather(*tasks)
+            
             final_data = []
-            for bucket in buckets:
-                norm = str(bucket["key"]).lower().strip()
-                if not norm or norm in ("no brand", "nobrand", "-"):
-                    continue
-                master = brand_lookup.get(norm)
-                if not master:
-                    continue
-                hits = bucket.get("top_hits_items", {}).get("hits", {}).get("hits", [])
+            for brand_norm, hits in zip(brands_to_query[:50], results):
                 if not hits:
                     continue
+                master = brand_lookup[brand_norm]
+                
                 final_data.append({
                     "brand_name":  master["name"],
                     "brand_logo":  master["image"],
                     "brand_slug":  master["slug"],
-                    "total_items": bucket["doc_count"],
-                    "products": [{
-                        "uuid":                h["_source"].get("uuid"),
-                        "title":               h["_source"].get("title"),
-                        "slug":                h["_source"].get("slug"),
-                        "price":               h["_source"].get("online_price"),
-                        "original_price":      h["_source"].get("original_price"),
-                        "discount_percentage": h["_source"].get("discount_percentage"),
-                        "image":               h["_source"].get("image_url"),
-                        "type":                h["_source"].get("type", ""),
-                        "specs":               h["_source"].get("specs", {}),
-                    } for h in hits],
+                    "total_items": len(hits),
+                    "products": [self._parse_row_public(h) for h in hits],
                 })
+                
+            count_tasks = []
+            for brand_norm in brands_to_query[:len(final_data)]:
+                brand_esc = escape_sql_string(brand_norm)
+                count_tasks.append(es_client.execute_sql(f"SELECT COUNT(*) as total FROM products WHERE is_active = 1 AND brand_normalized = '{brand_esc}'"))
+            
+            count_results = await asyncio.gather(*count_tasks)
+            for idx, count_res in enumerate(count_results):
+                final_data[idx]["total_items"] = count_res[0]["total"] if count_res else len(final_data[idx]["products"])
+                
             return final_data
         except Exception as e:
-            logger.error(f"BrandShowcase Error: {e}")
+            logger.error(f"BrandShowcase Manticore Error: {e}")
             return []
 
     async def get_autocomplete_suggestions_es(
@@ -1110,86 +1162,39 @@ class StockService:
         if not q or len(q) < 2:
             return {"items": [], "categories": [], "brands": [], "suggestion": None}
 
-        query_body = {"bool": {
-            "must":   [{"multi_match": {
-                "query":   q,
-                "fields":  ["title^4", "brand^3", "category_slug^2", "subcategory_slug^2", "type"],
-                "fuzziness": "AUTO", "operator": "or",
-            }}],
-            "filter": [{"term": {"is_active": True}}],
-        }}
+        where_clauses = ["is_active = 1"]
+        
+        words = [w.strip() for w in re.sub(r'[\\\'"()|\-!@~*&/]', ' ', q).split() if w.strip()]
+        if words:
+            # Smart synonym expansions with prefix matching
+            processed = []
+            for w in words:
+                syns = get_synonyms(w)
+                expanded = [f"{s}*" for s in syns]
+                processed.append(f"( {' | '.join(expanded)} )")
+            match_query = " | ".join(processed)
+            where_clauses.append(f"MATCH('{escape_sql_string(match_query)}')")
 
         if search_type == "kategori":
-            query_body["bool"]["filter"].append({"bool": {
-                "should": [
-                    {"match": {"category_slug":    {"query": q, "fuzziness": "AUTO"}}},
-                    {"match": {"subcategory_slug": {"query": q, "fuzziness": "AUTO"}}},
-                ],
-                "minimum_should_match": 1,
-            }})
+            where_clauses.append(f"(category_slug = '{escape_sql_string(q)}' OR subcategory_slug = '{escape_sql_string(q)}')")
         elif search_type == "brand":
-            query_body["bool"]["filter"].append(self._build_brand_filter(q))
+            where_clauses.append(f"brand_normalized = '{escape_sql_string(q.lower().strip())}'")
 
-        try:
-            response = await es_client.search(
-                index="products", query=query_body, size=limit,
-                aggs={
-                    "top_categories": {"terms": {"field": "category_slug", "size": 3}},
-                    "top_brands":     {"terms": {"field": "brand.keyword", "size": 3,
-                                                 "exclude": ["NO BRAND", "no brand", ""]}},
-                },
-                suggest={"spell_check": {"text": q, "term": {"field": "title", "suggest_mode": "missing"}}},
-                _source=["uuid", "title", "slug", "online_price", "original_price",
-                         "discount_percentage", "image_url", "brand"],
-            )
-            return {
-                "items": [{
-                    "uuid":                h["_source"].get("uuid"),
-                    "title":               h["_source"].get("title"),
-                    "slug":                h["_source"].get("slug"),
-                    "price":               h["_source"].get("online_price"),
-                    "original_price":      h["_source"].get("original_price"),
-                    "discount_percentage": h["_source"].get("discount_percentage"),
-                    "image":               h["_source"].get("image_url"),
-                    "brand":               h["_source"].get("brand", ""),
-                } for h in response["hits"]["hits"]],
-                "categories": [b["key"] for b in response["aggregations"]["top_categories"]["buckets"]],
-                "brands":     [b["key"] for b in response["aggregations"]["top_brands"]["buckets"]
-                               if b["key"].lower() not in ("no brand", "")],
-                "suggestion": self._extract_suggestion(response),
-            }
-        except Exception as e:
-            logger.error(f"Autocomplete ES Error: {e}")
-            return {"items": [], "categories": [], "brands": [], "suggestion": None}
+        where_sql = "WHERE " + " AND ".join(where_clauses)
+        
+        sql_items = f"SELECT * FROM products {where_sql} LIMIT {int(limit)} OPTION field_weights=(title=5, brand=3, type=2, specs_text=1)"
+        sql_cats = f"SELECT category_slug, COUNT(*) as cnt FROM products {where_sql} GROUP BY category_slug ORDER BY cnt DESC LIMIT 3"
+        sql_brands = f"SELECT brand_attr as brand, COUNT(*) as cnt FROM products {where_sql} AND brand_attr != '' GROUP BY brand_attr ORDER BY cnt DESC LIMIT 3"
 
-    # ── Shared helpers ─────────────────────────────────────────────
-    def _parse_hits(self, hits: list) -> List[Dict]:
-        return [self._parse_single_hit(h["_source"]) for h in hits]
+        res_items, res_cats, res_brands = await asyncio.gather(
+            es_client.execute_sql(sql_items),
+            es_client.execute_sql(sql_cats),
+            es_client.execute_sql(sql_brands),
+        )
 
-    def _parse_single_hit(self, source: dict) -> Dict:
         return {
-            "uuid":                source.get("uuid"),
-            "title":               source.get("title"),
-            "slug":                source.get("slug"),
-            "price":               source.get("online_price"),
-            "original_price":      source.get("original_price"),
-            "discount_percentage": source.get("discount_percentage"),
-            "image":               source.get("image_url"),
-            "category":            source.get("category_slug"),
-            "subcategory":         source.get("subcategory_slug"),
-            "brand":               source.get("brand", "NO BRAND"),
-            "type":                source.get("type", ""),
-            "specs":               source.get("specs", {}),
+            "items": [self._parse_row_public(h) for h in res_items],
+            "categories": [b["category_slug"] for b in res_cats if b.get("category_slug")],
+            "brands":     [b["brand"] for b in res_brands if b.get("brand") and b["brand"].lower() != "no brand"],
+            "suggestion": None,
         }
-
-    def _build_sort(self, sort_by: str) -> list:
-        return {
-            "price_asc":    [{"online_price": {"order": "asc"}}],
-            "price_desc":   [{"online_price": {"order": "desc"}}],
-            "popular_sort": [{"terjual":      {"order": "desc"}}],
-            "discount":     [{"discount_percentage": {"order": "desc"}}],
-        }.get(sort_by, [{"created_at": {"order": "desc"}}])
-
-    def _extract_suggestion(self, response: dict) -> Optional[str]:
-        spell = response.get("suggest", {}).get("spell_check", [])
-        return spell[0]["options"][0]["text"] if spell and spell[0].get("options") else None

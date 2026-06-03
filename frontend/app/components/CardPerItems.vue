@@ -59,7 +59,7 @@ const priceFormatter = new Intl.NumberFormat("id-ID", {
 const formatPrice = (value: number) =>
   value ? priceFormatter.format(value).replace("Rp", "Rp ") : "Rp 0";
 
-const productUrl = computed(() => `/product/${props.uuid}`);
+const productUrl = computed(() => `/product/${props.slug || props.uuid}`);
 
 const soldLabel = computed(() => {
   if (!props.terjual || props.terjual <= 0) return "";

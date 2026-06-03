@@ -18,6 +18,7 @@ TTL:
 
 import json
 import logging
+import asyncio
 from typing import Any, Dict, List, Optional
 from sqlalchemy import func, case
 
@@ -243,100 +244,98 @@ class StockDashboardService:
             return {"status": "success", "source": "cache", "data": cached}
 
         try:
-            response = await es_client.search(
-                index="products",
-                size=0,
-                query={"term": {"is_active": True}},
-                aggs={
-                    # ── by category ──────────────────────────────
-                    "by_category": {
-                        "terms": {
-                            "field": "category_slug.keyword",
-                            "size":  30,
-                            "order": {"_count": "desc"},
-                        },
-                        "aggs": {
-                            "revenue": {
-                                "sum": {"script": {"source": "doc['online_price'].value * doc['stok'].value"}}
-                            },
-                            "total_terjual": {"sum": {"field": "terjual"}},
-                        },
-                    },
-                    # ── by brand ─────────────────────────────────
-                    "by_brand": {
-                        "terms": {
-                            "field":        "brand.keyword",
-                            "size":         20,
-                            "order":        {"_count": "desc"},
-                            "exclude":      ["NO BRAND", "no brand", "No Brand", ""],
-                            "min_doc_count": 1,
-                        },
-                        "aggs": {
-                            "revenue":       {"sum": {"script": {"source": "doc['online_price'].value * doc['stok'].value"}}},
-                            "total_terjual": {"sum": {"field": "terjual"}},
-                        },
-                    },
-                    # ── price histogram ───────────────────────────
-                    "price_histogram": {
-                        "range": {
-                            "field":  "online_price",
-                            "ranges": [
-                                {"key": "< 500rb",          "to":   500_000},
-                                {"key": "500rb – 1jt",      "from":  500_000, "to": 1_000_000},
-                                {"key": "1jt – 3jt",        "from": 1_000_000, "to": 3_000_000},
-                                {"key": "3jt – 5jt",        "from": 3_000_000, "to": 5_000_000},
-                                {"key": "> 5jt",            "from": 5_000_000},
-                            ],
-                        },
-                    },
-                    # ── stock status split ────────────────────────
-                    "stock_status": {
-                        "range": {
-                            "field":  "stok",
-                            "ranges": [
-                                {"key": "Habis",         "to":   1},
-                                {"key": "Kritis (1–5)",  "from": 1,  "to": 6},
-                                {"key": "Aman (6–20)",   "from": 6,  "to": 21},
-                                {"key": "Banyak (>20)",  "from": 21},
-                            ],
-                        }
-                    },
-                },
+            sql_cat = """
+            SELECT category_slug as label, COUNT(*) as count, SUM(online_price * stok) as revenue, SUM(terjual) as total_terjual
+            FROM products
+            WHERE is_active = 1
+            GROUP BY category_slug
+            ORDER BY count DESC
+            LIMIT 30
+            """
+            
+            sql_brand = """
+            SELECT brand_attr as label, COUNT(*) as count, SUM(online_price * stok) as revenue, SUM(terjual) as total_terjual
+            FROM products
+            WHERE is_active = 1 AND brand_attr != '' AND brand_normalized != 'no brand' AND brand_normalized != 'no-brand'
+            GROUP BY brand_attr
+            ORDER BY count DESC
+            LIMIT 20
+            """
+            
+            sql_price = """
+            SELECT 
+                SUM(IF(online_price < 500000, 1, 0)) as range1,
+                SUM(IF(online_price >= 500000 AND online_price < 1000000, 1, 0)) as range2,
+                SUM(IF(online_price >= 1000000 AND online_price < 3000000, 1, 0)) as range3,
+                SUM(IF(online_price >= 3000000 AND online_price < 5000000, 1, 0)) as range4,
+                SUM(IF(online_price >= 5000000, 1, 0)) as range5
+            FROM products
+            WHERE is_active = 1
+            """
+            
+            sql_stock = """
+            SELECT 
+                SUM(IF(stok < 1, 1, 0)) as habis,
+                SUM(IF(stok >= 1 AND stok <= 5, 1, 0)) as kritis,
+                SUM(IF(stok >= 6 AND stok <= 20, 1, 0)) as aman,
+                SUM(IF(stok > 20, 1, 0)) as banyak
+            FROM products
+            WHERE is_active = 1
+            """
+
+            res_cat, res_brand, res_price, res_stock = await asyncio.gather(
+                es_client.execute_sql(sql_cat),
+                es_client.execute_sql(sql_brand),
+                es_client.execute_sql(sql_price),
+                es_client.execute_sql(sql_stock),
             )
 
-            aggs = response.get("aggregations", {})
+            by_category = []
+            for r in res_cat:
+                if r.get("label"):
+                    by_category.append({
+                        "label": r["label"],
+                        "count": int(r["count"]),
+                        "revenue": int(r.get("revenue") or 0),
+                        "total_terjual": int(r.get("total_terjual") or 0)
+                    })
 
-            def _parse_terms(buckets: list, extra_keys: list[str] = []) -> list:
-                out = []
-                for b in buckets:
-                    item = {"label": b["key"], "count": b["doc_count"]}
-                    for k in extra_keys:
-                        item[k] = int(b.get(k, {}).get("value", 0) or 0)
-                    out.append(item)
-                return out
+            by_brand = []
+            for r in res_brand:
+                if r.get("label"):
+                    by_brand.append({
+                        "label": r["label"],
+                        "count": int(r["count"]),
+                        "revenue": int(r.get("revenue") or 0),
+                        "total_terjual": int(r.get("total_terjual") or 0)
+                    })
 
-            def _parse_range(buckets: list) -> list:
-                return [{"label": b["key"], "count": b["doc_count"]} for b in buckets]
+            price_row = res_price[0] if res_price else {}
+            price_histogram = [
+                {"label": "< 500rb", "count": int(price_row.get("range1") or 0)},
+                {"label": "500rb – 1jt", "count": int(price_row.get("range2") or 0)},
+                {"label": "1jt – 3jt", "count": int(price_row.get("range3") or 0)},
+                {"label": "3jt – 5jt", "count": int(price_row.get("range4") or 0)},
+                {"label": "> 5jt", "count": int(price_row.get("range5") or 0)},
+            ]
+
+            stock_row = res_stock[0] if res_stock else {}
+            stock_status = [
+                {"label": "Habis", "count": int(stock_row.get("habis") or 0)},
+                {"label": "Kritis (1–5)", "count": int(stock_row.get("kritis") or 0)},
+                {"label": "Aman (6–20)", "count": int(stock_row.get("aman") or 0)},
+                {"label": "Banyak (>20)", "count": int(stock_row.get("banyak") or 0)},
+            ]
 
             data = {
-                "by_category":     _parse_terms(
-                    aggs.get("by_category", {}).get("buckets", []),
-                    extra_keys=["revenue", "total_terjual"],
-                ),
-                "by_brand":        _parse_terms(
-                    aggs.get("by_brand", {}).get("buckets", []),
-                    extra_keys=["revenue", "total_terjual"],
-                ),
-                "price_histogram": _parse_range(
-                    aggs.get("price_histogram", {}).get("buckets", [])
-                ),
-                "stock_status":    _parse_range(
-                    aggs.get("stock_status", {}).get("buckets", [])
-                ),
+                "by_category": by_category,
+                "by_brand": by_brand,
+                "price_histogram": price_histogram,
+                "stock_status": stock_status,
             }
 
         except Exception as exc:
-            logger.error(f"[Dashboard] Distribution ES error: {exc}")
+            logger.error(f"[Dashboard] Distribution Manticore error: {exc}")
             data = {
                 "by_category": [], "by_brand": [],
                 "price_histogram": [], "stock_status": [],
@@ -399,41 +398,35 @@ class StockDashboardService:
             return {"status": "success", "source": "cache", "items": cached}
 
         try:
-            response = await es_client.search(
-                index="products",
-                size=limit,
-                sort=[{"created_at": {"order": "desc"}}],
-                # Tampilkan semua status (aktif & non-aktif) untuk admin
-                query={"match_all": {}},
-                _source=[
-                    "uuid", "title", "slug", "brand",
-                    "category_slug", "online_price", "original_price",
-                    "discount_percentage", "stok", "terjual",
-                    "is_active", "image_url", "created_at",
-                ],
-            )
-
-            items = [
-                {
-                    "uuid":                str(h["_source"].get("uuid", h["_id"])),
-                    "title":               h["_source"].get("title"),
-                    "slug":                h["_source"].get("slug"),
-                    "brand":               h["_source"].get("brand"),
-                    "category":            h["_source"].get("category_slug"),
-                    "price":               h["_source"].get("online_price"),
-                    "original_price":      h["_source"].get("original_price"),
-                    "discount_percentage": h["_source"].get("discount_percentage"),
-                    "stok":                h["_source"].get("stok", 0),
-                    "terjual":             h["_source"].get("terjual", 0),
-                    "is_active":           h["_source"].get("is_active", True),
-                    "image":               h["_source"].get("image_url"),
-                    "created_at":          h["_source"].get("created_at"),
-                }
-                for h in response["hits"]["hits"]
-            ]
+            sql = f"SELECT * FROM products ORDER BY created_at DESC LIMIT {int(limit)}"
+            res = await es_client.execute_sql(sql)
+            
+            items = []
+            for r in res:
+                created_at_ts = r.get("created_at")
+                created_at_iso = None
+                if created_at_ts:
+                    from datetime import datetime, timezone
+                    created_at_iso = datetime.fromtimestamp(created_at_ts, tz=timezone.utc).isoformat()
+                    
+                items.append({
+                    "uuid":                r.get("uuid"),
+                    "title":               r.get("title"),
+                    "slug":                r.get("slug"),
+                    "brand":               r.get("brand"),
+                    "category":            r.get("category_slug"),
+                    "price":               r.get("online_price"),
+                    "original_price":      r.get("original_price"),
+                    "discount_percentage": r.get("discount_percentage"),
+                    "stok":                int(r.get("stok") or 0),
+                    "terjual":             int(r.get("terjual") or 0),
+                    "is_active":           bool(r.get("is_active")),
+                    "image":               r.get("image_url"),
+                    "created_at":          created_at_iso,
+                })
 
         except Exception as exc:
-            logger.error(f"[Dashboard] Recent ES error: {exc}")
+            logger.error(f"[Dashboard] Recent Manticore error: {exc}")
             items = []
 
         await self._redis_set(CACHE_KEY, items, TTL_RECENT)

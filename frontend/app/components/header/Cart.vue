@@ -3,11 +3,11 @@
 
     <NuxtLink
       to="/cart"
-      class="flex text-3xl items-center gap-2 hover:scale-105 transition-transform p-1 cursor-pointer"
+      class="flex items-center gap-2 hover:scale-105 transition-transform p-1.5 cursor-pointer"
       aria-label="Keranjang Belanja"
     >
       <div class="relative flex items-center justify-center">
-        <Icon name="lucide:shopping-cart" class="text-2xl lg:text-[28px] text-black" />
+        <Icon name="lucide:shopping-cart" class="text-2xl lg:text-[26px] text-gray-700 group-hover:text-[#03AC0E] transition-colors" />
         <span class="absolute -top-1.5 -right-2 bg-red-600 text-white text-[10px] font-bold min-w-[18px] h-[18px] flex items-center justify-center rounded-full border-2 border-white px-1">
           {{ count }}
         </span>

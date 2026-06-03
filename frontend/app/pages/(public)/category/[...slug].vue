@@ -519,7 +519,7 @@ onBeforeUnmount(() => {
           <!-- Apply CTA -->
           <div class="px-5 py-4 border-t border-gray-100 flex-shrink-0 safe-area-bottom">
             <button
-              class="w-full bg-[#32cd32] hover:bg-green-600 text-white font-black text-sm py-3.5 rounded-2xl transition-colors shadow-lg shadow-green-200"
+              class="w-full bg-gradient-to-r from-[#03AC0E] to-[#028C0B] shadow-sm hover:bg-green-600 text-white font-black text-sm py-3.5 rounded-2xl transition-colors shadow-lg shadow-green-200"
               @click="isFilterOpen = false"
             >
               Tampilkan {{ totalProducts }} Produk

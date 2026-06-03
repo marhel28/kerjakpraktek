@@ -1,10 +1,6 @@
 import asyncio
 import os
-from elasticsearch import AsyncElasticsearch
-
-# 🔥 FIX 1: Gunakan environment variable atau fallback ke nama service Docker
-ES_URL = os.getenv("ELASTICSEARCH_URL", "http://elasticsearch:9200")
-es_client = AsyncElasticsearch(ES_URL)
+from backend.db.es_client import es_client
 
 async def reset_elasticsearch():
     index_name = "products"

@@ -53,14 +53,36 @@ const isFullyPaid = computed(() => booking.value?.status === "lunas");
 const canPayDp = computed(() => booking.value?.status === "confirmed");
 const canPayLunas = computed(() => booking.value?.status === "done");
 
+const isPaymentEmbedded = ref(false);
+
 async function payNow(type: "dp" | "lunas") {
   if (!booking.value) return; payLoading.value = true;
   try {
     const res = await $fetch<any>(`/api/jasa/${booking.value.uuid}/pay?payment_type=${type}`, { method: "POST" });
     if (res.payment_token && (window as any).snap) {
-      (window as any).snap.pay(res.payment_token, { onSuccess: async () => { showToast("Berhasil!", "success"); await refresh(); } });
+      isPaymentEmbedded.value = true;
+      setTimeout(() => {
+        (window as any).snap.embed(res.payment_token, {
+          embedId: 'snap-container',
+          onSuccess: async () => { 
+            isPaymentEmbedded.value = false;
+            showToast("Berhasil!", "success"); 
+            await refresh(); 
+          },
+          onPending: async () => { 
+            isPaymentEmbedded.value = false;
+            await refresh(); 
+          },
+          onError: () => { 
+            showToast("Pembayaran Gagal!", "error"); 
+          },
+          onClose: () => {
+            isPaymentEmbedded.value = false;
+          }
+        });
+      }, 100);
     } else if (res.payment_url) { window.open(res.payment_url, "_blank"); }
-  } catch (e: any) { showToast("Gagal!", "error"); } finally { payLoading.value = false; }
+  } catch (e: any) { showToast("Gagal memuat pembayaran!", "error"); } finally { payLoading.value = false; }
 }
 
 function formatRp(n: number) { return new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(n); }
@@ -121,7 +143,21 @@ function showToast(message: string, type: "success" | "error") { toast.value = {
         </div>
       </section>
 
-      <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <!-- EMBEDDED PAYMENT WIDGET -->
+      <div v-show="isPaymentEmbedded" class="bg-white border border-gray-200 rounded-xl shadow-lg overflow-hidden max-w-xl mx-auto mb-8 animate-fade-in mt-8">
+        <div class="px-6 py-4 border-b border-gray-100 flex items-center justify-between bg-gray-50">
+          <div class="flex items-center gap-2">
+            <UIcon name="i-heroicons-credit-card" class="w-5 h-5 text-[#03AC0E]" />
+            <h3 class="font-black text-gray-900 text-sm uppercase tracking-widest">Selesaikan Pembayaran</h3>
+          </div>
+          <button @click="isPaymentEmbedded = false" class="text-xs font-bold text-gray-400 hover:text-red-500 transition-colors uppercase tracking-widest">
+            Tutup
+          </button>
+        </div>
+        <div id="snap-container" class="w-full min-h-[500px]"></div>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 mt-8">
         
         <!-- LEFT: SERVICE DETAILS -->
         <div class="lg:col-span-2 space-y-8">

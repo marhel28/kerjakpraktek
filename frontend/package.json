@@ -21,6 +21,7 @@
     "@supabase/supabase-js": "^2.105.3",
     "@tailwindcss/vite": "^4.2.1",
     "@vue-leaflet/vue-leaflet": "^0.10.1",
+    "@vueuse/motion": "^3.0.3",
     "axios": "^1.15.0",
     "google-one-tap": "^1.0.6",
     "gsap": "^3.14.2",

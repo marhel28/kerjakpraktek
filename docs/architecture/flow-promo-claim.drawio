@@ -1,0 +1,58 @@
+<mxGraphModel>
+  <root>
+    <mxCell id="0"/>
+    <mxCell id="1" parent="0"/>
+    
+    <!-- Start -->
+    <mxCell id="start" value="Pengguna Memilih Promo" style="ellipse;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1">
+      <mxGeometry x="250" y="40" width="160" height="50" as="geometry"/>
+    </mxCell>
+    
+    <!-- Decision: Validation -->
+    <mxCell id="validate" value="Syarat &amp; Ketentuan&#10;Valid?" style="rhombus;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1">
+      <mxGeometry x="250" y="130" width="160" height="80" as="geometry"/>
+    </mxCell>
+    
+    <!-- Process: Apply -->
+    <mxCell id="apply_promo" value="Potongan Harga&#10;Diterapkan Otomatis" style="rounded=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+      <mxGeometry x="250" y="260" width="160" height="50" as="geometry"/>
+    </mxCell>
+    
+    <!-- Process: Error -->
+    <mxCell id="show_error" value="Tampilkan Error&#10;(Syarat Tidak Terpenuhi)" style="rounded=1;fillColor=#f8cecc;strokeColor=#b85450;" vertex="1" parent="1">
+      <mxGeometry x="480" y="145" width="160" height="50" as="geometry"/>
+    </mxCell>
+    
+    <!-- End: Success -->
+    <mxCell id="finish_success" value="Selesai: Transaksi&#10;dengan Promo" style="ellipse;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1">
+      <mxGeometry x="250" y="350" width="160" height="50" as="geometry"/>
+    </mxCell>
+    
+    <!-- End: Failed -->
+    <mxCell id="finish_failed" value="Batal Pakai Promo&#10;(Kembali ke Cart)" style="ellipse;fillColor=#f8cecc;strokeColor=#b85450;" vertex="1" parent="1">
+      <mxGeometry x="480" y="260" width="160" height="50" as="geometry"/>
+    </mxCell>
+    
+    <!-- Arrows -->
+    <mxCell id="edge1" edge="1" source="start" target="validate" parent="1">
+      <mxGeometry relative="1" as="geometry"/>
+    </mxCell>
+    
+    <mxCell id="edge2" value="Ya (Valid)" style="labelBackgroundColor=#ffffff;" edge="1" source="validate" target="apply_promo" parent="1">
+      <mxGeometry relative="1" as="geometry"/>
+    </mxCell>
+    
+    <mxCell id="edge3" value="Tidak (Invalid)" style="labelBackgroundColor=#ffffff;" edge="1" source="validate" target="show_error" parent="1">
+      <mxGeometry relative="1" as="geometry"/>
+    </mxCell>
+    
+    <mxCell id="edge4" edge="1" source="apply_promo" target="finish_success" parent="1">
+      <mxGeometry relative="1" as="geometry"/>
+    </mxCell>
+    
+    <mxCell id="edge5" edge="1" source="show_error" target="finish_failed" parent="1">
+      <mxGeometry relative="1" as="geometry"/>
+    </mxCell>
+    
+  </root>
+</mxGraphModel>

@@ -24,6 +24,7 @@ services:
       - DATABASE_URL=postgresql+asyncpg://user_admin:password_rahasia@db:5432/marketplace_db
       - REDIS_HOST=dragonfly
       - REDIS_PORT=6379
+      - QDRANT_URL=http://qdrant:6333
     command: celery -A backend.celery_app.celery_app worker -l info -Q default,email,auth --concurrency=4
   dragonfly:
     image: 'docker.dragonflydb.io/dragonflydb/dragonfly'
@@ -66,8 +67,10 @@ services:
         condition: service_healthy  # 🔥 Tunggu DB sampai benar-benar siap
       dragonfly:
         condition: service_started
-      elasticsearch:
-        condition: service_started  # 🔥 Pastikan backend menunggu ES nyala
+      manticore:
+        condition: service_started  # 🔥 Pastikan backend menunggu Manticore nyala
+      qdrant:
+        condition: service_started
     # 🔥 Membaca variabel dari backend/.env
     env_file:
       - ./backend/.env
@@ -78,26 +81,36 @@ services:
       - DATABASE_URL=postgresql+asyncpg://user_admin:password_rahasia@db:5432/marketplace_db
       - REDIS_HOST=dragonfly
       - REDIS_PORT=6379
-      - ELASTICSEARCH_URL=http://elasticsearch:9200 # Tambahkan env variable untuk ES
+      - MANTICORE_URL=http://manticore:9308
+      - QDRANT_URL=http://qdrant:6333
     ports:
       - "8000:8000"
     # 🔥 Mode Development dengan auto-reload
     command: uvicorn backend:app --host 0.0.0.0 --port 8000 --reload
 
-  # 🔥 Elasticsearch DIPINDAHKAN KE DALAM SERVICES
-  elasticsearch:
-    image: docker.elastic.co/elasticsearch/elasticsearch:8.11.3
-    container_name: elasticsearch_db
-    environment:
-      - discovery.type=single-node
-      - xpack.security.enabled=false # Set True di production + konfigurasi password
-      - ES_JAVA_OPTS=-Xms512m -Xmx512m
+  # ⚡ Manticore Search: Pengganti Elasticsearch yang sangat ringan & cepat
+  manticore:
+    image: manticoresearch/manticore:6.3.0
+    container_name: manticore_db
     ports:
-      - "9200:9200"
+      - "9306:9306"
+      - "9308:9308"
     volumes:
-      - es_data:/usr/share/elasticsearch/data
+      - manticore_data:/var/lib/manticore
+    restart: always
+
+  # ⚡ Qdrant: Vector Database untuk semantic search
+  qdrant:
+    image: qdrant/qdrant:v1.9.0
+    container_name: qdrant_db
+    ports:
+      - "6333:6333"
+      - "6334:6334"
+    volumes:
+      - qdrant_data:/qdrant/storage
     restart: always
     
 volumes:
   postgres_data:
-  es_data:
+  manticore_data:
+  qdrant_data:

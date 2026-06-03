@@ -15,7 +15,7 @@
         >
           <!-- ICON CONTAINER -->
           <!-- Menggunakan warna hijau persis seperti referensi dan efek scale saat di-hover -->
-          <div class="flex-shrink-0 text-[#32cd32] transition-transform duration-300 group-hover:scale-110 group-hover:-rotate-3">
+          <div class="flex-shrink-0 text-[#03AC0E] transition-transform duration-300 group-hover:scale-110 group-hover:-rotate-3">
             <Icon :name="feature.icon" class="w-10 h-10 lg:w-[42px] lg:h-[42px]" />
           </div>
 

@@ -247,175 +247,181 @@
 
     <!-- Tech Modal -->
     <Teleport to="body">
-      <div v-if="modals.tech.isOpen" class="fixed inset-0 z-[10000] flex items-center justify-center p-4 sm:p-6">
-        <div class="absolute inset-0 bg-gray-900/40 backdrop-blur-sm" @click="modals.tech.isOpen = false" />
-        <div class="relative bg-white w-full max-w-lg rounded-2xl shadow-2xl border border-gray-100 overflow-hidden">
-          <div class="p-6 border-b border-gray-100 flex items-center justify-between">
-            <h3 class="text-lg font-bold text-gray-900 tracking-tight">{{ modals.tech.data.uuid ? 'Edit Teknisi' : 'Tambah Teknisi Baru' }}</h3>
-            <button @click="modals.tech.isOpen = false" class="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-100 text-gray-400 transition-colors">
-              <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path d="M6 18L18 6M6 6l12 12"/></svg>
-            </button>
-          </div>
+      <Transition name="modal-fade">
+        <div v-if="modals.tech.isOpen" class="fixed inset-0 z-[10000] flex items-center justify-center p-4 sm:p-6">
+          <div class="absolute inset-0 bg-gray-900/40 backdrop-blur-sm" @click="modals.tech.isOpen = false" />
+          <div class="modal-card relative bg-white w-full max-w-lg rounded-2xl shadow-2xl border border-gray-100 overflow-hidden">
+            <div class="p-6 border-b border-gray-100 flex items-center justify-between">
+              <h3 class="text-lg font-bold text-gray-900 tracking-tight">{{ modals.tech.data.uuid ? 'Edit Teknisi' : 'Tambah Teknisi Baru' }}</h3>
+              <button @click="modals.tech.isOpen = false" class="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-100 text-gray-400 transition-colors">
+                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path d="M6 18L18 6M6 6l12 12"/></svg>
+              </button>
+            </div>
 
-          <div class="p-6 space-y-6">
-            <!-- Profile Picture -->
-            <div class="flex items-center gap-6">
-              <div class="w-20 h-20 rounded-xl bg-gray-50 border border-dashed border-gray-200 flex items-center justify-center overflow-hidden relative group">
-                <img v-if="modals.tech.data.picture_url" :src="modals.tech.data.picture_url" class="w-full h-full object-cover" />
-                <svg v-else class="w-8 h-8 text-gray-200" fill="currentColor" viewBox="0 0 24 24"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
-                <div class="absolute inset-0 bg-gray-900/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center cursor-pointer">
-                  <svg class="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/><path d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+            <div class="p-6 space-y-6">
+              <!-- Profile Picture -->
+              <div class="flex items-center gap-6">
+                <div class="w-20 h-20 rounded-xl bg-gray-50 border border-dashed border-gray-200 flex items-center justify-center overflow-hidden relative group">
+                  <img v-if="modals.tech.data.picture_url" :src="modals.tech.data.picture_url" class="w-full h-full object-cover" />
+                  <svg v-else class="w-8 h-8 text-gray-200" fill="currentColor" viewBox="0 0 24 24"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
+                  <div class="absolute inset-0 bg-gray-900/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center cursor-pointer">
+                    <svg class="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/><path d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                  </div>
+                  <input type="file" @change="handleTechPicture" class="absolute inset-0 opacity-0 cursor-pointer" accept="image/*" />
                 </div>
-                <input type="file" @change="handleTechPicture" class="absolute inset-0 opacity-0 cursor-pointer" accept="image/*" />
+                <div class="flex-1">
+                  <p class="text-sm font-bold text-gray-900 mb-1">Foto Profil</p>
+                  <p class="text-xs text-gray-400 leading-relaxed">Gunakan foto formal ukuran 1:1. Maks 2MB.</p>
+                  <div v-if="modals.tech.isUploading" class="mt-2 text-[10px] font-bold text-indigo-500 animate-pulse uppercase tracking-widest">Uploading...</div>
+                </div>
               </div>
-              <div class="flex-1">
-                <p class="text-sm font-bold text-gray-900 mb-1">Foto Profil</p>
-                <p class="text-xs text-gray-400 leading-relaxed">Gunakan foto formal ukuran 1:1. Maks 2MB.</p>
-                <div v-if="modals.tech.isUploading" class="mt-2 text-[10px] font-bold text-indigo-500 animate-pulse uppercase tracking-widest">Uploading...</div>
+
+              <div class="grid grid-cols-2 gap-4">
+                <div class="col-span-2">
+                  <label class="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5">Nama Lengkap</label>
+                  <input v-model="modals.tech.data.name" type="text" class="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm font-bold text-gray-800 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all" placeholder="Contoh: Budi Santoso" />
+                </div>
+                <div>
+                  <label class="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5">ID Pegawai</label>
+                  <input v-model="modals.tech.data.id_employee" type="text" class="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm font-mono font-bold text-gray-800 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all" placeholder="PJC-001" />
+                </div>
+                <div>
+                  <label class="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5">WhatsApp</label>
+                  <input v-model="modals.tech.data.phone" type="text" class="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm font-bold text-gray-800 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all" placeholder="08xxx" />
+                </div>
+              </div>
+
+              <div class="flex items-center gap-3 p-4 bg-gray-50 rounded-xl border border-gray-100">
+                <div 
+                  @click="modals.tech.data.is_active = !modals.tech.data.is_active"
+                  :class="modals.tech.data.is_active ? 'bg-indigo-600' : 'bg-gray-300'" 
+                  class="w-11 h-6 rounded-full relative cursor-pointer transition-all duration-300"
+                >
+                  <div :class="modals.tech.data.is_active ? 'translate-x-5' : 'translate-x-0'" class="absolute top-1 left-1 w-4 h-4 bg-white rounded-full shadow transition-transform duration-300" />
+                </div>
+                <div class="flex-1">
+                  <p class="text-sm font-bold text-gray-800">{{ modals.tech.data.is_active ? 'Status: Aktif' : 'Status: Nonaktif' }}</p>
+                  <p class="text-[10px] text-gray-400 font-medium">Teknisi nonaktif tidak akan muncul di opsi penugasan</p>
+                </div>
               </div>
             </div>
 
-            <div class="grid grid-cols-2 gap-4">
-              <div class="col-span-2">
-                <label class="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5">Nama Lengkap</label>
-                <input v-model="modals.tech.data.name" type="text" class="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm font-bold text-gray-800 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all" placeholder="Contoh: Budi Santoso" />
-              </div>
-              <div>
-                <label class="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5">ID Pegawai</label>
-                <input v-model="modals.tech.data.id_employee" type="text" class="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm font-mono font-bold text-gray-800 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all" placeholder="PJC-001" />
-              </div>
-              <div>
-                <label class="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5">WhatsApp</label>
-                <input v-model="modals.tech.data.phone" type="text" class="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm font-bold text-gray-800 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all" placeholder="08xxx" />
-              </div>
+            <div class="p-6 bg-gray-50 flex items-center gap-3 border-t border-gray-100">
+              <button @click="modals.tech.isOpen = false" class="flex-1 py-2.5 text-sm font-bold text-gray-400 hover:text-gray-600 transition uppercase tracking-widest">Batal</button>
+              <button @click="saveTechnician" :disabled="modals.tech.isSaving" class="flex-[2] py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-bold rounded-lg shadow-sm transition-all active:scale-95 disabled:opacity-50 uppercase tracking-widest">
+                {{ modals.tech.isSaving ? 'Menyimpan...' : 'Simpan Perubahan' }}
+              </button>
             </div>
-
-            <div class="flex items-center gap-3 p-4 bg-gray-50 rounded-xl border border-gray-100">
-              <div 
-                @click="modals.tech.data.is_active = !modals.tech.data.is_active"
-                :class="modals.tech.data.is_active ? 'bg-indigo-600' : 'bg-gray-300'" 
-                class="w-11 h-6 rounded-full relative cursor-pointer transition-all duration-300"
-              >
-                <div :class="modals.tech.data.is_active ? 'translate-x-5' : 'translate-x-0'" class="absolute top-1 left-1 w-4 h-4 bg-white rounded-full shadow transition-transform duration-300" />
-              </div>
-              <div class="flex-1">
-                <p class="text-sm font-bold text-gray-800">{{ modals.tech.data.is_active ? 'Status: Aktif' : 'Status: Nonaktif' }}</p>
-                <p class="text-[10px] text-gray-400 font-medium">Teknisi nonaktif tidak akan muncul di opsi penugasan</p>
-              </div>
-            </div>
-          </div>
-
-          <div class="p-6 bg-gray-50 flex items-center gap-3">
-            <button @click="modals.tech.isOpen = false" class="flex-1 py-2.5 text-sm font-bold text-gray-400 hover:text-gray-600 transition uppercase tracking-widest">Batal</button>
-            <button @click="saveTechnician" :disabled="modals.tech.isSaving" class="flex-[2] py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-bold rounded-lg shadow-sm transition-all active:scale-95 disabled:opacity-50 uppercase tracking-widest">
-              {{ modals.tech.isSaving ? 'Menyimpan...' : 'Simpan Perubahan' }}
-            </button>
           </div>
         </div>
-      </div>
+      </Transition>
     </Teleport>
 
     <!-- Holiday Modal -->
     <Teleport to="body">
-      <div v-if="modals.holiday.isOpen" class="fixed inset-0 z-[10000] flex items-center justify-center p-4 sm:p-6">
-        <div class="absolute inset-0 bg-gray-900/40 backdrop-blur-sm" @click="modals.holiday.isOpen = false" />
-        <div class="relative bg-white w-full max-w-md rounded-2xl shadow-2xl border border-gray-100 overflow-hidden">
-          <div class="p-6 border-b border-gray-100 flex items-center justify-between">
-            <h3 class="text-lg font-bold text-gray-900 tracking-tight">Atur Libur Layanan</h3>
-            <button @click="modals.holiday.isOpen = false" class="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-100 text-gray-400 transition-colors">
-              <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path d="M6 18L18 6M6 6l12 12"/></svg>
-            </button>
-          </div>
-          <div class="p-6 space-y-6">
-            <div>
-              <label class="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5">Tanggal Libur</label>
-              <input v-model="modals.holiday.data.date" type="date" class="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm font-bold text-gray-800 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all cursor-pointer" />
+      <Transition name="modal-fade">
+        <div v-if="modals.holiday.isOpen" class="fixed inset-0 z-[10000] flex items-center justify-center p-4 sm:p-6">
+          <div class="absolute inset-0 bg-gray-900/40 backdrop-blur-sm" @click="modals.holiday.isOpen = false" />
+          <div class="modal-card relative bg-white w-full max-w-md rounded-2xl shadow-2xl border border-gray-100 overflow-hidden">
+            <div class="p-6 border-b border-gray-100 flex items-center justify-between">
+              <h3 class="text-lg font-bold text-gray-900 tracking-tight">Atur Libur Layanan</h3>
+              <button @click="modals.holiday.isOpen = false" class="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-100 text-gray-400 transition-colors">
+                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path d="M6 18L18 6M6 6l12 12"/></svg>
+              </button>
             </div>
-            <div>
-              <label class="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5">Keterangan</label>
-              <textarea v-model="modals.holiday.data.description" rows="3" class="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm font-medium text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all" placeholder="Contoh: Libur Nasional / Training Internal..."></textarea>
+            <div class="p-6 space-y-6">
+              <div>
+                <label class="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5">Tanggal Libur</label>
+                <input v-model="modals.holiday.data.date" type="date" class="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm font-bold text-gray-800 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all cursor-pointer" />
+              </div>
+              <div>
+                <label class="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5">Keterangan</label>
+                <textarea v-model="modals.holiday.data.description" rows="3" class="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm font-medium text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all" placeholder="Contoh: Libur Nasional / Training Internal..."></textarea>
+              </div>
             </div>
-          </div>
-          <div class="p-6 bg-gray-50 flex items-center gap-3">
-            <button @click="modals.holiday.isOpen = false" class="flex-1 py-2.5 text-sm font-bold text-gray-400 hover:text-gray-600 transition uppercase tracking-widest">Batal</button>
-            <button @click="saveHoliday" :disabled="modals.holiday.isSaving" class="flex-[2] py-2.5 bg-red-600 hover:bg-red-700 text-white text-sm font-bold rounded-lg shadow-sm transition-all active:scale-95 disabled:opacity-50 uppercase tracking-widest">
-              {{ modals.holiday.isSaving ? 'Menyimpan...' : 'Simpan Libur' }}
-            </button>
+            <div class="p-6 bg-gray-50 flex items-center gap-3 border-t border-gray-100">
+              <button @click="modals.holiday.isOpen = false" class="flex-1 py-2.5 text-sm font-bold text-gray-400 hover:text-gray-600 transition uppercase tracking-widest">Batal</button>
+              <button @click="saveHoliday" :disabled="modals.holiday.isSaving" class="flex-[2] py-2.5 bg-red-600 hover:bg-red-700 text-white text-sm font-bold rounded-lg shadow-sm transition-all active:scale-95 disabled:opacity-50 uppercase tracking-widest">
+                {{ modals.holiday.isSaving ? 'Menyimpan...' : 'Simpan Libur' }}
+              </button>
+            </div>
           </div>
         </div>
-      </div>
+      </Transition>
     </Teleport>
 
     <!-- Schedule Modal -->
     <Teleport to="body">
-      <div v-if="modals.schedule.isOpen" class="fixed inset-0 z-[10000] flex items-center justify-center p-4 sm:p-6">
-        <div class="absolute inset-0 bg-gray-900/60 backdrop-blur-sm" @click="modals.schedule.isOpen = false" />
-        <div class="relative bg-white w-full max-w-2xl rounded-2xl shadow-2xl border border-gray-100 overflow-hidden flex flex-col max-h-[90vh]">
-          <div class="p-6 border-b border-gray-100 flex items-center justify-between bg-white sticky top-0 z-10">
-            <div>
-              <h3 class="text-lg font-bold text-gray-900 tracking-tight">Jadwal Penugasan</h3>
-              <p class="text-xs text-gray-400 mt-0.5">{{ modals.schedule.techName }} — {{ modals.schedule.techId }}</p>
-            </div>
-            <button @click="modals.schedule.isOpen = false" class="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-100 text-gray-400 transition-colors">
-              <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path d="M6 18L18 6M6 6l12 12"/></svg>
-            </button>
-          </div>
-
-          <div class="flex-1 overflow-y-auto p-6 bg-gray-50/30">
-            <div v-if="modals.schedule.loading" class="space-y-4">
-              <div v-for="i in 3" :key="i" class="h-20 bg-gray-100 rounded-xl animate-pulse" />
-            </div>
-
-            <div v-else-if="modals.schedule.bookings.length === 0" class="py-12 text-center text-gray-400">
-              <div class="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-4">
-                <svg class="w-8 h-8 text-gray-200" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/></svg>
+      <Transition name="modal-fade">
+        <div v-if="modals.schedule.isOpen" class="fixed inset-0 z-[10000] flex items-center justify-center p-4 sm:p-6">
+          <div class="absolute inset-0 bg-gray-900/60 backdrop-blur-sm" @click="modals.schedule.isOpen = false" />
+          <div class="modal-card relative bg-white w-full max-w-2xl rounded-2xl shadow-2xl border border-gray-100 overflow-hidden flex flex-col max-h-[90vh]">
+            <div class="p-6 border-b border-gray-100 flex items-center justify-between bg-white sticky top-0 z-10">
+              <div>
+                <h3 class="text-lg font-bold text-gray-900 tracking-tight">Jadwal Penugasan</h3>
+                <p class="text-xs text-gray-400 mt-0.5">{{ modals.schedule.techName }} — {{ modals.schedule.techId }}</p>
               </div>
-              <p class="font-medium text-sm">Tidak ada jadwal penugasan aktif.</p>
+              <button @click="modals.schedule.isOpen = false" class="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-100 text-gray-400 transition-colors">
+                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path d="M6 18L18 6M6 6l12 12"/></svg>
+              </button>
             </div>
 
-            <div v-else class="space-y-4">
-              <div v-for="b in modals.schedule.bookings" :key="b.uuid" class="bg-white p-4 rounded-xl border border-gray-100 shadow-sm hover:shadow-md transition-all">
-                <div class="flex items-center justify-between mb-3">
-                  <div class="px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider border shadow-sm" :class="getStatusStyle(b.status)">
-                    {{ b.status }}
-                  </div>
-                  <div class="text-xs font-mono font-bold text-gray-400">#{{ b.booking_number }}</div>
-                </div>
-                
-                <div class="grid grid-cols-2 gap-4">
-                  <div class="flex items-center gap-3">
-                    <div class="p-2 bg-indigo-50 rounded-lg text-indigo-600">
-                      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"/></svg>
-                    </div>
-                    <div>
-                      <div class="text-[10px] font-bold text-gray-400 uppercase tracking-widest leading-none mb-1">Tanggal</div>
-                      <div class="text-sm font-bold text-gray-700 leading-none">{{ formatFullDate(b.scheduled_date) }}</div>
-                    </div>
-                  </div>
-                  <div class="flex items-center gap-3">
-                    <div class="p-2 bg-blue-50 rounded-lg text-blue-600">
-                      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"/></svg>
-                    </div>
-                    <div>
-                      <div class="text-[10px] font-bold text-gray-400 uppercase tracking-widest leading-none mb-1">Slot Waktu</div>
-                      <div class="text-sm font-bold text-gray-700 leading-none">{{ b.time_slot }}</div>
-                    </div>
-                  </div>
-                </div>
+            <div class="flex-1 overflow-y-auto p-6 bg-gray-50/30">
+              <div v-if="modals.schedule.loading" class="space-y-4">
+                <div v-for="i in 3" :key="i" class="h-20 bg-gray-100 rounded-xl animate-pulse" />
+              </div>
 
-                <div class="mt-4 pt-4 border-t border-gray-50 flex items-start gap-3">
-                  <svg class="w-4 h-4 text-gray-300 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"/><path d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"/></svg>
-                  <p class="text-xs text-gray-500 font-medium leading-relaxed">{{ b.address }}, {{ b.district }}, {{ b.city }}</p>
+              <div v-else-if="modals.schedule.bookings.length === 0" class="py-12 text-center text-gray-400">
+                <div class="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <svg class="w-8 h-8 text-gray-200" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/></svg>
+                </div>
+                <p class="font-medium text-sm">Tidak ada jadwal penugasan aktif.</p>
+              </div>
+
+              <div v-else class="space-y-4">
+                <div v-for="b in modals.schedule.bookings" :key="b.uuid" class="bg-white p-4 rounded-xl border border-gray-100 shadow-sm hover:shadow-md transition-all">
+                  <div class="flex items-center justify-between mb-3">
+                    <div class="px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider border shadow-sm" :class="getStatusStyle(b.status)">
+                      {{ b.status }}
+                    </div>
+                    <div class="text-xs font-mono font-bold text-gray-400">#{{ b.booking_number }}</div>
+                  </div>
+                  
+                  <div class="grid grid-cols-2 gap-4">
+                    <div class="flex items-center gap-3">
+                      <div class="p-2 bg-indigo-50 rounded-lg text-indigo-600">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"/></svg>
+                      </div>
+                      <div>
+                        <div class="text-[10px] font-bold text-gray-400 uppercase tracking-widest leading-none mb-1">Tanggal</div>
+                        <div class="text-sm font-bold text-gray-700 leading-none">{{ formatFullDate(b.scheduled_date) }}</div>
+                      </div>
+                    </div>
+                    <div class="flex items-center gap-3">
+                      <div class="p-2 bg-blue-50 rounded-lg text-blue-600">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"/></svg>
+                      </div>
+                      <div>
+                        <div class="text-[10px] font-bold text-gray-400 uppercase tracking-widest leading-none mb-1">Slot Waktu</div>
+                        <div class="text-sm font-bold text-gray-700 leading-none">{{ b.time_slot }}</div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="mt-4 pt-4 border-t border-gray-50 flex items-start gap-3">
+                    <svg class="w-4 h-4 text-gray-300 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"/><path d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"/></svg>
+                    <p class="text-xs text-gray-500 font-medium leading-relaxed">{{ b.address }}, {{ b.district }}, {{ b.city }}</p>
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
 
-          <div class="p-4 bg-gray-50 border-t border-gray-100">
-            <button @click="modals.schedule.isOpen = false" class="w-full py-2.5 text-sm font-bold text-gray-500 hover:text-gray-700 transition uppercase tracking-widest">Tutup Jadwal</button>
+            <div class="p-4 bg-gray-50 border-t border-gray-100 shrink-0">
+              <button @click="modals.schedule.isOpen = false" class="w-full py-2.5 text-sm font-bold text-gray-500 hover:text-gray-700 transition uppercase tracking-widest">Tutup Jadwal</button>
+            </div>
           </div>
         </div>
-      </div>
+      </Transition>
     </Teleport>
 
   </div>
@@ -423,7 +429,10 @@
 
 <script setup>
 import { ref, reactive, computed, onMounted } from 'vue'
+import { useToastStore } from '@/stores/toast'
 import api from '@/service/api'
+
+const toastStore = useToastStore()
 
 // ── State ──────────────────────────────────────────────────
 const activeTab = ref('technicians')
@@ -528,7 +537,7 @@ const handleTechPicture = async (e) => {
     })
     modals.tech.data.picture_url = res.data.url
   } catch (e) {
-    alert('Gagal upload gambar: ' + (e.response?.data?.detail || e.message))
+    toastStore.error('Gagal upload gambar: ' + (e.response?.data?.detail || e.message))
   } finally {
     modals.tech.isUploading = false
   }
@@ -537,7 +546,7 @@ const handleTechPicture = async (e) => {
 const saveTechnician = async () => {
   const { uuid, ...payload } = modals.tech.data
   if (!payload.name || !payload.id_employee) {
-    alert('Nama dan ID Pegawai wajib diisi.')
+    toastStore.warning('Nama dan ID Pegawai wajib diisi.')
     return
   }
   
@@ -550,8 +559,9 @@ const saveTechnician = async () => {
     }
     modals.tech.isOpen = false
     fetchTech()
+    toastStore.success('Profil teknisi berhasil disimpan.')
   } catch (e) {
-    alert('Gagal menyimpan: ' + (e.response?.data?.detail || e.message))
+    toastStore.error('Gagal menyimpan: ' + (e.response?.data?.detail || e.message))
   } finally {
     modals.tech.isSaving = false
   }
@@ -569,7 +579,7 @@ const viewSchedule = async (tech) => {
     modals.schedule.bookings = res.data.bookings || []
   } catch (e) {
     console.error(e)
-    alert('Gagal mengambil jadwal teknisi')
+    toastStore.error('Gagal mengambil jadwal teknisi')
   } finally {
     modals.schedule.loading = false
   }
@@ -603,8 +613,9 @@ const updateHours = async (h) => {
       hours: h.hours,
       max_bookings: h.max_bookings
     })
+    toastStore.success('Jam operasional berhasil diupdate.')
   } catch (e) {
-    alert('Gagal update jam operasional: ' + (e.response?.data?.detail || e.message))
+    toastStore.error('Gagal update jam operasional: ' + (e.response?.data?.detail || e.message))
     fetchHours() // revert
   }
 }
@@ -625,8 +636,9 @@ const saveHoliday = async () => {
     })
     modals.holiday.isOpen = false
     fetchHolidays()
+    toastStore.success('Hari libur berhasil disimpan.')
   } catch (e) {
-    alert('Gagal menyimpan libur: ' + (e.response?.data?.detail || e.message))
+    toastStore.error('Gagal menyimpan libur: ' + (e.response?.data?.detail || e.message))
   } finally {
     modals.holiday.isSaving = false
   }
@@ -637,8 +649,9 @@ const deleteHoliday = async (h) => {
   try {
     await api.delete(`/admin/service/holidays/${h.uuid}`)
     fetchHolidays()
+    toastStore.success('Hari libur berhasil dihapus.')
   } catch (e) {
-    alert('Gagal menghapus: ' + (e.response?.data?.detail || e.message))
+    toastStore.error('Gagal menghapus: ' + (e.response?.data?.detail || e.message))
   }
 }
 
@@ -661,5 +674,24 @@ onMounted(fetchAll)
 @keyframes pulse {
   0%, 100% { opacity: 1; }
   50% { opacity: .5; }
+}
+
+/* Modal Animation */
+.modal-fade-enter-active, .modal-fade-leave-active {
+  transition: opacity 0.25s ease;
+}
+.modal-fade-enter-active .modal-card, .modal-fade-leave-active .modal-card {
+  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.25s ease;
+}
+.modal-fade-enter-from, .modal-fade-leave-to {
+  opacity: 0;
+}
+.modal-fade-enter-from .modal-card {
+  transform: scale(0.95) translateY(12px);
+  opacity: 0;
+}
+.modal-fade-leave-to .modal-card {
+  transform: scale(0.95) translateY(10px);
+  opacity: 0;
 }
 </style>

@@ -1,141 +1,130 @@
 <script setup lang="ts">
-import PageBanner from '~/components/PageBanner.vue'
+import { ref } from 'vue'
 
-// ==========================================
-// 1. DATA KONTEN HALAMAN & SEO
-// ==========================================
-const pageTitle = "Hubungi Kami"
-const pageDescription = "Punya pertanyaan seputar produk CCTV, permintaan instalasi, atau butuh bantuan teknis? Tim kami siap membantu Anda 24/7."
+useSeoMeta({
+  title: 'Kontak Bantuan & Operasional - PasarCCTV',
+  description: 'Hubungi tim operasional dan support teknis PasarCCTV untuk kebutuhan instalasi maupun pembelian perangkat keamanan.',
+})
 
-const breadcrumbLinks = [
-  { label: 'Home', to: '/' },
-  { label: 'Kontak Kami' }
-]
+const waSales = {
+  name: 'WhatsApp Sales & Pembelian',
+  value: '+62 811-XXXX-XXXX',
+  link: 'https://wa.me/62811XXXXXXXXX',
+  desc: 'Konsultasi produk, stok barang, pengiriman logistik, dan pertanyaan mengenai status pesanan Anda.',
+  icon: 'i-tabler-brand-whatsapp'
+}
 
-// Gambar banner bernuansa customer service / office yang elegan
-const heroImage = "https://images.unsplash.com/photo-1497366216548-37526070297c?q=80&w=1200"
+const waSupport = {
+  name: 'WhatsApp Teknisi & Instalasi',
+  value: '+62 812-XXXX-XXXX',
+  link: 'https://wa.me/62812XXXXXXXXX',
+  desc: 'Jadwal kunjungan teknisi lapangan, kendala pemasangan, klaim garansi, dan request perbaikan.',
+  icon: 'i-tabler-tools'
+}
 
-// ==========================================
-// 2. DATA KONTAK & SOSIAL MEDIA
-// ==========================================
-const contactMethods = [
-  {
-    id: 'whatsapp',
-    name: 'WhatsApp',
-    value: '+62 812-3456-7890',
-    link: 'https://wa.me/6281234567890',
-    icon: 'ph:whatsapp-logo-duotone',
-    color: 'text-emerald-500',
-    bgColor: 'bg-emerald-50'
-  },
-  {
-    id: 'email',
-    name: 'Email',
-    value: 'cs@pasarcctv.com',
-    link: 'mailto:cs@pasarcctv.com',
-    icon: 'ph:envelope-duotone',
-    color: 'text-blue-500',
-    bgColor: 'bg-blue-50'
-  }
+const otherContacts = [
+  { name: 'Email Resmi', value: 'cs@pasarcctv.com', link: 'mailto:cs@pasarcctv.com', icon: 'i-tabler-mail' },
+  { name: 'Telepon Kantor', value: '(022) 1234567', link: 'tel:0221234567', icon: 'i-tabler-phone' }
 ]
 
 const socialMedias = [
-  {
-    id: 'instagram',
-    name: 'Instagram',
-    handle: '@pasarcctv',
-    link: 'https://instagram.com/pasarcctv',
-    icon: 'ph:instagram-logo-duotone',
-    color: 'text-pink-600',
-    bgColor: 'bg-pink-50'
-  },
-  {
-    id: 'tiktok',
-    name: 'TikTok',
-    handle: '@pasarcctv.id',
-    link: 'https://tiktok.com/@pasarcctv.id',
-    icon: 'ph:tiktok-logo-duotone',
-    color: 'text-gray-900',
-    bgColor: 'bg-gray-100'
-  },
-  {
-    id: 'facebook',
-    name: 'Facebook',
-    handle: 'PasarCctv Official',
-    link: 'https://facebook.com/pasarcctv',
-    icon: 'ph:facebook-logo-duotone',
-    color: 'text-blue-600',
-    bgColor: 'bg-blue-50'
-  }
+  { name: 'Instagram', handle: '@pasarcctv', link: 'https://instagram.com/pasarcctv', icon: 'i-tabler-brand-instagram' },
+  { name: 'TikTok', handle: '@pasarcctv.id', link: 'https://tiktok.com/@pasarcctv.id', icon: 'i-tabler-brand-tiktok' },
+  { name: 'Facebook', handle: 'PasarCctv Official', link: 'https://facebook.com/pasarcctv', icon: 'i-tabler-brand-facebook' }
 ]
 </script>
 
 <template>
-  <div class="w-full bg-gray-50/30 pb-24 min-h-screen">
-    <Title>Kontak Kami - PasarCctv</Title>
-    <Meta name="description" :content="pageDescription" />
-
-    <PageBanner
-      :title="pageTitle"
-      :description="pageDescription"
-      :breadcrumbs="breadcrumbLinks"
-      :image="heroImage"
-    />
-
-    <main class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-16 lg:py-24">
-      <div class="flex flex-col items-center text-center mb-16">
-        <h2 class="text-3xl md:text-4xl font-extrabold text-[#1d1d1f] tracking-tight mb-4">
-          Mari Berbincang.
-        </h2>
-        <p class="text-gray-500 text-lg leading-relaxed max-w-2xl">
-          Pilih platform komunikasi yang paling nyaman bagi Anda. Kami selalu berusaha merespons secepat mungkin pada jam kerja untuk memberikan solusi keamanan terbaik.
+  <main class="bg-gray-50 min-h-screen pb-16 font-sans">
+    <!-- Header Minimalis, Tokopedia Style Gradient -->
+    <div class="bg-gradient-to-r from-[#03AC0E] to-[#028C0B] text-white pt-10 pb-20 px-4 relative overflow-hidden shadow-sm">
+      <div class="max-w-[1000px] mx-auto relative z-10 text-center">
+        <h1 class="text-2xl md:text-3xl font-medium mb-3 tracking-tight">Pusat Bantuan & Kontak Operasional</h1>
+        <p class="text-white/90 text-sm md:text-base max-w-2xl mx-auto leading-relaxed">
+          Pilih jalur komunikasi sesuai kebutuhan Anda. Tim kami siap merespons secara cepat pada jam operasional (Senin-Sabtu, 08:00 - 17:00).
         </p>
       </div>
+    </div>
 
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8 mb-16">
-        <NuxtLink
-          v-for="contact in contactMethods"
-          :key="contact.id"
-          :to="contact.link"
-          target="_blank"
-          class="group flex flex-col items-center text-center p-8 lg:p-10 rounded-3xl bg-white border border-gray-100 shadow-sm transition-all duration-300 hover:shadow-[0_20px_40px_rgb(0,0,0,0.04)] hover:-translate-y-1 hover:border-gray-200"
-        >
-          <div :class="`w-16 h-16 rounded-2xl flex items-center justify-center mb-6 transition-transform duration-500 group-hover:scale-110 group-hover:rotate-3 ${contact.bgColor}`">
-            <Icon :name="contact.icon" :class="`w-8 h-8 ${contact.color}`" />
-          </div>
-          <h3 class="text-sm font-bold text-gray-400 uppercase tracking-widest mb-2">{{ contact.name }}</h3>
-          <p class="text-xl lg:text-2xl font-bold text-[#1d1d1f]">{{ contact.value }}</p>
-        </NuxtLink>
-      </div>
-
-      <div class="bg-white rounded-3xl p-8 lg:p-12 border border-gray-100 shadow-sm">
-        <div class="text-center mb-10">
-          <h3 class="text-2xl font-bold text-[#1d1d1f] mb-3">Ikuti Kami di Sosial Media</h3>
-          <p class="text-gray-500">Dapatkan update promo, edukasi keamanan, dan portofolio instalasi terbaru.</p>
-        </div>
+    <!-- Content Area -->
+    <div class="max-w-[1000px] mx-auto px-4 -mt-12 relative z-20">
+      
+      <!-- Prioritas 1: WhatsApp Split (Actionable) -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6 mb-8">
         
-        <div class="grid grid-cols-1 sm:grid-cols-3 gap-6">
-          <NuxtLink
-            v-for="social in socialMedias"
-            :key="social.id"
-            :to="social.link"
-            target="_blank"
-            class="group flex flex-col items-center text-center p-6 rounded-2xl border border-gray-100 bg-gray-50/50 transition-all duration-300 hover:bg-white hover:shadow-[0_10px_30px_rgb(0,0,0,0.05)] hover:-translate-y-1 hover:border-gray-200"
-          >
-            <div :class="`w-12 h-12 rounded-full flex items-center justify-center mb-4 transition-transform duration-300 group-hover:scale-110 ${social.bgColor}`">
-              <Icon :name="social.icon" :class="`w-6 h-6 ${social.color}`" />
+        <!-- WA Sales -->
+        <NuxtLink :to="waSales.link" target="_blank" v-motion-pop-visible-once class="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 md:p-6 transition-all hover:border-[#03AC0E] hover:shadow-md group flex flex-col h-full">
+          <div class="flex items-center gap-4 mb-4">
+            <div class="w-12 h-12 rounded-xl bg-[#E6F7E9] flex items-center justify-center shrink-0 group-hover:bg-[#03AC0E] transition-colors">
+              <UIcon :name="waSales.icon" class="w-6 h-6 text-[#03AC0E] group-hover:text-white transition-colors" />
             </div>
-            <h4 class="text-base font-bold text-[#1d1d1f] mb-1">{{ social.name }}</h4>
-            <p class="text-sm text-gray-500 font-medium">{{ social.handle }}</p>
-          </NuxtLink>
-        </div>
-      </div>
-    </main>
-  </div>
-</template>
+            <div>
+              <h2 class="text-base font-medium text-gray-900 leading-tight mb-1">{{ waSales.name }}</h2>
+              <span class="text-xs font-medium bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full uppercase tracking-wider">Fast Response</span>
+            </div>
+          </div>
+          <p class="text-[13px] text-gray-500 mb-5 flex-1">{{ waSales.desc }}</p>
+          <div class="flex items-center justify-between mt-auto">
+            <span class="text-[#03AC0E] font-medium text-lg tracking-tight">{{ waSales.value }}</span>
+            <UIcon name="i-tabler-chevron-right" class="w-5 h-5 text-gray-300 group-hover:text-[#03AC0E] group-hover:translate-x-1 transition-all" />
+          </div>
+        </NuxtLink>
 
-<style scoped>
-div, section, main {
-  font-family: var(--font-sans);
-}
-</style>
+        <!-- WA Support -->
+        <NuxtLink :to="waSupport.link" target="_blank" v-motion-pop-visible-once :delay="100" class="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 md:p-6 transition-all hover:border-[#03AC0E] hover:shadow-md group flex flex-col h-full">
+          <div class="flex items-center gap-4 mb-4">
+            <div class="w-12 h-12 rounded-xl bg-[#E6F7E9] flex items-center justify-center shrink-0 group-hover:bg-[#03AC0E] transition-colors">
+              <UIcon :name="waSupport.icon" class="w-6 h-6 text-[#03AC0E] group-hover:text-white transition-colors" />
+            </div>
+            <div>
+              <h2 class="text-base font-medium text-gray-900 leading-tight mb-1">{{ waSupport.name }}</h2>
+              <span class="text-xs font-medium bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full uppercase tracking-wider">Operasional & Teknisi</span>
+            </div>
+          </div>
+          <p class="text-[13px] text-gray-500 mb-5 flex-1">{{ waSupport.desc }}</p>
+          <div class="flex items-center justify-between mt-auto">
+            <span class="text-[#03AC0E] font-medium text-lg tracking-tight">{{ waSupport.value }}</span>
+            <UIcon name="i-tabler-chevron-right" class="w-5 h-5 text-gray-300 group-hover:text-[#03AC0E] group-hover:translate-x-1 transition-all" />
+          </div>
+        </NuxtLink>
+        
+      </div>
+
+      <!-- Secondary Contacts & Socials Grid -->
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        
+        <!-- Other Contacts -->
+        <div class="lg:col-span-1 flex flex-col gap-4">
+          <a v-for="contact in otherContacts" :key="contact.name" :href="contact.link" class="bg-white rounded-xl shadow-sm border border-gray-100 p-4 flex items-center gap-4 transition-all hover:border-[#03AC0E] group">
+            <div class="w-10 h-10 rounded-lg bg-gray-50 flex items-center justify-center shrink-0">
+              <UIcon :name="contact.icon" class="w-5 h-5 text-gray-500 group-hover:text-[#03AC0E] transition-colors" />
+            </div>
+            <div>
+              <p class="text-[11px] font-medium text-gray-400 uppercase tracking-widest mb-0.5">{{ contact.name }}</p>
+              <p class="text-[14px] font-medium text-gray-900">{{ contact.value }}</p>
+            </div>
+          </a>
+        </div>
+
+        <!-- Social Media -->
+        <div class="lg:col-span-2 bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+          <h3 class="text-sm font-medium text-gray-900 mb-1 flex items-center gap-2">
+            <UIcon name="i-tabler-broadcast" class="w-4 h-4 text-[#03AC0E]" />
+            Ekosistem PasarCCTV
+          </h3>
+          <p class="text-[13px] text-gray-500 mb-6">Ikuti kami untuk melihat portofolio instalasi, edukasi keamanan, dan promo menarik mingguan.</p>
+          
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <a v-for="social in socialMedias" :key="social.name" :href="social.link" target="_blank" class="flex flex-col items-center justify-center bg-gray-50 rounded-xl p-4 border border-gray-100 hover:border-gray-300 hover:bg-gray-100 transition-colors group">
+              <UIcon :name="social.icon" class="w-7 h-7 text-gray-600 mb-2 group-hover:text-[#03AC0E] group-hover:-translate-y-0.5 transition-all" />
+              <span class="text-sm font-medium text-gray-900">{{ social.name }}</span>
+              <span class="text-[11px] text-gray-500">{{ social.handle }}</span>
+            </a>
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+  </main>
+</template>

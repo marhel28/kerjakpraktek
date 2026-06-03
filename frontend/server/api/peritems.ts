@@ -1,20 +1,24 @@
 export default defineEventHandler(async (event) => {
   const query = getQuery(event)
-  const stock_uuid = query.uuid as string
+  const uuid = query.uuid as string
+  const slug = query.slug as string
 
-  if (!stock_uuid) {
+  if (!uuid && !slug) {
     throw createError({
       statusCode: 400,
-      statusMessage: "UUID is required"
+      statusMessage: "Identifier (uuid or slug) is required"
     })
   }
 
   const config = useRuntimeConfig()
+  
+  // Endpoint backend fleksibel: prioritaskan UUID, fallback ke Slug
+  const endpoint = uuid 
+    ? `${config.public.apiBase}/stok/public/detail/${uuid}`
+    : `${config.public.apiBase}/stok/public/detail/slug/${slug}`
 
   try {
-    const response = await $fetch(
-      `${config.public.apiBase}/stok/public/detail/${stock_uuid}`,
-      {
+    const response = await $fetch(endpoint, {
         timeout: 5000,
         retry: 1
       }

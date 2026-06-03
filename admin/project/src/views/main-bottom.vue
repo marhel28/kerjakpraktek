@@ -114,13 +114,11 @@
   
       <!-- ════════════ MODAL: CREATE / EDIT ════════════ -->
       <teleport to="body">
-        <transition enter-active-class="transition duration-200 ease-out" enter-from-class="opacity-0 scale-95"
-          enter-to-class="opacity-100 scale-100" leave-active-class="transition duration-150 ease-in"
-          leave-from-class="opacity-100 scale-100" leave-to-class="opacity-0 scale-95">
+        <Transition name="modal-fade">
           <div v-if="isModalOpen" class="fixed inset-0 z-50 flex items-center justify-center p-4">
             <div class="absolute inset-0 bg-gray-900/50 backdrop-blur-sm" @click="closeModal"></div>
             <div
-              class="relative bg-white rounded-2xl shadow-xl w-full max-w-md border border-gray-100 flex flex-col overflow-hidden max-h-[90vh]">
+              class="modal-card relative bg-white rounded-2xl shadow-xl w-full max-w-md border border-gray-100 flex flex-col overflow-hidden max-h-[90vh]">
   
               <!-- Modal Header -->
               <div class="flex items-center justify-between px-6 py-4 border-b border-gray-100 bg-gray-50/50">
@@ -234,12 +232,10 @@
   
       <!-- ════════════ MODAL: DELETE CONFIRM ════════════ -->
       <teleport to="body">
-        <transition enter-active-class="transition duration-200 ease-out" enter-from-class="opacity-0 scale-95"
-          enter-to-class="opacity-100 scale-100" leave-active-class="transition duration-150 ease-in"
-          leave-from-class="opacity-100 scale-100" leave-to-class="opacity-0 scale-95">
+        <Transition name="modal-fade">
           <div v-if="isDeleteModalOpen" class="fixed inset-0 z-[60] flex items-center justify-center p-4">
             <div class="absolute inset-0 bg-gray-900/50 backdrop-blur-sm" @click="isDeleteModalOpen = false"></div>
-            <div class="relative bg-white rounded-2xl shadow-xl w-full max-w-sm p-6 text-center border border-gray-100">
+            <div class="modal-card relative bg-white rounded-2xl shadow-xl w-full max-w-sm p-6 text-center border border-gray-100">
               <div class="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100 mb-4">
                 <svg class="h-6 w-6 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                   <path stroke-linecap="round" stroke-linejoin="round"
@@ -267,7 +263,7 @@
               </div>
             </div>
           </div>
-        </transition>
+        </Transition>
       </teleport>
   
       <!-- ════════════ PREVIEW PANEL ════════════ -->
@@ -290,8 +286,11 @@
   
   <script setup>
   import { ref, reactive, computed, onMounted } from 'vue'
+  import { useToastStore } from '@/stores/toast'
   import api from '@/service/api'
   import ImageSectionPreview from '@/components/ImageSectionPreview.vue'
+
+  const toastStore = useToastStore()
   
   const ADMIN_BASE = '/main-bottom/admin'
   const HOME_URL   = 'http://localhost:3000/'
@@ -339,7 +338,7 @@
       banners.value = response.data.data || []
     } catch (error) {
       console.error('Error fetching banners:', error)
-      alert(error.response?.data?.detail || 'Gagal memuat data banner.')
+      toastStore.error(error.response?.data?.detail || 'Gagal memuat data banner.')
     } finally {
       isLoading.value = false
     }
@@ -383,7 +382,7 @@
   const handleFileChange = (event) => {
     const file = event.target.files[0]
     if (!file) return
-    if (file.size > 2 * 1024 * 1024) { alert('Ukuran gambar maksimal 2MB'); return }
+    if (file.size > 2 * 1024 * 1024) { toastStore.warning('Ukuran gambar maksimal 2MB'); return }
     selectedFile.value = file
     const reader = new FileReader()
     reader.onload = (e) => { imagePreview.value = e.target.result }
@@ -393,7 +392,7 @@
   // ── Save ──────────────────────────────────────────────
   const saveBanner = async () => {
     if (!editingId.value && !selectedFile.value) {
-      alert('Silakan upload gambar banner terlebih dahulu.')
+      toastStore.warning('Silakan upload gambar banner terlebih dahulu.')
       return
     }
     isSubmitting.value = true
@@ -412,9 +411,10 @@
       }
       await fetchBanners()
       closeModal()
+      toastStore.success('Banner berhasil disimpan.')
     } catch (error) {
       console.error('Error saving banner:', error)
-      alert(error.response?.data?.detail || 'Terjadi kesalahan saat menyimpan banner.')
+      toastStore.error(error.response?.data?.detail || 'Terjadi kesalahan saat menyimpan banner.')
     } finally {
       isSubmitting.value = false
     }
@@ -433,9 +433,10 @@
       await api.delete(`${ADMIN_BASE}/${bannerToDelete.value}`)
       await fetchBanners()
       isDeleteModalOpen.value = false
+      toastStore.success('Banner berhasil dihapus.')
     } catch (error) {
       console.error('Error deleting banner:', error)
-      alert(error.response?.data?.detail || 'Gagal menghapus banner.')
+      toastStore.error(error.response?.data?.detail || 'Gagal menghapus banner.')
     } finally {
       isSubmitting.value = false
       bannerToDelete.value = null
@@ -456,5 +457,24 @@
     -webkit-line-clamp: 2;
     -webkit-box-orient: vertical;
     overflow: hidden;
+  }
+
+  /* Modal Animation */
+  .modal-fade-enter-active, .modal-fade-leave-active {
+    transition: opacity 0.25s ease;
+  }
+  .modal-fade-enter-active .modal-card, .modal-fade-leave-active .modal-card {
+    transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.25s ease;
+  }
+  .modal-fade-enter-from, .modal-fade-leave-to {
+    opacity: 0;
+  }
+  .modal-fade-enter-from .modal-card {
+    transform: scale(0.95) translateY(12px);
+    opacity: 0;
+  }
+  .modal-fade-leave-to .modal-card {
+    transform: scale(0.95) translateY(10px);
+    opacity: 0;
   }
   </style>

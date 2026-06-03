@@ -19,7 +19,7 @@
         
         <h1 class="text-2xl lg:text-3xl font-black text-gray-900 tracking-tight">
           <span v-if="searchQuery">
-            Hasil: "<span class="text-transparent bg-clip-text bg-gradient-to-r from-green-600 to-[#32cd32]">{{ searchQuery }}</span>"
+            Hasil: "<span class="text-transparent bg-clip-text bg-gradient-to-r from-green-600 to-[#03AC0E]">{{ searchQuery }}</span>"
           </span>
           <span v-else-if="selectedCategories.length > 0">Menampilkan Filter Kategori</span>
           <span v-else>Semua Katalog Produk</span>

@@ -5,51 +5,30 @@ import { computed, ref } from "vue";
 const siteUrl = useRuntimeConfig().public.siteUrl ?? "https://yourdomain.com";
 
 useSeoMeta({
-  title: "Brand Resmi CCTV — Dahua, Imou, Ezviz | PasarCctv",
+  title: "Brand Resmi CCTV & Keamanan — Authorized Partner | PasarCctv",
   description:
-    "Distributor resmi brand CCTV terpercaya: Dahua, Imou, Ezviz, dan lainnya. Produk original bergaransi, harga terbaik, pengiriman ke seluruh Indonesia.",
+    "Eksplorasi koleksi brand CCTV terbaik di dunia: Dahua, Imou, Ezviz, Hikvision. Produk 100% Original, Garansi Resmi, dan Dukungan Teknis Prioritas.",
   ogTitle: "Brand Resmi CCTV | PasarCctv",
   ogDescription:
     "Katalog brand CCTV original bergaransi resmi. Dahua, Imou, Ezviz, dan lebih banyak lagi.",
   ogUrl: `${siteUrl}/brands`,
   ogType: "website",
   twitterCard: "summary_large_image",
-  robots: "index, follow",
 });
 
-useHead({
-  link: [{ rel: "canonical", href: `${siteUrl}/brands` }],
-  script: computed(() => [
-    {
-      type: "application/ld+json",
-      key: "jsonld-brands",
-      innerHTML: JSON.stringify({
-        "@context": "https://schema.org",
-        "@type": "CollectionPage",
-        name: "Brand Resmi CCTV",
-        description: "Katalog brand CCTV resmi dan bergaransi",
-        url: `${siteUrl}/brands`,
-        publisher: { "@type": "Organization", name: "PasarCctv", url: siteUrl },
-      }),
-    },
-  ]),
-});
-
-// ─── Fetch: cache 30 detik, stale 2 menit ─────────────────────────
+// ─── Fetch Data ──────────────────────────────────────────────────
 const { data: brandsData, pending } = await useFetch<any[]>("/api/brands", {
-  key: "brands:index",
+  key: "brands:index:v2",
   lazy: true,
-  server: true,
-  getCachedData: (key, nuxtApp) => nuxtApp.payload.data[key] ?? nuxtApp.static.data[key],
   transform: (data) => {
     if (!data) return [];
     return data.map((b) => ({
       id: b.brand_slug,
       name: b.brand_name,
       logo: b.brand_logo,
-      tagline: `Produk resmi dan bergaransi dari ${b.brand_name}.`,
+      tagline: b.tagline || `Authorized Technology Partner for ${b.brand_name}`,
       total: b.total_items,
-      products: (b.products || []).map((p: any) => ({
+      products: (b.products || []).slice(0, 6).map((p: any) => ({
         uuid: p.uuid,
         slug: p.slug,
         title: p.title,
@@ -58,11 +37,8 @@ const { data: brandsData, pending } = await useFetch<any[]>("/api/brands", {
         original_price: p.original_price || p.price,
         discount_percentage: p.discount_percentage || 0,
         image: p.image,
-        specs: p.specs || {},
         terjual: p.terjual || 0,
         category: p.category || "",
-        subcategory: p.subcategory || "",
-        type: p.type || "",
       })),
     }));
   },
@@ -70,7 +46,7 @@ const { data: brandsData, pending } = await useFetch<any[]>("/api/brands", {
 
 const brands = computed(() => brandsData.value || []);
 
-// ─── Drag to Scroll Logic (Desktop Mouse) ─────────────────────────
+// ─── Drag to Scroll Logic ────────────────────────────────────────
 const isDragging = ref(false);
 const startX = ref(0);
 const scrollLeft = ref(0);
@@ -92,271 +68,203 @@ const doDrag = (e: MouseEvent) => {
   if (!isDragging.value || !activeSlider) return;
   e.preventDefault();
   const x = e.pageX - activeSlider.offsetLeft;
-  const walk = (x - startX.value) * 1.5; // Kecepatan scroll
+  const walk = (x - startX.value) * 1.5;
   activeSlider.scrollLeft = scrollLeft.value - walk;
 };
 </script>
 
 <template>
-  <main class="brands-page min-h-screen bg-gray-100 lg:bg-[#F3F4F5] pb-20 lg:pb-8">
-    <header
-      class="relative bg-[#212121] px-5 py-8 md:px-8 md:py-12 border-b-[5px] border-red-600"
-    >
-      <div class="relative max-w-[1400px] mx-auto">
-        <div class="flex flex-col md:flex-row md:items-end justify-between gap-6">
-          <div class="hero-text text-white">
-            <p
-              class="text-[10px] md:text-xs font-black text-red-500 mb-2 flex items-center gap-1.5 uppercase tracking-widest"
-            >
-              <UIcon name="i-heroicons-shield-check" class="w-4 h-4" />
-              Sistem Keamanan
-            </p>
-            <h1
-              class="text-2xl md:text-4xl font-extrabold mb-3 leading-tight tracking-tight"
-            >
-              Mitra Resmi <br class="lg:hidden" />
-              PasarCctv
+  <main class="brands-page min-h-screen bg-[#F8FAFC]">
+    <!-- ─── PREMIUM HERO SECTION ─── -->
+    <header class="relative overflow-hidden bg-[#111] py-12 lg:py-20">
+      <!-- Background Elements -->
+      <div class="absolute inset-0 z-0">
+        <div class="absolute top-0 left-1/4 w-96 h-96 bg-gradient-to-r from-[#03AC0E] to-[#028C0B] shadow-sm/10 rounded-full blur-[120px]"></div>
+        <div class="absolute bottom-0 right-1/4 w-96 h-96 bg-blue-500/10 rounded-full blur-[120px]"></div>
+        <div class="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] opacity-20 pointer-events-none"></div>
+      </div>
+
+      <div class="relative z-10 max-w-[1400px] mx-auto px-6 lg:px-10">
+        <div class="grid lg:grid-cols-2 gap-12 items-center">
+          <div class="hero-content">
+            <div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/5 border border-white/10 backdrop-blur-md mb-6">
+              <div class="w-2 h-2 rounded-full bg-gradient-to-r from-[#03AC0E] to-[#028C0B] shadow-sm animate-pulse"></div>
+              <span class="text-[10px] font-black text-white/80 uppercase tracking-[0.2em]">Official Brand Partners</span>
+            </div>
+            
+            <h1 class="text-4xl lg:text-6xl font-black text-white mb-6 leading-[1.1] tracking-tight">
+              Teknologi Keamanan <span class="text-transparent bg-clip-text bg-gradient-to-r from-[#03AC0E] to-emerald-400">Kelas Dunia.</span>
             </h1>
-            <p
-              class="text-xs md:text-sm text-gray-400 max-w-2xl font-medium leading-relaxed"
-            >
-              Kami bermitra langsung dengan produsen teknologi keamanan ternama — menjamin
-              keaslian produk, garansi resmi, dan kualitas terbaik untuk Anda.
+            
+            <p class="text-gray-400 text-lg leading-relaxed max-w-xl mb-10">
+              Kami bekerja sama secara eksklusif dengan produsen global untuk menghadirkan sistem keamanan tercanggih dengan jaminan keaslian 100%.
             </p>
+
+            <div class="flex flex-wrap gap-4">
+              <div class="bg-white/5 border border-white/10 backdrop-blur-md rounded-2xl p-5 min-w-[140px]">
+                <div class="text-3xl font-black text-white mb-1">{{ brands.length || 0 }}</div>
+                <div class="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Brand Resmi</div>
+              </div>
+              <div class="bg-white/5 border border-white/10 backdrop-blur-md rounded-2xl p-5 min-w-[140px]">
+                <div class="text-3xl font-black text-white mb-1">
+                  {{ brands.reduce((s, b) => s + (b.total || 0), 0) }}+
+                </div>
+                <div class="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Produk Tersedia</div>
+              </div>
+            </div>
           </div>
 
-          <div
-            class="flex gap-8 shrink-0 border-t border-gray-700/50 pt-5 md:border-none md:pt-0"
-          >
-            <div class="flex flex-col" v-if="!pending">
-              <span class="text-xl md:text-3xl font-black text-white leading-none">{{
-                brands.length
-              }}</span>
-              <span
-                class="text-[10px] md:text-xs text-gray-400 font-bold uppercase tracking-wider mt-1"
-                >Brand Mitra</span
-              >
+          <!-- Feature Cards Desktop -->
+          <div class="hidden lg:grid grid-cols-2 gap-4">
+            <div class="p-6 rounded-3xl bg-gradient-to-br from-white/5 to-transparent border border-white/10 backdrop-blur-sm">
+              <div class="w-12 h-12 rounded-2xl bg-gradient-to-r from-[#03AC0E] to-[#028C0B] shadow-sm/20 flex items-center justify-center mb-4">
+                <UIcon name="i-heroicons-check-badge" class="w-6 h-6 text-[#03AC0E]" />
+              </div>
+              <h3 class="text-white font-bold mb-2">Garansi Resmi</h3>
+              <p class="text-gray-500 text-sm">Semua produk didukung oleh garansi resmi produsen.</p>
             </div>
-            <div class="flex flex-col" v-if="!pending">
-              <span class="text-xl md:text-3xl font-black text-white leading-none">
-                {{ brands.reduce((s, b) => s + (b.total || 0), 0) }}+
-              </span>
-              <span
-                class="text-[10px] md:text-xs text-gray-400 font-bold uppercase tracking-wider mt-1"
-                >Total Produk</span
-              >
+            <div class="p-6 rounded-3xl bg-gradient-to-br from-white/5 to-transparent border border-white/10 backdrop-blur-sm mt-8">
+              <div class="w-12 h-12 rounded-2xl bg-blue-500/20 flex items-center justify-center mb-4">
+                <UIcon name="i-heroicons-wrench-screwdriver" class="w-6 h-6 text-blue-400" />
+              </div>
+              <h3 class="text-white font-bold mb-2">Technical Support</h3>
+              <p class="text-gray-500 text-sm">Bantuan teknis langsung dari ahli bersertifikat.</p>
             </div>
           </div>
         </div>
       </div>
     </header>
 
-    <div class="max-w-[1400px] mx-auto lg:px-6 lg:py-8">
-      <div
-        v-if="pending"
-        class="space-y-2 lg:space-y-8"
-        aria-busy="true"
-        aria-label="Memuat data brand"
-      >
-        <div
-          v-for="i in 3"
-          :key="i"
-          class="bg-white p-4 lg:p-0 flex flex-col lg:flex-row gap-4 lg:bg-transparent"
-        >
-          <div class="flex gap-3 lg:hidden items-center mb-2">
-            <USkeleton class="w-10 h-10 rounded-full shrink-0" />
-            <div class="flex-1">
-              <USkeleton class="h-4 w-24 mb-1" />
-              <USkeleton class="h-3 w-16" />
+    <!-- ─── BRANDS CATALOG SECTION ─── -->
+    <div class="max-w-[1400px] mx-auto px-4 lg:px-10 -mt-8 lg:-mt-12 relative z-20">
+      
+      <!-- Skeleton Loading -->
+      <div v-if="pending" class="space-y-10">
+        <div v-for="i in 3" :key="i" class="bg-white rounded-3xl p-8 border border-gray-100 flex flex-col lg:flex-row gap-8">
+          <USkeleton class="w-full lg:w-[280px] h-64 rounded-2xl" />
+          <div class="flex-1 space-y-4">
+            <USkeleton class="h-8 w-1/3" />
+            <div class="flex gap-4">
+              <USkeleton v-for="j in 4" :key="j" class="w-48 h-64 rounded-xl" />
             </div>
-          </div>
-          <USkeleton class="hidden lg:block w-[240px] h-[320px] rounded-xl shrink-0" />
-          <div class="flex gap-3 overflow-hidden">
-            <USkeleton
-              v-for="j in 4"
-              :key="j"
-              class="w-[140px] md:w-[190px] h-[240px] rounded-lg shrink-0"
-            />
           </div>
         </div>
       </div>
 
-      <div
-        v-else-if="brands.length"
-        class="flex flex-col gap-2.5 lg:gap-8"
-        itemscope
-        itemtype="https://schema.org/ItemList"
-      >
-        <meta itemprop="name" content="Brand Resmi CCTV" />
-
-        <section
-          v-for="(brand, idx) in brands"
+      <!-- Main List -->
+      <div v-else class="flex flex-col gap-10 lg:gap-16 pb-20">
+        <section 
+          v-for="(brand, idx) in brands" 
           :key="brand.id"
-          class="bg-white lg:bg-transparent border-y lg:border-none border-gray-200/60 py-3 lg:py-0 flex flex-col lg:flex-row lg:items-stretch gap-0 lg:gap-6"
-          itemprop="itemListElement"
-          itemscope
-          itemtype="https://schema.org/ListItem"
-          :aria-labelledby="`brand-${brand.id}-heading`"
+          class="brand-row group"
         >
-          <meta itemprop="position" :content="String(idx + 1)" />
-
-          <NuxtLink
-            :to="`/brands/${brand.id}`"
-            class="group flex flex-row lg:flex-col items-center lg:items-stretch px-4 lg:px-0 lg:w-[260px] shrink-0 lg:p-6 lg:bg-white lg:border lg:border-gray-200 lg:rounded-2xl lg:hover:border-red-500 lg:hover:shadow-lg transition-all duration-300"
-            :title="`Lihat semua produk ${brand.name}`"
-            itemprop="item"
-            itemscope
-            itemtype="https://schema.org/Brand"
-          >
-            <div
-              class="w-12 h-12 lg:w-full lg:h-auto lg:aspect-[4/3] shrink-0 border border-gray-100 lg:border-gray-200 rounded-full lg:rounded-xl flex items-center justify-center p-1.5 lg:p-4 bg-white overflow-hidden mb-0 lg:mb-4"
-            >
-              <NuxtImg
-                :src="brand.logo"
-                :alt="`Logo resmi ${brand.name}`"
-                :title="brand.name"
-                itemprop="logo"
-                width="160"
-                height="120"
-                format="webp"
-                quality="90"
-                loading="lazy"
-                class="w-full h-full object-contain"
-              />
-            </div>
-
-            <div class="flex-1 min-w-0 ml-3 lg:ml-0 flex flex-col justify-center">
-              <div class="flex items-center gap-1 mb-0.5 lg:mb-2">
-                <UIcon
-                  name="i-heroicons-shield-check-solid"
-                  class="w-3.5 h-3.5 lg:w-5 lg:h-5 text-blue-500 shrink-0"
-                />
-                <h2
-                  :id="`brand-${brand.id}-heading`"
-                  itemprop="name"
-                  class="text-sm lg:text-xl font-extrabold text-gray-900 truncate"
-                >
-                  {{ brand.name }}
-                </h2>
-              </div>
-              <p
-                class="hidden lg:block text-xs text-gray-500 line-clamp-2 leading-relaxed"
-              >
-                {{ brand.tagline }}
-              </p>
-              <p class="lg:hidden text-[10px] text-gray-500 font-medium">
-                Official Store
-              </p>
-
-              <div
-                class="hidden lg:flex mt-auto pt-4 border-t border-gray-100 items-center justify-between"
-              >
-                <span class="text-xs font-bold text-gray-400"
-                  >{{ brand.total }} Produk</span
-                >
-                <span
-                  class="text-red-600 text-xs font-black uppercase tracking-wider flex items-center gap-1 group-hover:gap-2 transition-all"
-                >
-                  Lihat <UIcon name="i-heroicons-arrow-right" class="w-4 h-4" />
-                </span>
-              </div>
-            </div>
-
-            <div class="lg:hidden shrink-0 ml-2">
-              <span
-                class="inline-block bg-red-50 text-red-600 text-[10px] font-black uppercase tracking-widest px-3 py-1.5 rounded-full active:scale-95 transition-transform"
-              >
-                Kunjungi
-              </span>
-            </div>
-          </NuxtLink>
-
-          <div class="flex-1 min-w-0 flex flex-col mt-3 lg:mt-0 overflow-hidden">
-            <div class="hidden lg:flex items-center justify-between mb-4">
-              <h3 class="text-lg font-black text-gray-800">Pilihan Terpopuler</h3>
-            </div>
-
-            <div
-              class="flex gap-2.5 lg:gap-4 overflow-x-auto px-4 lg:px-1 pb-3 pt-1 snap-x snap-mandatory hide-scrollbar overscroll-x-contain cursor-grab active:cursor-grabbing"
-              role="list"
-              @mousedown="startDrag"
-              @mouseleave="stopDrag"
-              @mouseup="stopDrag"
-              @mousemove="doDrag"
-            >
-              <div
-                v-for="product in brand.products"
-                :key="product.uuid"
-                class="w-[140px] md:w-[190px] shrink-0 snap-start pointer-events-none select-none h-full"
-                role="listitem"
-              >
-                <div class="pointer-events-auto h-full">
-                  <CardPerItems
-                    v-bind="product"
-                    class="h-full border border-gray-100 shadow-sm hover:shadow-md hover:border-red-500 transition-all rounded-xl"
-                  />
-                </div>
-              </div>
-
-              <NuxtLink
+          <div class="flex flex-col lg:flex-row lg:items-stretch gap-6 lg:gap-10">
+            <!-- Brand Sidebar Card -->
+            <div class="lg:w-[320px] shrink-0">
+              <NuxtLink 
                 :to="`/brands/${brand.id}`"
-                class="w-[120px] md:w-[190px] shrink-0 snap-start flex flex-col items-center justify-center bg-gray-50 border border-gray-100 rounded-xl pointer-events-auto active:scale-95 lg:hover:border-red-500 lg:hover:bg-red-50 transition-all group"
-                :aria-label="`Jelajahi semua produk ${brand.name}`"
+                class="block h-full bg-white border border-gray-100 rounded-[32px] p-8 shadow-[0_8px_30px_rgb(0,0,0,0.04)] hover:shadow-[0_20px_50px_rgba(50,205,50,0.1)] hover:border-[#03AC0E]/30 transition-all duration-500"
               >
-                <div
-                  class="w-10 h-10 md:w-14 md:h-14 bg-white shadow-sm text-gray-400 group-hover:text-red-600 rounded-full flex items-center justify-center mb-2 md:mb-3 transition-colors"
-                >
-                  <UIcon
-                    name="i-heroicons-arrow-right-20-solid"
-                    class="w-5 h-5 md:w-6 md:h-6"
-                    aria-hidden="true"
+                <div class="aspect-[4/3] bg-gray-50 rounded-2xl flex items-center justify-center p-6 mb-6 group-hover:bg-white transition-colors border border-transparent group-hover:border-gray-50">
+                  <NuxtImg 
+                    :src="brand.logo" 
+                    :alt="brand.name"
+                    class="w-full h-full object-contain filter grayscale group-hover:grayscale-0 transition-all duration-500"
                   />
                 </div>
-                <span
-                  class="text-[10px] md:text-sm font-black uppercase tracking-wider text-gray-500 group-hover:text-red-600 text-center leading-tight"
-                >
-                  Lihat <br />
-                  Semua
-                </span>
+
+                <div class="space-y-4">
+                  <div class="flex items-center gap-2">
+                    <h2 class="text-2xl font-black text-gray-900 leading-tight">{{ brand.name }}</h2>
+                    <UIcon name="i-heroicons-check-circle-solid" class="w-5 h-5 text-blue-500" />
+                  </div>
+                  <p class="text-sm text-gray-500 leading-relaxed font-medium">
+                    {{ brand.tagline }}
+                  </p>
+                  
+                  <div class="pt-6 border-t border-gray-50 flex items-center justify-between">
+                    <div class="flex flex-col">
+                      <span class="text-[10px] font-black text-gray-400 uppercase tracking-widest">Katalog</span>
+                      <span class="text-sm font-black text-gray-900">{{ brand.total }} SKU</span>
+                    </div>
+                    <div class="w-10 h-10 rounded-full bg-gray-50 flex items-center justify-center group-hover:bg-gradient-to-r from-[#03AC0E] to-[#028C0B] shadow-sm group-hover:text-white transition-all transform group-hover:translate-x-1">
+                      <UIcon name="i-heroicons-arrow-right" class="w-5 h-5" />
+                    </div>
+                  </div>
+                </div>
               </NuxtLink>
+            </div>
+
+            <!-- Product Showcase -->
+            <div class="flex-1 min-w-0 flex flex-col justify-center">
+              <div class="flex items-center justify-between mb-4 lg:mb-6 px-2">
+                <h3 class="text-sm font-black text-gray-400 uppercase tracking-[0.15em]">Pilihan Terlaris</h3>
+                <NuxtLink :to="`/brands/${brand.id}`" class="text-xs font-bold text-[#03AC0E] hover:underline flex items-center gap-1">
+                  Lihat Semua
+                  <UIcon name="i-heroicons-chevron-right" class="w-3.5 h-3.5" />
+                </NuxtLink>
+              </div>
+
+              <div 
+                class="flex gap-4 overflow-x-auto pb-6 px-1 hide-scrollbar snap-x snap-mandatory cursor-grab active:cursor-grabbing overscroll-contain"
+                @mousedown="startDrag"
+                @mouseleave="stopDrag"
+                @mouseup="stopDrag"
+                @mousemove="doDrag"
+              >
+                <div 
+                  v-for="product in brand.products" 
+                  :key="product.uuid"
+                  class="w-[180px] md:w-[220px] shrink-0 snap-start select-none"
+                >
+                  <CardPerItems 
+                    v-bind="product" 
+                    class="h-full bg-white border border-gray-100 hover:border-[#03AC0E]/50 hover:shadow-xl hover:shadow-green-500/5 transition-all duration-300 rounded-2xl pointer-events-auto"
+                  />
+                </div>
+
+                <!-- Explore More Card -->
+                <NuxtLink 
+                  :to="`/brands/${brand.id}`"
+                  class="w-[180px] md:w-[220px] shrink-0 snap-start bg-white border border-dashed border-gray-200 rounded-2xl flex flex-col items-center justify-center gap-3 hover:bg-green-50 hover:border-[#03AC0E] transition-all group/more pointer-events-auto"
+                >
+                  <div class="w-12 h-12 rounded-full bg-gray-50 flex items-center justify-center group-hover/more:bg-gradient-to-r from-[#03AC0E] to-[#028C0B] shadow-sm group-hover/more:text-white transition-all shadow-sm">
+                    <UIcon name="i-heroicons-plus-circle" class="w-6 h-6" />
+                  </div>
+                  <div class="text-center">
+                    <div class="text-sm font-black text-gray-900">Eksplorasi</div>
+                    <div class="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-0.5">Semua {{ brand.name }}</div>
+                  </div>
+                </NuxtLink>
+              </div>
             </div>
           </div>
         </section>
       </div>
 
-      <div
-        v-else
-        class="flex flex-col items-center justify-center py-20 px-5 mx-4 lg:mx-0 border border-gray-200 rounded-2xl bg-white mt-4"
-        role="status"
-      >
-        <div
-          class="w-20 h-20 bg-gray-50 rounded-full flex items-center justify-center mb-4"
-        >
-          <UIcon
-            name="i-heroicons-building-storefront"
-            class="w-10 h-10 text-gray-400"
-            aria-hidden="true"
-          />
+      <!-- Empty State -->
+      <div v-if="!pending && !brands.length" class="bg-white rounded-[40px] p-20 text-center border border-gray-100 shadow-sm">
+        <div class="w-24 h-24 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-6 text-gray-300">
+          <UIcon name="i-heroicons-building-storefront" class="w-12 h-12" />
         </div>
-        <h2 class="text-lg font-black text-gray-800 mb-2">Belum Ada Brand</h2>
-        <p class="text-gray-500 text-xs text-center max-w-sm leading-relaxed">
-          Sistem sedang memproses data katalog mitra resmi kami. Silakan muat ulang
-          halaman.
+        <h2 class="text-2xl font-black text-gray-900 mb-2">Katalog Sedang Diperbarui</h2>
+        <p class="text-gray-500 max-w-sm mx-auto leading-relaxed">
+          Kami sedang mensinkronkan data mitra resmi kami. Silakan kembali dalam beberapa saat.
         </p>
       </div>
+
     </div>
   </main>
 </template>
 
 <style scoped>
-/* ── Font ── */
-@import url("https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&display=swap");
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&display=swap');
 
 .brands-page {
-  font-family: "Plus Jakarta Sans", sans-serif;
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  letter-spacing: -0.01em;
 }
 
-/* ── Utilitas Native App Feel ── */
 .hide-scrollbar::-webkit-scrollbar {
   display: none;
 }
@@ -365,9 +273,20 @@ const doDrag = (e: MouseEvent) => {
   scrollbar-width: none;
 }
 
-/* Mencegah highlight biru saat di-tap di mobile */
-a,
-button {
-  -webkit-tap-highlight-color: transparent;
+/* Glassmorphism subtle effect */
+.backdrop-blur-md {
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+/* Custom Scroll behavior */
+.overscroll-contain {
+  overscroll-behavior-x: contain;
+}
+
+/* Anti-aliasing for premium feel */
+* {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 </style>

@@ -1,21 +1,30 @@
 export default cachedEventHandler(async (event) => {
     const query = getQuery(event)
-    const stock_uuid = query.uuid
+    const uuid = query.uuid as string
+    const slug = query.slug as string
     const config = useRuntimeConfig()
     
-    if (!stock_uuid) return { data: [] }
+    if (!uuid && !slug) return { data: [] }
     
     try {
       const apiUrl = config.public.apiBase || 'http://127.0.0.1:8000'
-      // Endpoint Elasticsearch yang sudah kita buat sebelumnya
-      const response = await $fetch(`${apiUrl}/stok/public/recommendations/${stock_uuid}`)
+      
+      // Gunakan endpoint yang sesuai
+      const endpoint = uuid 
+        ? `${apiUrl}/stok/public/recommendations/${uuid}`
+        : `${apiUrl}/stok/public/recommendations/slug/${slug}`
+
+      const response = await $fetch(endpoint)
       return response
     } catch (error) {
-      return { data: [] } // Fallback kosong jika ES gagal/belum ada data
+      return { data: [] }
     }
   }, {
     name: 'product-recommendations-cache',
-    getKey: (event) => String(getQuery(event).uuid),
-    maxAge: 120, // Cache lebih lama (2 menit) untuk rekomendasi
+    getKey: (event) => {
+        const q = getQuery(event)
+        return String(q.uuid || q.slug)
+    },
+    maxAge: 120,
     swr: true
   })

@@ -3,10 +3,10 @@
     
     <NuxtLink
       to="/wishlist"
-      class="text-black hover:scale-110 transition-transform flex items-center mb-2 relative p-1"
+      class="text-gray-700 hover:text-[#03AC0E] hover:scale-110 transition-all flex items-center relative p-1.5 cursor-pointer"
       aria-label="Wishlist"
     >
-      <Icon name="lucide:heart" class="text-xl lg:text-3xl" />
+      <Icon name="lucide:heart" class="text-2xl lg:text-[26px] transition-colors" />
 
       <span
         v-if="count > 0"

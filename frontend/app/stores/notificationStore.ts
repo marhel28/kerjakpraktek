@@ -18,6 +18,7 @@ export const useNotificationStore = defineStore('notifications', () => {
   const supabase = useSupabaseClient()
   const user = useSupabaseUser()
   const { getSupabaseUserId, setSupabaseSession } = useAuth()
+  const toast = useToast()
   
   // ─── State ───────────────────────────────────────────
   const notifications = ref<Notification[]>([])
@@ -70,6 +71,7 @@ export const useNotificationStore = defineStore('notifications', () => {
       const { data, error: fetchError } = await supabase
         .from('notifications')
         .select('*')
+        .eq('user_id', userId)
         .order('created_at', { ascending: false })
         .limit(50)
 
@@ -194,7 +196,6 @@ export const useNotificationStore = defineStore('notifications', () => {
           
           // Trigger global toast
           try {
-            const toast = useToast()
             const targetUrl = payload.new.metadata?.url || payload.new.metadata?.action_url
             
             toast.add({
@@ -266,18 +267,18 @@ export const useNotificationStore = defineStore('notifications', () => {
     
     console.log('🚀 [Store] Initializing...')
     
-    const userId = getUserId()
-    
-    if (!userId) {
-      // Coba restore session
+    // Pastikan session Supabase client aktif sebelum fetch
+    const { data: sessionData } = await supabase.auth.getSession()
+    if (!sessionData.session) {
+      console.log('🔄 [Store] Supabase client session not found, restoring...')
       await setSupabaseSession()
       await nextTick()
-      
-      const restoredId = getUserId()
-      if (!restoredId) {
-        console.log('⏳ [Store] Waiting for authentication...')
-        return
-      }
+    }
+    
+    const userId = getUserId()
+    if (!userId) {
+      console.log('⏳ [Store] Waiting for authentication...')
+      return
     }
     
     isInitialized = true
@@ -299,7 +300,7 @@ export const useNotificationStore = defineStore('notifications', () => {
   // ─── Watchers ────────────────────────────────────────
 
   // Watch user login/logout
-  watch(() => user.value?.id, (newId, oldId) => {
+  watch(getUserId, (newId, oldId) => {
     if (oldId && !newId) {
       // User logged out
       cleanup()

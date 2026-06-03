@@ -134,14 +134,33 @@ const payOrder = async () => {
   } finally { isRepaying.value = false; }
 };
 
+const isPaymentEmbedded = ref(false);
+
 const openSnap = (token: string) => {
   const snapObj = (window as any).snap;
   if (!snapObj) return;
-  snapObj.pay(token, {
-    onSuccess: () => fetchOrderDetail(),
-    onPending: () => fetchOrderDetail(),
-    onError: () => alert("Pembayaran gagal."),
-  });
+  
+  isPaymentEmbedded.value = true;
+  
+  setTimeout(() => {
+    snapObj.embed(token, {
+      embedId: 'snap-container',
+      onSuccess: () => {
+        isPaymentEmbedded.value = false;
+        fetchOrderDetail();
+      },
+      onPending: () => {
+        isPaymentEmbedded.value = false;
+        fetchOrderDetail();
+      },
+      onError: () => {
+        alert("Pembayaran gagal.");
+      },
+      onClose: () => {
+        isPaymentEmbedded.value = false;
+      }
+    });
+  }, 100);
 };
 
 const getStatusBadge = () => {
@@ -262,6 +281,20 @@ const getStatusBadge = () => {
 
         </div>
       </section>
+
+      <!-- EMBEDDED PAYMENT WIDGET -->
+      <div v-show="isPaymentEmbedded" class="bg-white border border-gray-200 rounded-xl shadow-lg overflow-hidden max-w-xl mx-auto mb-8 animate-fade-in">
+        <div class="px-6 py-4 border-b border-gray-100 flex items-center justify-between bg-gray-50">
+          <div class="flex items-center gap-2">
+            <UIcon name="i-heroicons-credit-card" class="w-5 h-5 text-[#03AC0E]" />
+            <h3 class="font-black text-gray-900 text-sm uppercase tracking-widest">Selesaikan Pembayaran</h3>
+          </div>
+          <button @click="isPaymentEmbedded = false" class="text-xs font-bold text-gray-400 hover:text-red-500 transition-colors uppercase tracking-widest">
+            Tutup
+          </button>
+        </div>
+        <div id="snap-container" class="w-full min-h-[500px]"></div>
+      </div>
 
       <!-- 3. INFO GRID -->
       <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">

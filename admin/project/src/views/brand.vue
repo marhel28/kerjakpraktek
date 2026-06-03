@@ -88,15 +88,13 @@
             </div>
         </div>
 
-        <transition enter-active-class="transition duration-200 ease-out" enter-from-class="opacity-0 scale-95"
-            enter-to-class="opacity-100 scale-100" leave-active-class="transition duration-150 ease-in"
-            leave-from-class="opacity-100 scale-100" leave-to-class="opacity-0 scale-95">
+        <Transition name="modal-fade">
             <div v-if="isModalOpen" class="fixed inset-0 z-50 flex items-center justify-center p-4">
                 <div class="absolute inset-0 bg-gray-900/50 backdrop-blur-sm transition-opacity" @click="closeModal">
                 </div>
 
                 <div
-                    class="relative bg-white rounded-2xl shadow-xl w-full max-w-md border border-gray-100 flex flex-col overflow-hidden max-h-[90vh]">
+                    class="modal-card relative bg-white rounded-2xl shadow-xl w-full max-w-md border border-gray-100 flex flex-col overflow-hidden max-h-[90vh]">
 
                     <div class="flex items-center justify-between px-6 py-4 border-b border-gray-100 bg-gray-50/50">
                         <h3 class="text-lg font-semibold text-gray-900">{{ editingId ? 'Edit Brand' : 'Tambah Brand' }}
@@ -209,15 +207,13 @@
 
                 </div>
             </div>
-        </transition>
+        </Transition>
 
-        <transition enter-active-class="transition duration-200 ease-out" enter-from-class="opacity-0 scale-95"
-            enter-to-class="opacity-100 scale-100" leave-active-class="transition duration-150 ease-in"
-            leave-from-class="opacity-100 scale-100" leave-to-class="opacity-0 scale-95">
+        <Transition name="modal-fade">
             <div v-if="isDeleteModalOpen" class="fixed inset-0 z-[60] flex items-center justify-center p-4">
                 <div class="absolute inset-0 bg-gray-900/50 backdrop-blur-sm" @click="isDeleteModalOpen = false"></div>
                 <div
-                    class="relative bg-white rounded-2xl shadow-xl w-full max-w-sm p-6 text-center border border-gray-100">
+                    class="modal-card relative bg-white rounded-2xl shadow-xl w-full max-w-sm p-6 text-center border border-gray-100">
                     <div class="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100 mb-4">
                         <svg class="h-6 w-6 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"
                             stroke-width="2">
@@ -247,7 +243,7 @@
                     </div>
                 </div>
             </div>
-        </transition>
+        </Transition>
 
     </div>
 </template>
@@ -270,11 +266,33 @@
 .custom-scrollbar:hover::-webkit-scrollbar-thumb {
     background-color: #d1d5db;
 }
+
+/* Modal Animation */
+.modal-fade-enter-active, .modal-fade-leave-active {
+  transition: opacity 0.25s ease;
+}
+.modal-fade-enter-active .modal-card, .modal-fade-leave-active .modal-card {
+  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.25s ease;
+}
+.modal-fade-enter-from, .modal-fade-leave-to {
+  opacity: 0;
+}
+.modal-fade-enter-from .modal-card {
+  transform: scale(0.95) translateY(12px);
+  opacity: 0;
+}
+.modal-fade-leave-to .modal-card {
+  transform: scale(0.95) translateY(10px);
+  opacity: 0;
+}
 </style>
 
 <script setup>
 import { ref, reactive, watch, onMounted } from 'vue'
+import { useToastStore } from '@/stores/toast'
 import api from '@/service/api'
+
+const toastStore = useToastStore()
 
 // --- API SETUP ---
 const API_BASE = '/brands'
@@ -334,7 +352,7 @@ const fetchBrands = async () => {
     } catch (error) {
         console.error('Error fetching brands:', error)
         const errorMsg = error.response?.data?.detail || 'Gagal memuat data brand.'
-        alert(errorMsg)
+        toastStore.error(errorMsg)
     } finally {
         isLoading.value = false
     }
@@ -379,7 +397,7 @@ const handleFileChange = (event) => {
     if (!file) return
 
     if (file.size > 2 * 1024 * 1024) {
-        alert('Ukuran gambar maksimal 2MB')
+        toastStore.warning('Ukuran gambar maksimal 2MB')
         return
     }
 
@@ -396,7 +414,7 @@ const handleFileChange = (event) => {
 const saveBrand = async () => {
     // Validasi: Wajib ada logo untuk brand baru
     if (!editingId.value && !selectedFile.value) {
-        alert('Silakan upload logo brand terlebih dahulu.')
+        toastStore.warning('Silakan upload logo brand terlebih dahulu.')
         return
     }
 
@@ -422,10 +440,11 @@ const saveBrand = async () => {
 
         await fetchBrands()
         closeModal()
+        toastStore.success('Brand berhasil disimpan.')
     } catch (error) {
         console.error('Error saving brand:', error)
         const errorMsg = error.response?.data?.detail || 'Terjadi kesalahan saat menyimpan brand.'
-        alert(errorMsg)
+        toastStore.error(errorMsg)
     } finally {
         isSubmitting.value = false
     }
@@ -445,10 +464,11 @@ const deleteBrand = async () => {
         await api.delete(`${API_BASE}/admin/${brandToDelete.value}`)
         await fetchBrands()
         isDeleteModalOpen.value = false
+        toastStore.success('Brand berhasil dihapus.')
     } catch (error) {
         console.error('Error deleting brand:', error)
         const errorMsg = error.response?.data?.detail || 'Terjadi kesalahan saat menghapus data.'
-        alert(errorMsg)
+        toastStore.error(errorMsg)
     } finally {
         isSubmitting.value = false
         brandToDelete.value = null

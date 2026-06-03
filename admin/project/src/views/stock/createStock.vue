@@ -214,24 +214,7 @@
 
         </div>
 
-        <!-- ── Toast ───────────────────────────────────────────────────────── -->
-        <Teleport to="body">
-            <Transition name="toast">
-                <div v-if="toast.show"
-                    :class="[
-                        'fixed bottom-6 right-6 z-50 flex items-center gap-3 px-5 py-3.5 rounded-xl shadow-2xl text-sm font-semibold max-w-sm',
-                        toast.type === 'success' ? 'bg-gray-900 text-white' : 'bg-red-600 text-white'
-                    ]">
-                    <div :class="[
-                            'w-6 h-6 rounded-full flex items-center justify-center text-xs font-black',
-                            toast.type === 'success' ? 'bg-emerald-500' : 'bg-red-400'
-                        ]">
-                        {{ toast.type === 'success' ? '✓' : '✕' }}
-                    </div>
-                    {{ toast.message }}
-                </div>
-            </Transition>
-        </Teleport>
+
 
     </div>
 </template>
@@ -240,8 +223,10 @@
 import { ref, reactive, computed, watch, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { brandApi, categoryApi, stockApi } from '@/service/stock'
+import { useToastStore } from '@/stores/toast'
 
 const router = useRouter()
+const toastStore = useToastStore()
 
 // ── States ──
 const brands = ref([])
@@ -251,7 +236,6 @@ const submitting = ref(false)
 const imageFiles = ref([])
 
 const errors = ref({})
-const toast = reactive({ show: false, type: 'success', message: '' })
 
 const form = reactive({
     title: '',
@@ -286,7 +270,7 @@ watch(calculatedPrice, (newPrice) => {
 function handleFileUpload(event) {
     const files = Array.from(event.target.files);
     if (imageFiles.value.length + files.length > 4) {
-        alert("Maksimal hanya boleh 4 gambar!");
+        toastStore.warning("Maksimal hanya boleh 4 gambar!");
         return;
     }
     imageFiles.value = [...imageFiles.value, ...files];
@@ -360,7 +344,7 @@ function validateForm() {
 // ── Submit ──
 async function submitForm() {
     if (!validateForm()) {
-        showToast('Form belum lengkap atau terdapat error', 'error')
+        toastStore.error('Form belum lengkap atau terdapat error')
         return
     }
 
@@ -383,42 +367,22 @@ async function submitForm() {
 
         await stockApi.create(fd)
 
-        showToast('Produk berhasil ditambahkan')
+        toastStore.success('Produk berhasil ditambahkan')
         setTimeout(() => router.push('/stock'), 1500)
 
     } catch (e) {
         console.error(e)
-        showToast('Gagal menyimpan produk', 'error')
+        toastStore.error('Gagal menyimpan produk')
     } finally {
         submitting.value = false
     }
 }
 
-// ── Toast ──
-function showToast(message, type = 'success') {
-    toast.show = true
-    toast.message = message
-    toast.type = type
 
-    setTimeout(() => {
-        toast.show = false
-    }, 3000)
-}
 
 onMounted(fetchMeta)
 </script>
 
 <style scoped>
 @reference "tailwindcss";
-
-.toast-enter-active,
-.toast-leave-active {
-    transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
-}
-
-.toast-enter-from,
-.toast-leave-to {
-    opacity: 0;
-    transform: translateX(20px);
-}
 </style>

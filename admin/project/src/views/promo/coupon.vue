@@ -263,6 +263,9 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import api from '@/service/api'
+import { useToastStore } from '@/stores/toast'
+
+const toastStore = useToastStore()
 
 // Custom Modal State for Confirmations
 const isConfirmModalOpen = ref(false)
@@ -374,7 +377,7 @@ const closeModal = () => {
 
 const saveCoupon = async () => {
     if (!form.value.code || form.value.discount_value <= 0) {
-        alert('Harap isi kode dan nilai diskon')
+        toastStore.error('Harap isi kode dan nilai diskon')
         return
     }
 
@@ -401,14 +404,16 @@ const saveCoupon = async () => {
         
         if (form.value.isEdit) {
             await api.patch(`/admin/coupon/${form.value.code}`, payload)
+            toastStore.success('Kupon berhasil diperbarui')
         } else {
             await api.post('/admin/coupon', payload)
+            toastStore.success('Kupon baru berhasil ditambahkan')
         }
         
         closeModal()
         fetchCoupons()
     } catch (error) {
-        alert(error.response?.data?.detail || 'Gagal menyimpan kupon')
+        toastStore.error(error.response?.data?.detail || 'Gagal menyimpan kupon')
     } finally {
         isSubmitting.value = false
     }
@@ -422,9 +427,10 @@ const deleteCoupon = async (code) => {
         action: async () => {
             try {
                 await api.delete(`/admin/coupon/${code}`)
+                toastStore.success(`Kupon ${code} berhasil dihapus`)
                 fetchCoupons()
             } catch (error) {
-                alert('Gagal menghapus kupon')
+                toastStore.error('Gagal menghapus kupon')
             }
         }
     })

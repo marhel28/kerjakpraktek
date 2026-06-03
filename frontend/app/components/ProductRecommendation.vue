@@ -86,7 +86,8 @@ defineProps<{
           :type="rec.type || ''"
           :specs="rec.specs || {}"
           class="h-full"
-          :style="{ animationDelay: `${index * 45}ms` }"
+          v-motion-slide-visible-once-bottom
+          :delay="index * 75"
         />
         <meta itemprop="position" :content="String(index + 1)" />
       </div>
@@ -123,7 +124,7 @@ defineProps<{
   width: 4px;
   height: 1.4rem;
   border-radius: 4px;
-  background: linear-gradient(180deg, #42b549 0%, #00aa5b 100%);
+  background: linear-gradient(180deg, #42b549 0%, #03AC0E 100%);
   flex-shrink: 0;
 }
 
@@ -141,7 +142,7 @@ defineProps<{
   gap: 2px;
   font-size: 0.8rem;
   font-weight: 700;
-  color: #00aa5b;
+  color: #03AC0E;
   white-space: nowrap;
   transition: color 0.15s, gap 0.15s;
   flex-shrink: 0;
@@ -185,20 +186,8 @@ defineProps<{
   min-width: 0; /* Prevent grid blowout */
 }
 
-.rec-item > * {
-  flex: 1;
-  opacity: 0;
-  animation: fadeUp 0.38s ease-out forwards;
-}
-
-/* ── Item animasi masuk ──────────────────────────────────────────── */
-@keyframes fadeUp {
-  from { opacity: 0; transform: translateY(12px); }
-  to   { opacity: 1; transform: translateY(0); }
-}
-
 /* ── Reduced motion ──────────────────────────────────────────────── */
 @media (prefers-reduced-motion: reduce) {
-  .rec-item { animation: none; opacity: 1; }
+  .rec-item { animation: none; opacity: 1; transform: none; }
 }
 </style>

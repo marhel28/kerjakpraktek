@@ -6,8 +6,8 @@
       <!-- ══ HEADER ══════════════════════════════════════════ -->
       <header class="bg-white border-b border-gray-100 px-4 py-4 md:px-8 md:py-5 flex items-center justify-between sticky top-0 z-30">
         <div class="flex items-center gap-3">
-          <div class="w-9 h-9 bg-[#e5f7ed] rounded-xl flex items-center justify-center border border-[#b3e5cb]">
-            <Icon name="lucide:map-pin" class="w-5 h-5 text-[#00AA5B]" aria-hidden="true" />
+          <div class="w-9 h-9 bg-[#E6F7E9] rounded-xl flex items-center justify-center border border-[#b3e5cb]">
+            <Icon name="lucide:map-pin" class="w-5 h-5 text-[#03AC0E]" aria-hidden="true" />
           </div>
           <div>
             <h1 class="text-[15px] font-extrabold text-gray-900 leading-none">Lokasi Toko</h1>
@@ -16,12 +16,12 @@
         </div>
 
         <!-- Status ping -->
-        <div class="flex items-center gap-2 bg-[#e5f7ed] border border-[#b3e5cb] px-3 py-1.5 rounded-full">
+        <div class="flex items-center gap-2 bg-[#E6F7E9] border border-[#b3e5cb] px-3 py-1.5 rounded-full">
           <span class="relative flex h-2 w-2">
-            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#00AA5B] opacity-75"></span>
-            <span class="relative inline-flex rounded-full h-2 w-2 bg-[#00AA5B]"></span>
+            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-gradient-to-r from-[#03AC0E] to-[#028C0B] shadow-sm opacity-75"></span>
+            <span class="relative inline-flex rounded-full h-2 w-2 bg-gradient-to-r from-[#03AC0E] to-[#028C0B] shadow-sm"></span>
           </span>
-          <span class="text-[10px] font-black text-[#00AA5B] uppercase tracking-widest hidden sm:block">Navigasi Aktif</span>
+          <span class="text-[10px] font-black text-[#03AC0E] uppercase tracking-widest hidden sm:block">Navigasi Aktif</span>
         </div>
       </header>
 
@@ -30,7 +30,7 @@
         <div class="flex gap-2">
           <!-- Search input -->
           <div class="relative flex-1 group">
-            <span class="absolute inset-y-0 left-3 flex items-center text-gray-400 group-focus-within:text-[#00AA5B] transition-colors">
+            <span class="absolute inset-y-0 left-3 flex items-center text-gray-400 group-focus-within:text-[#03AC0E] transition-colors">
               <Icon name="lucide:search" class="w-4 h-4" aria-hidden="true" />
             </span>
             <input
@@ -39,7 +39,7 @@
               type="search"
               placeholder="Cari lokasi / alamat..."
               autocomplete="off"
-              class="w-full pl-9 pr-3 py-2.5 bg-gray-50 border border-gray-200 text-[13px] font-semibold text-gray-800 placeholder-gray-400 focus:bg-white focus:border-[#00AA5B] focus:ring-2 focus:ring-[#00AA5B]/10 outline-none transition-all rounded-xl"
+              class="w-full pl-9 pr-3 py-2.5 bg-gray-50 border border-gray-200 text-[13px] font-semibold text-gray-800 placeholder-gray-400 focus:bg-white focus:border-[#03AC0E] focus:ring-2 focus:ring-[#03AC0E]/10 outline-none transition-all rounded-xl"
               @keyup.enter="searchLocation"
             />
           </div>
@@ -48,7 +48,7 @@
           <button
             @click="searchLocation"
             :disabled="loading || !searchQuery.trim()"
-            class="bg-[#00AA5B] text-white px-4 py-2.5 rounded-xl text-[13px] font-bold transition-all hover:bg-[#008f4c] disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5 shrink-0"
+            class="bg-gradient-to-r from-[#03AC0E] to-[#028C0B] shadow-sm text-white px-4 py-2.5 rounded-xl text-[13px] font-bold transition-all hover:bg-[#008f4c] disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5 shrink-0"
           >
             <Icon v-if="loading" name="lucide:loader-2" class="w-4 h-4 animate-spin" />
             <Icon v-else name="lucide:search" class="w-4 h-4" />
@@ -60,7 +60,7 @@
             @click="getCurrentLocation"
             :disabled="locating"
             :title="locating ? 'Mencari lokasi...' : 'Gunakan GPS'"
-            class="relative bg-white border border-gray-200 text-gray-700 hover:border-[#00AA5B] hover:text-[#00AA5B] hover:bg-[#e5f7ed] px-3.5 py-2.5 rounded-xl text-[13px] font-bold transition-all disabled:opacity-50 flex items-center gap-1.5 shrink-0"
+            class="relative bg-white border border-gray-200 text-gray-700 hover:border-[#03AC0E] hover:text-[#03AC0E] hover:bg-[#E6F7E9] px-3.5 py-2.5 rounded-xl text-[13px] font-bold transition-all disabled:opacity-50 flex items-center gap-1.5 shrink-0"
           >
             <Icon v-if="locating" name="lucide:loader-2" class="w-4 h-4 animate-spin" />
             <Icon v-else name="lucide:crosshair" class="w-4 h-4" />
@@ -78,8 +78,8 @@
 
         <!-- Distance info -->
         <div v-if="userLocation" class="mt-2.5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
-          <div class="flex items-center gap-2 bg-[#e5f7ed] border border-[#b3e5cb] px-3 py-2 rounded-xl">
-            <Icon name="lucide:route" class="w-4 h-4 text-[#00AA5B]" />
+          <div class="flex items-center gap-2 bg-[#E6F7E9] border border-[#b3e5cb] px-3 py-2 rounded-xl">
+            <Icon name="lucide:route" class="w-4 h-4 text-[#03AC0E]" />
             <span class="text-[12px] font-bold text-gray-700">Jarak ke toko:</span>
             <span class="text-[14px] font-black text-gray-900">{{ distanceToStore }} km</span>
           </div>
@@ -140,10 +140,10 @@
             <l-marker :lat-lng="storeLocation" :z-index-offset="100">
               <l-icon :icon-size="[44, 44]" :icon-anchor="[22, 44]" class-name="bg-transparent border-none">
                 <div class="flex flex-col items-center">
-                  <div class="w-11 h-11 bg-white rounded-full border-[3px] border-[#00AA5B] shadow-xl flex items-center justify-center">
-                    <Icon name="lucide:store" class="w-5 h-5 text-[#00AA5B]" />
+                  <div class="w-11 h-11 bg-white rounded-full border-[3px] border-[#03AC0E] shadow-xl flex items-center justify-center">
+                    <Icon name="lucide:store" class="w-5 h-5 text-[#03AC0E]" />
                   </div>
-                  <div class="w-3 h-3 -mt-1.5 bg-[#00AA5B] rotate-45 shadow"></div>
+                  <div class="w-3 h-3 -mt-1.5 bg-gradient-to-r from-[#03AC0E] to-[#028C0B] shadow-sm rotate-45 shadow"></div>
                 </div>
               </l-icon>
               <l-popup :options="{ maxWidth: 280 }">
@@ -152,7 +152,7 @@
                   <strong class="text-gray-900 text-sm block font-extrabold mb-1">PasarCctv</strong>
                   <p class="text-[12px] text-gray-500 leading-relaxed mb-3">{{ storeAddress }}</p>
                   <a :href="`https://www.google.com/maps/dir/?api=1&destination=${storeLocation[0]},${storeLocation[1]}&travelmode=driving`" target="_blank"
-                    class="block text-center bg-[#00AA5B] text-white text-[12px] font-bold py-2 rounded-lg hover:bg-[#008f4c] transition-colors">
+                    class="block text-center bg-gradient-to-r from-[#03AC0E] to-[#028C0B] shadow-sm text-white text-[12px] font-bold py-2 rounded-lg hover:bg-[#008f4c] transition-colors">
                     Rute ke Sini
                   </a>
                 </div>
@@ -183,11 +183,11 @@
         <button
           @click="getCurrentLocation"
           :disabled="locating"
-          class="absolute bottom-4 left-4 z-20 w-12 h-12 bg-white rounded-full shadow-xl border border-gray-200 flex items-center justify-center hover:bg-[#e5f7ed] hover:border-[#00AA5B] transition-all active:scale-95 disabled:opacity-60 lg:hidden"
+          class="absolute bottom-4 left-4 z-20 w-12 h-12 bg-white rounded-full shadow-xl border border-gray-200 flex items-center justify-center hover:bg-[#E6F7E9] hover:border-[#03AC0E] transition-all active:scale-95 disabled:opacity-60 lg:hidden"
           :title="locating ? 'Mencari lokasi GPS...' : 'Deteksi lokasi GPS'"
         >
-          <Icon v-if="locating" name="lucide:loader-2" class="w-5 h-5 text-[#00AA5B] animate-spin" />
-          <Icon v-else name="lucide:crosshair" class="w-5 h-5 text-[#00AA5B]" />
+          <Icon v-if="locating" name="lucide:loader-2" class="w-5 h-5 text-[#03AC0E] animate-spin" />
+          <Icon v-else name="lucide:crosshair" class="w-5 h-5 text-[#03AC0E]" />
         </button>
 
         <!-- Hint klik peta -->
@@ -203,8 +203,8 @@
 
           <!-- Alamat -->
           <div class="flex items-start gap-3 p-4 rounded-xl bg-gray-50 border border-gray-100">
-            <div class="w-9 h-9 bg-[#e5f7ed] rounded-lg flex items-center justify-center shrink-0 border border-[#b3e5cb]">
-              <Icon name="lucide:map-pin" class="w-4 h-4 text-[#00AA5B]" />
+            <div class="w-9 h-9 bg-[#E6F7E9] rounded-lg flex items-center justify-center shrink-0 border border-[#b3e5cb]">
+              <Icon name="lucide:map-pin" class="w-4 h-4 text-[#03AC0E]" />
             </div>
             <div>
               <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-0.5">Alamat</p>
@@ -214,8 +214,8 @@
 
           <!-- Jam Operasional -->
           <div class="flex items-start gap-3 p-4 rounded-xl bg-gray-50 border border-gray-100">
-            <div class="w-9 h-9 bg-[#e5f7ed] rounded-lg flex items-center justify-center shrink-0 border border-[#b3e5cb]">
-              <Icon name="lucide:clock" class="w-4 h-4 text-[#00AA5B]" />
+            <div class="w-9 h-9 bg-[#E6F7E9] rounded-lg flex items-center justify-center shrink-0 border border-[#b3e5cb]">
+              <Icon name="lucide:clock" class="w-4 h-4 text-[#03AC0E]" />
             </div>
             <div>
               <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-0.5">Jam Buka</p>
@@ -227,13 +227,13 @@
 
           <!-- Telepon & WA -->
           <div class="flex items-start gap-3 p-4 rounded-xl bg-gray-50 border border-gray-100">
-            <div class="w-9 h-9 bg-[#e5f7ed] rounded-lg flex items-center justify-center shrink-0 border border-[#b3e5cb]">
-              <Icon name="lucide:phone" class="w-4 h-4 text-[#00AA5B]" />
+            <div class="w-9 h-9 bg-[#E6F7E9] rounded-lg flex items-center justify-center shrink-0 border border-[#b3e5cb]">
+              <Icon name="lucide:phone" class="w-4 h-4 text-[#03AC0E]" />
             </div>
             <div class="flex flex-col gap-2">
               <div>
                 <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-0.5">Telepon</p>
-                <a href="tel:082117779003" class="text-[13px] font-bold text-gray-900 hover:text-[#00AA5B] transition-colors">0821-1777-9003</a>
+                <a href="tel:082117779003" class="text-[13px] font-bold text-gray-900 hover:text-[#03AC0E] transition-colors">0821-1777-9003</a>
               </div>
               <a
                 href="https://wa.me/6282117779003?text=Halo%20PasarCctv%2C%20saya%20mau%20tanya-tanya"
@@ -253,7 +253,7 @@
       <footer class="px-4 py-4 md:px-8 bg-gray-50 border-t border-gray-100 flex items-center justify-between">
         <span class="text-[11px] text-gray-400 font-bold">© {{ new Date().getFullYear() }} PasarCctv</span>
         <div class="flex items-center gap-1.5 text-gray-500">
-          <Icon name="lucide:shield-check" class="w-3.5 h-3.5 text-[#00AA5B]" />
+          <Icon name="lucide:shield-check" class="w-3.5 h-3.5 text-[#03AC0E]" />
           <span class="text-[11px] font-semibold">Spesialis CCTV Terpercaya</span>
         </div>
       </footer>
@@ -412,7 +412,7 @@ const drawRoute = async () => {
     if (data.routes?.length) {
       const coords = data.routes[0].geometry.coordinates.map(([lng, lat]: number[]) => [lat, lng])
       routeLine.value = L.polyline(coords, {
-        color: '#00AA5B',
+        color: '#03AC0E',
         weight: 5,
         opacity: 0.85,
         lineCap: 'round',
@@ -462,7 +462,7 @@ watch(userLocation, () => drawRoute())
 :deep(.leaflet-pane) { z-index: 1 !important; }
 :deep(.leaflet-control-zoom) { border: none !important; box-shadow: 0 2px 12px -2px rgba(0,0,0,0.15) !important; border-radius: 12px !important; overflow: hidden; }
 :deep(.leaflet-control-zoom a) { border: none !important; font-size: 16px; color: #374151 !important; }
-:deep(.leaflet-control-zoom a:hover) { background-color: #f3f4f6 !important; color: #00AA5B !important; }
+:deep(.leaflet-control-zoom a:hover) { background-color: #f3f4f6 !important; color: #03AC0E !important; }
 :deep(.leaflet-div-icon.bg-transparent) { background: transparent !important; border: none !important; }
 
 :deep(.leaflet-popup-content-wrapper) {

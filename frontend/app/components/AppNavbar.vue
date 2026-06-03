@@ -68,7 +68,7 @@
             <div
               class="relative w-full flex rounded-md overflow-hidden border-2 transition-colors duration-200 bg-white"
               :class="[
-                isComparePage ? 'border-neutral-800' : 'border-[#32cd32]',
+                isComparePage ? 'border-neutral-800' : 'border-[#03AC0E]',
                 isSearchFocused ? 'ring-2 ring-green-100' : '',
               ]"
             >
@@ -141,7 +141,7 @@
                 :class="
                   isComparePage
                     ? 'bg-neutral-800 hover:bg-neutral-900'
-                    : 'bg-[#32cd32] hover:bg-green-600'
+                    : 'bg-gradient-to-r from-[#03AC0E] to-[#028C0B] shadow-sm hover:bg-green-600'
                 "
                 @click="handleSearchSubmit(searchQuery)"
               >
@@ -198,7 +198,7 @@
                     <p class="text-xs text-gray-600 font-medium">
                       Mungkin maksud Anda:
                       <button
-                        class="font-bold text-[#32cd32] hover:underline"
+                        class="font-bold text-[#03AC0E] hover:underline"
                         @click="handleSearchSubmit(searchResults.suggestion!)"
                       >
                         {{ searchResults.suggestion }}</button
@@ -256,7 +256,7 @@
                     <NuxtLink
                       v-for="item in searchResults.items"
                       :key="item.uuid"
-                      :to="`/product/${item.uuid}`"
+                      :to="`/product/${item.slug || item.uuid}`"
                       class="flex items-center gap-3 p-2.5 hover:bg-gray-50 rounded-xl transition-colors group"
                       @click="closeSearch"
                     >
@@ -282,7 +282,7 @@
                       </div>
                       <div class="flex flex-col flex-1 min-w-0">
                         <span
-                          class="text-sm font-bold text-gray-800 group-hover:text-[#32cd32] truncate transition-colors"
+                          class="text-sm font-bold text-gray-800 group-hover:text-[#03AC0E] truncate transition-colors"
                           >{{ item.title }}</span
                         >
                         <span class="text-xs text-red-600 font-black"
@@ -313,7 +313,7 @@
                   </div>
                   <button
                     v-if="searchResults.items?.length"
-                    class="w-full p-3.5 text-xs font-black text-center text-[#32cd32] bg-green-50/50 hover:bg-green-100 transition-colors border-t border-green-100 uppercase tracking-widest"
+                    class="w-full p-3.5 text-xs font-black text-center text-[#03AC0E] bg-green-50/50 hover:bg-green-100 transition-colors border-t border-green-100 uppercase tracking-widest"
                     @click="handleSearchSubmit(searchQuery)"
                   >
                     Lihat Semua Hasil
@@ -324,22 +324,19 @@
           </div>
 
           <div class="flex items-center gap-4 lg:gap-5 flex-shrink-0">
-            <div class="relative inline-flex">
-              <ClientOnly>
-                <UserDropdown />
-                <template #fallback>
-                  <div class="w-10 h-10 bg-gray-50 rounded-full animate-pulse"></div>
-                </template>
-              </ClientOnly>
-              <span
-                v-if="notificationStore.unreadCount > 0"
-                class="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 bg-red-500 text-white text-[10px] font-black rounded-full flex items-center justify-center border-2 border-white shadow-sm pointer-events-none z-10"
-              >
-                {{
-                  notificationStore.unreadCount > 9 ? "9+" : notificationStore.unreadCount
-                }}
-              </span>
-            </div>
+            <ClientOnly>
+              <NotificationDropdown />
+              <template #fallback>
+                <div class="w-9 h-9 bg-gray-50 rounded-full animate-pulse"></div>
+              </template>
+            </ClientOnly>
+
+            <ClientOnly>
+              <UserDropdown />
+              <template #fallback>
+                <div class="w-10 h-10 bg-gray-50 rounded-full animate-pulse"></div>
+              </template>
+            </ClientOnly>
 
             <Whitlish />
             <ClientOnly>
@@ -359,48 +356,48 @@
               <NuxtLink
                 to="/brands"
                 class="nav-link"
-                :class="isComparePage ? 'hover:text-red-600' : 'hover:text-[#32cd32]'"
+                :class="isComparePage ? 'hover:text-red-600' : 'hover:text-[#03AC0E]'"
                 >Brand</NuxtLink
               >
             </div>
             <NuxtLink
               to="/about"
               class="nav-link"
-              :class="isComparePage ? 'hover:text-red-600' : 'hover:text-[#32cd32]'"
+              :class="isComparePage ? 'hover:text-red-600' : 'hover:text-[#03AC0E]'"
               >Tentang Kami</NuxtLink
             >
             <NuxtLink
               to="/search"
               class="nav-link"
-              :class="isComparePage ? 'hover:text-red-600' : 'hover:text-[#32cd32]'"
+              :class="isComparePage ? 'hover:text-red-600' : 'hover:text-[#03AC0E]'"
               >Belanja</NuxtLink
             >
             <NuxtLink
               to="/portfolio"
               class="nav-link"
-              :class="isComparePage ? 'hover:text-red-600' : 'hover:text-[#32cd32]'"
+              :class="isComparePage ? 'hover:text-red-600' : 'hover:text-[#03AC0E]'"
               >Paket Project</NuxtLink
             >
             <NuxtLink
               to="/services/booking"
               class="nav-link"
-              :class="isComparePage ? 'hover:text-red-600' : 'hover:text-[#32cd32]'"
-              >Maintenense & Service</NuxtLink
+              :class="isComparePage ? 'hover:text-red-600' : 'hover:text-[#03AC0E]'"
+              >Maintenense &amp; Service</NuxtLink
             >
             <NuxtLink
               to="/contact"
               class="nav-link"
-              :class="isComparePage ? 'hover:text-red-600' : 'hover:text-[#32cd32]'"
+              :class="isComparePage ? 'hover:text-red-600' : 'hover:text-[#03AC0E]'"
               >Kontak</NuxtLink
             >
             <NuxtLink
               to="/promo"
               class="flex items-center gap-1.5 transition-colors group"
-              :class="isComparePage ? 'hover:text-red-600' : 'hover:text-[#32cd32]'"
+              :class="isComparePage ? 'hover:text-red-600' : 'hover:text-[#03AC0E]'"
             >
               <UIcon
                 name="i-heroicons-receipt-percent"
-                class="w-4 h-4 text-gray-400 group-hover:text-[#32cd32]"
+                class="w-4 h-4 text-gray-400 group-hover:text-[#03AC0E]"
                 aria-hidden="true"
               />
               Diskon Unggulan
@@ -558,7 +555,7 @@
                     class="w-5 h-5 text-gray-400"
                   />
                   <span class="text-[13px] font-bold text-gray-800"
-                    >Maintenense & Service</span
+                    >Maintenense &amp; Service</span
                   >
                 </NuxtLink>
 
@@ -681,7 +678,7 @@
             </div>
 
             <button
-              class="text-white bg-[#32cd32] px-4 py-2 rounded-xl text-sm font-bold flex-shrink-0 transition-colors hover:bg-green-600"
+              class="text-white bg-gradient-to-r from-[#03AC0E] to-[#028C0B] shadow-sm px-4 py-2 rounded-xl text-sm font-bold flex-shrink-0 transition-colors hover:bg-green-600"
               @click="
                 handleSearchSubmit(searchQuery);
                 isMobileSearchOpen = false;
@@ -726,7 +723,7 @@
                 <p class="text-sm text-gray-600">
                   Mungkin:
                   <button
-                    class="font-bold text-[#32cd32]"
+                    class="font-bold text-[#03AC0E]"
                     @click="handleSearchSubmit(searchResults.suggestion!); isMobileSearchOpen = false"
                   >
                     {{ searchResults.suggestion }}
@@ -993,7 +990,7 @@
               </div>
               <div
                 v-else
-                class="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center text-[#32cd32]"
+                class="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center text-[#03AC0E]"
               >
                 <UIcon
                   name="i-heroicons-bell-alert-solid"
@@ -1030,7 +1027,7 @@
           <div class="h-1 w-full bg-gray-100 absolute bottom-0 left-0">
             <div
               class="h-full toast-progress"
-              :class="isToastWarning ? 'bg-red-500' : 'bg-[#32cd32]'"
+              :class="isToastWarning ? 'bg-red-500' : 'bg-gradient-to-r from-[#03AC0E] to-[#028C0B] shadow-sm'"
             ></div>
           </div>
         </div>
@@ -1390,7 +1387,7 @@ onUnmounted(() => {
   width: 48px;
   height: 48px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #32cd32 0%, #22a622 100%);
+  background: linear-gradient(135deg, #03AC0E 0%, #22a622 100%);
   display: flex;
   align-items: center;
   justify-content: center;

@@ -11,9 +11,9 @@
                 <div class="relative flex items-center justify-center w-20 h-20 mb-6">
                     <div class="absolute inset-0 border-4 border-gray-100 rounded-full"></div>
                     <div
-                        class="absolute inset-0 border-4 border-[#00AA5B] rounded-full border-t-transparent animate-spin">
+                        class="absolute inset-0 border-4 border-[#03AC0E] rounded-full border-t-transparent animate-spin">
                     </div>
-                    <UIcon name="i-heroicons-envelope" class="w-8 h-8 text-[#00AA5B] animate-pulse"
+                    <UIcon name="i-heroicons-envelope" class="w-8 h-8 text-[#03AC0E] animate-pulse"
                         aria-hidden="true" />
                 </div>
                 <h1 class="text-xl font-extrabold text-gray-900 mb-2 tracking-tight">Memverifikasi Email...</h1>
@@ -23,8 +23,8 @@
             </div>
 
             <div v-else-if="status === 'success'" class="flex flex-col items-center animate-in zoom-in-95 duration-500">
-                <div class="w-20 h-20 bg-[#e5f7ed] rounded-full flex items-center justify-center mb-6 shadow-inner">
-                    <UIcon name="i-heroicons-check-circle-solid" class="w-12 h-12 text-[#00AA5B]" aria-hidden="true" />
+                <div class="w-20 h-20 bg-[#E6F7E9] rounded-full flex items-center justify-center mb-6 shadow-inner">
+                    <UIcon name="i-heroicons-check-circle-solid" class="w-12 h-12 text-[#03AC0E]" aria-hidden="true" />
                 </div>
                 <h1 class="text-xl font-extrabold text-gray-900 mb-2 tracking-tight">Email Berhasil Diverifikasi!</h1>
                 <p class="text-sm font-medium text-gray-500 leading-relaxed mb-8">
@@ -33,7 +33,7 @@
                 </p>
 
                 <NuxtLink to="/auth/login"
-                    class="w-full bg-[#00AA5B] hover:bg-[#008f4c] text-white font-bold py-3.5 px-4 rounded-xl transition-all shadow-md shadow-green-500/20 flex items-center justify-center gap-2 active:scale-[0.98]">
+                    class="w-full bg-gradient-to-r from-[#03AC0E] to-[#028C0B] shadow-sm hover:bg-[#008f4c] text-white font-bold py-3.5 px-4 rounded-xl transition-all shadow-md shadow-green-500/20 flex items-center justify-center gap-2 active:scale-[0.98]">
                     Lanjut ke Halaman Login
                     <UIcon name="i-heroicons-arrow-right" class="w-4 h-4" />
                 </NuxtLink>
@@ -80,7 +80,7 @@ const status = ref<VerifyStatus>('loading')
 const errorMessage = ref('')
 
 const accentColor = computed(() => {
-  if (status.value === 'success') return 'bg-[#00AA5B]'
+  if (status.value === 'success') return 'bg-gradient-to-r from-[#03AC0E] to-[#028C0B] shadow-sm'
   if (status.value === 'error') return 'bg-red-500'
   return 'bg-gray-200'
 })

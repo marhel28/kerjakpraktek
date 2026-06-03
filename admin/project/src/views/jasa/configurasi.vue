@@ -271,22 +271,6 @@
                 </div>
             </section>
 
-            <!-- Save Bar -->
-            <div class="fixed bottom-0 left-0 right-0 sm:left-auto sm:right-6 sm:bottom-6 sm:w-auto p-4 sm:p-0 z-40">
-                <div class="bg-gray-900 text-white rounded-xl sm:rounded-2xl p-5 flex items-center justify-between gap-8 shadow-2xl border border-white/10 backdrop-blur-md">
-                    <div class="hidden lg:block">
-                        <p class="text-[10px] font-bold text-indigo-400 uppercase tracking-widest mb-0.5">Audit Trail Active</p>
-                        <p class="text-[11px] text-gray-400">Setiap perubahan akan disimpan sebagai versi baru.</p>
-                    </div>
-                    <div class="flex gap-3 w-full sm:w-auto">
-                        <button v-if="isEditMode" @click="isEditMode = false" class="flex-1 sm:flex-none px-6 py-2.5 text-xs font-bold text-gray-400 hover:text-white transition uppercase">Batal</button>
-                        <button @click="promptSave" :disabled="!hasChanges" class="flex-1 sm:flex-none px-10 py-2.5 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white text-xs font-bold rounded-lg transition shadow-lg shadow-indigo-900/40 uppercase tracking-widest active:scale-95">Simpan Config</button>
-                    </div>
-                </div>
-            </div>
-
-        </div>
-
             <!-- ══ AKSI SIMPAN ════════════════════════════════════ -->
             <div class="flex items-center justify-between gap-4 pb-4">
                 <div class="flex items-center gap-2 text-xs text-stone-400">

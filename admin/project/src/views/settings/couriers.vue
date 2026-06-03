@@ -89,27 +89,19 @@
       </div>
     </div>
 
-    <!-- ── Toast ──────────────────────────── -->
-    <Teleport to="body">
-      <Transition name="toast">
-        <div v-if="toast.show" class="fixed bottom-6 right-6 z-50 flex items-center gap-3 px-5 py-3 rounded-xl shadow-2xl text-sm font-semibold bg-gray-900 text-white">
-          <div class="w-5 h-5 bg-emerald-500 rounded-full flex items-center justify-center text-[10px] font-black text-white">✓</div>
-          {{ toast.message }}
-        </div>
-      </Transition>
-    </Teleport>
-
   </div>
 </template>
 
 <script setup>
 import { ref, onMounted } from 'vue'
 import api from '@/service/api'
+import { useToastStore } from '@/stores/toast'
+
+const toastStore = useToastStore()
 
 const loading = ref(true)
 const saving = ref(false)
 const couriers = ref({})
-const toast = ref({ show: false, message: '' })
 
 async function fetchSettings() {
   loading.value = true
@@ -118,6 +110,7 @@ async function fetchSettings() {
     couriers.value = res.data.data
   } catch (e) {
     console.error(e)
+    toastStore.error('Gagal mengambil pengaturan kurir')
   } finally {
     loading.value = false
   }
@@ -127,24 +120,15 @@ async function saveSettings() {
   saving.value = true
   try {
     await api.put('/settings/couriers', couriers.value)
-    showToast('Preferensi kurir berhasil disimpan!')
+    toastStore.success('Preferensi kurir berhasil disimpan!')
   } catch (e) {
-    alert('Gagal menyimpan pengaturan')
+    toastStore.error('Gagal menyimpan pengaturan')
   } finally {
     saving.value = false
   }
 }
 
-function showToast(msg) {
-  toast.value.message = msg
-  toast.value.show = true
-  setTimeout(() => toast.value.show = false, 3000)
-}
-
 onMounted(() => fetchSettings())
 </script>
 
-<style scoped>
-.toast-enter-active, .toast-leave-active { transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
-.toast-enter-from, .toast-leave-to { opacity: 0; transform: translateY(20px); }
-</style>
+<style scoped></style>

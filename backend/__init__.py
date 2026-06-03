@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 
-from backend.db.main import init_db
+from backend.db.main import init_db, init_knowledge_index
 from backend.db.redis import get_redis_token
 from backend.utils.task_banner import refresh_banner_cache_safe
 
@@ -35,11 +35,13 @@ from backend.data.public.addon.admin_route import router as addon_admin_router
 from backend.admin.coupon.router import router as admin_coupon_router
 from backend.data.activity.route import router as activity_router
 from backend.admin.adminSettings.router import router_settings as settings_router
+from backend.data.chatbot.router import router as chatbot_router
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     print("\n🚀 Server is starting up...")
     await init_db()
+    await init_knowledge_index()
 
     # Warm up banner cache saat startup (tetap dipertahankan)
     # Selanjutnya refresh otomatis oleh Celery Beat setiap 5 menit
@@ -108,4 +110,5 @@ app.include_router(addon_router)
 app.include_router(addon_admin_router)
 app.include_router(admin_coupon_router, prefix="/admin/coupon", tags=["Admin Coupon"])
 app.include_router(settings_router, prefix="/settings", tags=["System Settings"])
-app.include_router(activity_router)
+app.include_router(activity_router)
+app.include_router(chatbot_router)

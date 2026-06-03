@@ -266,7 +266,7 @@
     <!-- ══════════════════════════════════════════════════════
            MODAL: PROJECT FORM
       ══════════════════════════════════════════════════════ -->
-    <Transition name="modal">
+    <Transition name="modal-fade">
       <div v-if="isProjectModalOpen" class="modal-backdrop" @click.self="closeProjectModal">
         <div class="modal">
           <div class="modal__head">
@@ -353,7 +353,7 @@
     <!-- ══════════════════════════════════════════════════════
            MODAL: UPLOAD GAMBAR
       ══════════════════════════════════════════════════════ -->
-    <Transition name="modal">
+    <Transition name="modal-fade">
       <div v-if="isUploadModalOpen" class="modal-backdrop" @click.self="isUploadModalOpen = false">
         <div class="modal modal--upload">
           <div class="modal__head">
@@ -415,7 +415,7 @@
     <!-- ══════════════════════════════════════════════════════
            MODAL: REVIEW FORM
       ══════════════════════════════════════════════════════ -->
-    <Transition name="modal">
+    <Transition name="modal-fade">
       <div v-if="isReviewModalOpen" class="modal-backdrop" @click.self="closeReviewModal">
         <div class="modal">
           <div class="modal__head">
@@ -485,7 +485,7 @@
     <!-- ══════════════════════════════════════════════════════
            MODAL: KONFIRMASI HAPUS
       ══════════════════════════════════════════════════════ -->
-    <Transition name="modal">
+    <Transition name="modal-fade">
       <div v-if="isDeleteModalOpen" class="modal-backdrop" @click.self="isDeleteModalOpen = false">
         <div class="modal modal--sm">
           <div class="modal__delete-icon">
@@ -523,8 +523,11 @@
 
 <script setup>
 import { ref, reactive, computed, onMounted } from 'vue'
+import { useToastStore } from '@/stores/toast'
 import api from '@/service/api'
 import ImageSectionPreview from '@/components/ImageSectionPreview.vue'
+
+const toastStore = useToastStore()
 
 // ── API ──────────────────────────────────────────────────────────
 const API = {
@@ -574,7 +577,7 @@ const fetchProjects = async () => {
     const { data } = await api.get(API.projects)
     projects.value = data
   } catch (e) {
-    alert(e.response?.data?.detail || 'Gagal memuat project.')
+    toastStore.error(e.response?.data?.detail || 'Gagal memuat project.')
   } finally {
     isLoadingProjects.value = false
   }
@@ -604,7 +607,7 @@ const fetchProjectImages = async (projectId) => {
     const { data } = await api.get(API.projects + `/${projectId}`)
     projectImages.value = data.images || []
   } catch (e) {
-    alert(e.response?.data?.detail || 'Gagal memuat gambar.')
+    toastStore.error(e.response?.data?.detail || 'Gagal memuat gambar.')
   } finally {
     isLoadingImages.value = false
   }
@@ -620,7 +623,7 @@ const fetchReviews = async () => {
     const { data } = await api.get(API.reviews)
     reviews.value = data
   } catch (e) {
-    alert(e.response?.data?.detail || 'Gagal memuat testimonial.')
+    toastStore.error(e.response?.data?.detail || 'Gagal memuat testimonial.')
   } finally {
     isLoadingReviews.value = false
   }
@@ -671,7 +674,7 @@ const closeProjectModal = () => {
 
 const saveProject = async () => {
   if (!projectForm.title || !projectForm.location) {
-    alert('Judul dan lokasi wajib diisi.')
+    toastStore.warning('Judul dan lokasi wajib diisi.')
     return
   }
   isSubmitting.value = true
@@ -683,8 +686,9 @@ const saveProject = async () => {
     }
     await fetchProjects()
     closeProjectModal()
+    toastStore.success('Project berhasil disimpan.')
   } catch (e) {
-    alert(e.response?.data?.detail || 'Gagal menyimpan project.')
+    toastStore.error(e.response?.data?.detail || 'Gagal menyimpan project.')
   } finally {
     isSubmitting.value = false
   }
@@ -710,11 +714,11 @@ const triggerUploadInput = () => uploadInput.value?.click()
 const processFiles = (files) => {
   const valid = Array.from(files).filter(f => {
     if (!['image/jpeg', 'image/png', 'image/webp'].includes(f.type)) {
-      alert(`${f.name}: tipe tidak didukung`)
+      toastStore.error(`${f.name}: tipe tidak didukung`)
       return false
     }
     if (f.size > 5 * 1024 * 1024) {
-      alert(`${f.name}: melebihi 5MB`)
+      toastStore.error(`${f.name}: melebihi 5MB`)
       return false
     }
     return true
@@ -747,8 +751,9 @@ const uploadImages = async () => {
     await fetchProjectImages(selectedProject.value.id)
     await fetchProjects() // refresh cover di grid
     isUploadModalOpen.value = false
+    toastStore.success('Gambar berhasil diupload.')
   } catch (e) {
-    alert(e.response?.data?.detail || 'Gagal upload gambar.')
+    toastStore.error(e.response?.data?.detail || 'Gagal upload gambar.')
   } finally {
     isSubmitting.value = false
   }
@@ -788,7 +793,7 @@ const closeReviewModal = () => {
 
 const saveReview = async () => {
   if (!reviewForm.name || !reviewForm.text) {
-    alert('Nama dan ulasan wajib diisi.')
+    toastStore.warning('Nama dan ulasan wajib diisi.')
     return
   }
   isSubmitting.value = true
@@ -804,8 +809,9 @@ const saveReview = async () => {
     }
     await fetchReviews()
     closeReviewModal()
+    toastStore.success('Testimonial berhasil disimpan.')
   } catch (e) {
-    alert(e.response?.data?.detail || 'Gagal menyimpan testimonial.')
+    toastStore.error(e.response?.data?.detail || 'Gagal menyimpan testimonial.')
   } finally {
     isSubmitting.value = false
   }
@@ -841,8 +847,9 @@ const executeDelete = async () => {
     if (type === 'review') await fetchReviews()
 
     isDeleteModalOpen.value = false
+    toastStore.success('Data berhasil dihapus.')
   } catch (e) {
-    alert(e.response?.data?.detail || 'Gagal menghapus data.')
+    toastStore.error(e.response?.data?.detail || 'Gagal menghapus data.')
   } finally {
     isSubmitting.value = false
   }
@@ -1929,27 +1936,29 @@ onMounted(() => {
 }
 
 /* ── Transitions ────────────────────────────────────────── */
-.modal-enter-active,
-.modal-leave-active {
-  transition: opacity 200ms;
+.modal-fade-enter-active,
+.modal-fade-leave-active {
+  transition: opacity 0.25s ease;
 }
 
-.modal-enter-active .modal,
-.modal-leave-active .modal {
-  transition: transform 250ms cubic-bezier(0.34, 1.56, 0.64, 1);
+.modal-fade-enter-active .modal,
+.modal-fade-leave-active .modal {
+  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.25s ease;
 }
 
-.modal-enter-from,
-.modal-leave-to {
+.modal-fade-enter-from,
+.modal-fade-leave-to {
   opacity: 0;
 }
 
-.modal-enter-from .modal {
-  transform: scale(0.92) translateY(16px);
+.modal-fade-enter-from .modal {
+  transform: scale(0.95) translateY(12px);
+  opacity: 0;
 }
 
-.modal-leave-to .modal {
-  transform: scale(0.95) translateY(8px);
+.modal-fade-leave-to .modal {
+  transform: scale(0.95) translateY(10px);
+  opacity: 0;
 }
 
 @keyframes spin {

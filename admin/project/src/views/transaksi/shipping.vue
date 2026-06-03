@@ -173,9 +173,13 @@
 
     <!-- ── Modal Update Resi ──────────────────── -->
     <Teleport to="body">
-      <Transition name="modal">
-        <div v-if="resiModal.show" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm" @click.self="resiModal.show = false">
-          <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden flex flex-col">
+      <Transition name="modal-fade">
+        <div v-if="resiModal.show" class="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <!-- Backdrop -->
+          <div class="absolute inset-0 bg-black/40 backdrop-blur-sm" @click="resiModal.show = false"></div>
+
+          <!-- Modal Card -->
+          <div class="modal-card relative bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden flex flex-col z-10">
             <div class="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
               <h3 class="text-sm font-bold text-gray-900">Input Nomor Resi</h3>
               <button @click="resiModal.show = false" class="p-1.5 text-gray-400 hover:text-gray-600 transition-colors">
@@ -221,22 +225,15 @@
       </Transition>
     </Teleport>
 
-    <!-- ── Toast ──────────────────────────── -->
-    <Teleport to="body">
-      <Transition name="toast">
-        <div v-if="toast.show" class="fixed bottom-6 right-6 z-50 flex items-center gap-3 px-5 py-3 rounded-xl shadow-2xl text-sm font-semibold bg-gray-900 text-white">
-          <div class="w-5 h-5 bg-emerald-500 rounded-full flex items-center justify-center text-[10px] font-black text-white">✓</div>
-          {{ toast.message }}
-        </div>
-      </Transition>
-    </Teleport>
-
   </div>
 </template>
 
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
 import api from '@/service/api'
+import { useToastStore } from '@/stores/toast'
+
+const toastStore = useToastStore()
 
 const loading = ref(true)
 const transactions = ref([])
@@ -248,7 +245,6 @@ const resiModal = reactive({
   show: false, loading: false,
   order_id: '', waybill: '', courier: 'JNE', status: 'SHIPPED'
 })
-const toast = reactive({ show: false, message: '' })
 
 let timer = null
 
@@ -264,18 +260,18 @@ async function fetchData(reset = false) {
     const allData = res.data?.data || []
     
     // Hitung Stats dari data asli (hanya settlement)
-    totalPending.value = allData.filter(t => !t.shipment?.waybill_number || t.shipment?.delivery_status === 'PENDING').length
-    totalShipped.value = allData.filter(t => t.shipment?.waybill_number && t.shipment?.delivery_status !== 'DELIVERED').length
+    totalPending.value = allData.filter(t => !t.waybill_number || t.shipment?.delivery_status === 'PENDING').length
+    totalShipped.value = allData.filter(t => t.waybill_number && t.shipment?.delivery_status !== 'DELIVERED').length
     totalDelivered.value = allData.filter(t => t.shipment?.delivery_status === 'DELIVERED').length
 
     // Filter untuk Tampilan
     let data = [...allData]
     if (filters.status === 'settlement') {
       // Perlu Dikirim: Lunas tapi belum ada resi atau status masih PENDING
-      data = data.filter(t => !t.shipment?.waybill_number)
+      data = data.filter(t => !t.waybill_number)
     } else if (filters.status === 'SHIPPED') {
       // Sedang Dikirim: Ada resi tapi belum DELIVERED
-      data = data.filter(t => t.shipment?.waybill_number && t.shipment?.delivery_status !== 'DELIVERED')
+      data = data.filter(t => t.waybill_number && t.shipment?.delivery_status !== 'DELIVERED')
     } else if (filters.status === 'DELIVERED') {
       data = data.filter(t => t.shipment?.delivery_status === 'DELIVERED')
     }
@@ -292,6 +288,7 @@ async function fetchData(reset = false) {
     transactions.value = data
   } catch (e) {
     console.error(e)
+    toastStore.error('Gagal mengambil data pengiriman')
   } finally {
     loading.value = false
   }
@@ -302,9 +299,10 @@ function debounceSearch() {
   timer = setTimeout(() => fetchData(), 400)
 }
 
+// Map order data to match inputs properly
 function openResiModal(item) {
   resiModal.order_id = item.order_id
-  resiModal.waybill = item.shipment?.waybill_number || ''
+  resiModal.waybill = item.waybill_number || ''
   resiModal.courier = item.shipment?.courier_name || 'JNE'
   resiModal.status = item.shipment?.delivery_status === 'PENDING' ? 'SHIPPED' : (item.shipment?.delivery_status || 'SHIPPED')
   resiModal.show = true
@@ -321,20 +319,14 @@ async function submitResi() {
       }
     })
     
-    showToast('Nomor resi berhasil diperbarui!')
+    toastStore.success('Nomor resi berhasil diperbarui!')
     resiModal.show = false
     fetchData()
   } catch (e) {
-    alert('Gagal mengupdate resi')
+    toastStore.error('Gagal mengupdate resi')
   } finally {
     resiModal.loading = false
   }
-}
-
-function showToast(msg) {
-  toast.message = msg
-  toast.show = true
-  setTimeout(() => toast.show = false, 3000)
 }
 
 function statusStyles(s) {
@@ -343,6 +335,7 @@ function statusStyles(s) {
   return 'bg-amber-50 text-amber-700 border-amber-100'
 }
 
+// Dot styles helper
 function dotStyles(s) {
   if (s === 'DELIVERED') return 'bg-emerald-500'
   if (s === 'SHIPPED') return 'bg-blue-500'
@@ -353,9 +346,22 @@ onMounted(() => fetchData())
 </script>
 
 <style scoped>
-.modal-enter-active, .modal-leave-active { transition: opacity 0.2s ease; }
-.modal-enter-from, .modal-leave-to { opacity: 0; }
-
-.toast-enter-active, .toast-leave-active { transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
-.toast-enter-from, .toast-leave-to { opacity: 0; transform: translateY(20px); }
+/* Modal Animation */
+.modal-fade-enter-active, .modal-fade-leave-active {
+  transition: opacity 0.25s ease;
+}
+.modal-fade-enter-active .modal-card, .modal-fade-leave-active .modal-card {
+  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.25s ease;
+}
+.modal-fade-enter-from, .modal-fade-leave-to {
+  opacity: 0;
+}
+.modal-fade-enter-from .modal-card {
+  transform: scale(0.95) translateY(12px);
+  opacity: 0;
+}
+.modal-fade-leave-to .modal-card {
+  transform: scale(0.95) translateY(10px);
+  opacity: 0;
+}
 </style>

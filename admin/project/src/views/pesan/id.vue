@@ -322,12 +322,14 @@
   <script setup>
   import { ref, computed, watch, nextTick, onUnmounted } from 'vue'
   import { useRoute } from 'vue-router'
+  import { useToastStore } from '@/stores/toast'
   import { useMessageStore, extractUserBody, parseProductContext, detectProductLink } from '@/stores/messageStore'
   
   defineEmits(['back'])
   
   const route = useRoute()
   const store = useMessageStore()
+  const toastStore = useToastStore()
   
   const inputText     = ref('')
   const pendingImages = ref([])
@@ -404,7 +406,7 @@
     const images = pendingImages.value.map(p => p.file)
   
     if (!body && images.length === 0) return
-    if (images.length > 2) { alert('Maksimal 2 gambar per pesan.'); return }
+    if (images.length > 2) { toastStore.warning('Maksimal 2 gambar per pesan.'); return }
   
     sending.value = true
     try {
@@ -416,7 +418,7 @@
       await nextTick()
       scrollToBottom()
     } catch (e) {
-      alert('Gagal mengirim pesan.')
+      toastStore.error('Gagal mengirim pesan.')
       console.error(e)
     } finally {
       sending.value = false

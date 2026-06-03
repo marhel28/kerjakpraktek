@@ -120,12 +120,10 @@
       <!-- ══════════════════════════════
            MODAL: TAMBAH KATEGORI
       ══════════════════════════════ -->
-      <transition enter-active-class="transition duration-200 ease-out" enter-from-class="opacity-0 scale-95"
-        enter-to-class="opacity-100 scale-100" leave-active-class="transition duration-150 ease-in"
-        leave-from-class="opacity-100 scale-100" leave-to-class="opacity-0 scale-95">
+      <Transition name="modal-fade">
         <div v-if="showCatModal" class="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div class="absolute inset-0 bg-gray-900/40 backdrop-blur-sm" @click="closeModals"></div>
-          <div class="relative bg-white rounded-2xl shadow-xl w-full max-w-md border border-gray-100 flex flex-col overflow-hidden max-h-[90vh]">
+          <div class="modal-card relative bg-white rounded-2xl shadow-xl w-full max-w-md border border-gray-100 flex flex-col overflow-hidden max-h-[90vh]">
   
             <div class="flex items-center justify-between px-6 py-4 border-b border-gray-100 bg-gray-50/50 shrink-0">
               <h3 class="text-lg font-semibold text-gray-900">Tambah Kategori Utama</h3>
@@ -253,12 +251,10 @@
       <!-- ══════════════════════════════
            MODAL: TAMBAH SUBKATEGORI
       ══════════════════════════════ -->
-      <transition enter-active-class="transition duration-200 ease-out" enter-from-class="opacity-0 scale-95"
-        enter-to-class="opacity-100 scale-100" leave-active-class="transition duration-150 ease-in"
-        leave-from-class="opacity-100 scale-100" leave-to-class="opacity-0 scale-95">
+      <Transition name="modal-fade">
         <div v-if="showSubModal" class="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div class="absolute inset-0 bg-gray-900/40 backdrop-blur-sm" @click="closeModals"></div>
-          <div class="relative bg-white rounded-2xl shadow-xl w-full max-w-md border border-gray-100 flex flex-col overflow-hidden">
+          <div class="modal-card relative bg-white rounded-2xl shadow-xl w-full max-w-md border border-gray-100 flex flex-col overflow-hidden">
   
             <div class="flex items-center justify-between px-6 py-4 border-b border-gray-100 bg-gray-50/50">
               <h3 class="text-lg font-semibold text-gray-900">Tambah Subkategori</h3>
@@ -312,12 +308,10 @@
       </transition>
   
       <!-- ── MODAL: HAPUS ── -->
-      <transition enter-active-class="transition duration-200 ease-out" enter-from-class="opacity-0 scale-95"
-        enter-to-class="opacity-100 scale-100" leave-active-class="transition duration-150 ease-in"
-        leave-from-class="opacity-100 scale-100" leave-to-class="opacity-0 scale-95">
+      <Transition name="modal-fade">
         <div v-if="showDeleteModal" class="fixed inset-0 z-[60] flex items-center justify-center p-4">
           <div class="absolute inset-0 bg-gray-900/40 backdrop-blur-sm" @click="showDeleteModal = false"></div>
-          <div class="relative bg-white rounded-2xl shadow-xl w-full max-w-sm p-6 text-center border border-gray-100">
+          <div class="modal-card relative bg-white rounded-2xl shadow-xl w-full max-w-sm p-6 text-center border border-gray-100">
             <div class="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100 mb-4">
               <svg class="h-6 w-6 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -359,6 +353,9 @@
 import { ref, reactive, computed, watch, onMounted } from 'vue'
 import api from '@/service/api'
 import ImageSectionPreview from '@/components/ImageSectionPreview.vue'
+import { useToastStore } from '@/stores/toast'
+
+const toastStore = useToastStore()
 
 const API_BASE = '/category'
 
@@ -561,7 +558,7 @@ const fetchCategories = async () => {
     }
   } catch (e) {
     console.error(e)
-    alert(e.response?.data?.detail || 'Gagal memuat data kategori.')
+    toastStore.error(e.response?.data?.detail || 'Gagal memuat data kategori.')
   } finally {
     isLoading.value = false
   }
@@ -604,15 +601,16 @@ const saveCategory = async () => {
   fd.append('position', catForm.position)
   try {
     await api.post(`${API_BASE}/admin/category`, fd)
+    toastStore.success('Kategori baru berhasil ditambahkan!')
     await fetchCategories()
     closeModals()
   } catch (e) {
-    alert(e.response?.data?.detail || 'Gagal menyimpan kategori.')
-  } finally { isSubmitting.value = false }
+    toastStore.error(e.response?.data?.detail || 'Gagal menyimpan kategori.')
+  } finally { fd.position = 0; isSubmitting.value = false }
 }
 
 const saveSubcategory = async () => {
-  if (!subForm.category_uuid) { alert('Harap pilih kategori utama.'); return }
+  if (!subForm.category_uuid) { toastStore.error('Harap pilih kategori utama.'); return }
   isSubmitting.value = true
   const fd = new FormData()
   fd.append('category_uuid', subForm.category_uuid)
@@ -621,11 +619,12 @@ const saveSubcategory = async () => {
   fd.append('position', subForm.position)
   try {
     await api.post(`${API_BASE}/admin/subcategory`, fd)
+    toastStore.success('Subkategori baru berhasil ditambahkan!')
     await fetchCategories()
     closeModals()
     if (!isExpanded(subForm.category_uuid)) toggleExpand(subForm.category_uuid)
   } catch (e) {
-    alert(e.response?.data?.detail || 'Gagal menyimpan subkategori.')
+    toastStore.error(e.response?.data?.detail || 'Gagal menyimpan subkategori.')
   } finally { isSubmitting.value = false }
 }
 
@@ -636,10 +635,11 @@ const deleteCategory = async () => {
   isSubmitting.value = true
   try {
     await api.delete(`${API_BASE}/admin/category/${itemToDelete.value}`)
+    toastStore.success('Kategori berhasil dihapus!')
     await fetchCategories()
     showDeleteModal.value = false
   } catch (e) {
-    alert(e.response?.data?.detail || 'Gagal menghapus kategori.')
+    toastStore.error(e.response?.data?.detail || 'Gagal menghapus kategori.')
   } finally { isSubmitting.value = false; itemToDelete.value = null }
 }
 
@@ -651,4 +651,23 @@ onMounted(() => fetchCategories())
   .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
   .custom-scrollbar::-webkit-scrollbar-thumb { background-color: #e5e7eb; border-radius: 10px; }
   .custom-scrollbar:hover::-webkit-scrollbar-thumb { background-color: #d1d5db; }
+
+  /* Modal Animation */
+  .modal-fade-enter-active, .modal-fade-leave-active {
+    transition: opacity 0.25s ease;
+  }
+  .modal-fade-enter-active .modal-card, .modal-fade-leave-active .modal-card {
+    transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.25s ease;
+  }
+  .modal-fade-enter-from, .modal-fade-leave-to {
+    opacity: 0;
+  }
+  .modal-fade-enter-from .modal-card {
+    transform: scale(0.95) translateY(12px);
+    opacity: 0;
+  }
+  .modal-fade-leave-to .modal-card {
+    transform: scale(0.95) translateY(10px);
+    opacity: 0;
+  }
   </style>

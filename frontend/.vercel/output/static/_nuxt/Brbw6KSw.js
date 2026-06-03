@@ -1,0 +1,1 @@
+import{y as t}from"./B-F9S2fp.js";const p=()=>t("portfolio-page",()=>$fetch("/api/portfolio?type=page")),r=o=>t(`portfolio-project-${o}`,()=>$fetch(`/api/portfolio?type=project&id=${o}`));export{p as a,r as u};

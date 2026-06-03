@@ -1,4 +1,5 @@
 import logging
+from typing import Optional
 from fastapi import Request, status, Depends
 from fastapi.security import HTTPBearer
 from fastapi.security.http import HTTPAuthorizationCredentials
@@ -13,6 +14,7 @@ from backend.db.main import get_session
 
 logger = logging.getLogger(__name__)
 user_service = UserService()
+
 
 
 class TokenBearer(HTTPBearer):
@@ -110,3 +112,36 @@ async def get_admin(
         raise HTTPException(status_code=403, detail="Akses ditolak: bukan admin")
 
     return user
+
+
+async def get_optional_current_user(
+    request: Request,
+    session: AsyncSession = Depends(get_session),
+) -> Optional[User]:
+    auth_header = request.headers.get("Authorization")
+    if not auth_header:
+        return None
+    try:
+        if not auth_header.lower().startswith("bearer "):
+            return None
+        token = auth_header.split(" ")[1]
+        token_data = decode_token(token)
+        if token_data is None:
+            return None
+        
+        # Structure validation
+        if "user" not in token_data or "uuid" not in token_data.get("user", {}):
+            return None
+
+        # Check blocklist Redis
+        if await token_jti_bloclist(token_data["jti"]):
+            return None
+
+        user_email = token_data["user"]["email"]
+        user = await user_service.get_user_by_email(user_email, session)
+        if not user or not user.is_verified:
+            return None
+        return user
+    except Exception as e:
+        logger.warning(f"get_optional_current_user error parsing token: {e}")
+        return None
