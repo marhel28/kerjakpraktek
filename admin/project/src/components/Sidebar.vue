@@ -93,7 +93,6 @@ img:focus+.fallback-text {
 </style>
 
 <script setup>
-import { path } from 'd3'
 import { ref, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 
