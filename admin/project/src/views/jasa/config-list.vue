@@ -198,7 +198,7 @@
     </div>
 
     <!-- Live Preview Modal -->
-    <Imagesectionpreview
+    <ImageSectionPreview
       v-model="showPreview"
       :initial-url="'http://localhost:3000/services/booking'"
       hide-mode-picker
@@ -210,7 +210,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import api from '@/service/api'
-import Imagesectionpreview from '@/components/Imagesectionpreview.vue'
+import ImageSectionPreview from '@/components/ImageSectionPreview.vue'
 
 interface CategoryConfig {
   id: string

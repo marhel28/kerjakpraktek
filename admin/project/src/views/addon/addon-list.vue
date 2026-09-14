@@ -379,7 +379,7 @@
     </Teleport>
 
     <!-- ── Live Preview Section ────────────── -->
-    <Imagesectionpreview 
+    <ImageSectionPreview 
       v-model="showLivePreview"
       :section="previewSection"
       initialUrl="http://localhost:3000/product/sample-cctv-kit"
@@ -391,7 +391,7 @@
 <script setup>
 import { ref, onMounted, reactive, computed } from 'vue'
 import { get, post, patch, del } from '@/service/api'
-import Imagesectionpreview from '@/components/Imagesectionpreview.vue'
+import ImageSectionPreview from '@/components/ImageSectionPreview.vue'
 
 // ── State ────────────────────────────────────────────────
 const groups = ref([])
