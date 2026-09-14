@@ -39,7 +39,7 @@ export const useAuthStore = defineStore('auth', {
         localStorage.setItem('refresh_token', data.refresh_token);
         localStorage.setItem('user', JSON.stringify(data.user));
 
-        router.push('/admin');
+        router.push('/');
         return true;
       } catch (err) {
         this.error = err.response?.data?.detail || 'Login gagal';

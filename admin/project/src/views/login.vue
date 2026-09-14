@@ -21,6 +21,13 @@
                 </p>
             </div>
 
+            <div v-if="authStore.error" class="mb-6 p-4 bg-red-50 border border-red-200 text-red-700 text-sm rounded-xl flex items-center gap-2">
+                <svg class="w-5 h-5 flex-shrink-0 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span>{{ authStore.error }}</span>
+            </div>
+
             <form class="space-y-6" @submit.prevent="handleLogin">
 
                 <div>
@@ -98,9 +105,11 @@
 
 <script setup>
 import { ref } from 'vue'
-// If integrating with Pinia/Vue Router later, uncomment below:
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+
+const authStore = useAuthStore()
+const router = useRouter()
 
 // State
 const email = ref('')
@@ -120,25 +129,12 @@ const handleLogin = async () => {
     isLoading.value = true
 
     try {
-        // Simulate API Call delay for UX purposes
-        console.log('Attempting login with:', {
-            email: email.value,
-            password: password.value,
-            remember: rememberMe.value
-        })
-
-        await new Promise(resolve => setTimeout(resolve, 1000))
-
-        console.log('Login logic finished.')
-
-        // Future integration example:
-        const authStore = useAuthStore()
-        const router = useRouter()
         const success = await authStore.login(email.value, password.value)
-        if (success) router.push('/')
-
+        if (success) {
+            router.push('/')
+        }
     } catch (error) {
-        console.error(error)
+        console.error('Login error:', error)
     } finally {
         isLoading.value = false
     }
