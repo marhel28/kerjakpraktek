@@ -12,15 +12,16 @@ from .schema import (
     CouponCreateRequest, CouponUpdateRequest,
     CouponResponse, CouponValidateRequest,
 )
-from backend.db.redis import get_redis_token
+from backend.db.redis import get_redis_token, cache_get, cache_set, cache_delete
 from backend.data.public.branlogo.service import get_brands_service
 from backend.auth.depedence import get_admin  # Admin guard
 
 router = APIRouter()
 service = StockService()
 
-MEGAMENU_CACHE_KEY    = "megamenu:top_collections"
+MEGAMENU_CACHE_KEY       = "megamenu:top_collections"
 BRAND_SHOWCASE_CACHE_KEY = "cache:public:brand_showcase:v2"
+STOCK_DETAIL_CACHE_TTL   = 1800  # 30 menit
 
 
 # ── Admin: Create stock ────────────────────────────────────────────
@@ -128,6 +129,7 @@ async def admin_get_products(
         brand=brand,
         item_type=item_type,
         is_active=is_active,  # 🔥 kirim ke service
+        stock_status=stock_status,  # 🔥 kirim ke service
         min_p=min_price,
         max_p=max_price,
         sort_by=sort,
@@ -187,12 +189,29 @@ async def public_get_popular_items(session: AsyncSession = Depends(get_session))
     return {"status": "success", "items": items}
 
 
+@router.get("/public/best-deals")
+async def public_get_best_deals(
+    limit: int = 12,
+    session: AsyncSession = Depends(get_session),
+):
+    """Produk dengan diskon terbesar, diurutkan discount_percentage DESC."""
+    safe_limit = min(max(limit, 1), 50)
+    items = await service.get_best_deals(session, limit=safe_limit)
+    return {"status": "success", "items": items}
+
+
 @router.get("/public/detail/{stock_uuid}")
 async def public_get_stock_detail(stock_uuid: UUID, session: AsyncSession = Depends(get_session)):
+    cache_key = f"stock:detail:uuid:{stock_uuid}"
+    cached = await cache_get(cache_key)
+    if cached is not None:
+        return {"status": "success", "source": "redis", "data": cached}
+
     stock = await service.get_stock_detail(session, stock_uuid)
     if not stock:
         raise HTTPException(404, "Product not found")
-    return {"status": "success", "data": {
+
+    data = {
         "uuid": str(stock.uuid), "title": stock.title, "slug": stock.slug,
         "brand": stock.brand,
         "brand_slug": stock.brand.lower().strip().replace(" ", "-") if stock.brand else None,
@@ -201,16 +220,29 @@ async def public_get_stock_detail(stock_uuid: UUID, session: AsyncSession = Depe
         "discount_percentage": stock.discount_percentage, "stok": stock.stok,
         "terjual": stock.terjual, "description": stock.description, "specs": stock.specs,
         "images": [a.url for a in (stock.assets or [])], "weight": stock.weight,
-        "created_at": stock.created_at, "updated_at": stock.updated_at,
-    }}
+        "created_at": stock.created_at.isoformat() if stock.created_at else None,
+        "updated_at": stock.updated_at.isoformat() if stock.updated_at else None,
+    }
+
+    await cache_set(cache_key, data, ex=STOCK_DETAIL_CACHE_TTL)
+    if stock.slug:
+        await cache_set(f"stock:detail:slug:{stock.slug}", data, ex=STOCK_DETAIL_CACHE_TTL)
+
+    return {"status": "success", "source": "db", "data": data}
 
 
 @router.get("/public/detail/slug/{slug}")
 async def public_get_stock_detail_by_slug(slug: str, session: AsyncSession = Depends(get_session)):
+    cache_key = f"stock:detail:slug:{slug}"
+    cached = await cache_get(cache_key)
+    if cached is not None:
+        return {"status": "success", "source": "redis", "data": cached}
+
     stock = await service.get_stock_detail_by_slug(session, slug)
     if not stock:
         raise HTTPException(404, "Product not found")
-    return {"status": "success", "data": {
+
+    data = {
         "uuid": str(stock.uuid), "title": stock.title, "slug": stock.slug,
         "brand": stock.brand,
         "brand_slug": stock.brand.lower().strip().replace(" ", "-") if stock.brand else None,
@@ -219,8 +251,14 @@ async def public_get_stock_detail_by_slug(slug: str, session: AsyncSession = Dep
         "discount_percentage": stock.discount_percentage, "stok": stock.stok,
         "terjual": stock.terjual, "description": stock.description, "specs": stock.specs,
         "images": [a.url for a in (stock.assets or [])], "weight": stock.weight,
-        "created_at": stock.created_at, "updated_at": stock.updated_at,
-    }}
+        "created_at": stock.created_at.isoformat() if stock.created_at else None,
+        "updated_at": stock.updated_at.isoformat() if stock.updated_at else None,
+    }
+
+    await cache_set(cache_key, data, ex=STOCK_DETAIL_CACHE_TTL)
+    await cache_set(f"stock:detail:uuid:{stock.uuid}", data, ex=STOCK_DETAIL_CACHE_TTL)
+
+    return {"status": "success", "source": "db", "data": data}
 
 
 @router.get("/public/recommendations/{stock_uuid}")
@@ -246,19 +284,13 @@ async def get_recommendations_by_slug(slug: str, session: AsyncSession = Depends
 
 @router.get("/public/megamenu-collections")
 async def get_megamenu_collections():
-    r = get_redis_token()
-    try:
-        cached = await r.get(MEGAMENU_CACHE_KEY)
-        if cached:
-            return {"status": "success", "source": "redis", "data": json.loads(cached)}
-    except Exception:
-        pass
+    cached = await cache_get(MEGAMENU_CACHE_KEY)
+    if cached is not None:
+        return {"status": "success", "source": "redis", "data": cached}
+
     collections = await service.get_top_collections_es()
     if collections:
-        try:
-            await r.set(MEGAMENU_CACHE_KEY, json.dumps(collections), ex=86400)
-        except Exception:
-            pass
+        await cache_set(MEGAMENU_CACHE_KEY, collections, ex=86400)
     return {"status": "success", "source": "elasticsearch", "data": collections}
 
 

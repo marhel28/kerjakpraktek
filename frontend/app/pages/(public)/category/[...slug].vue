@@ -382,10 +382,9 @@ onBeforeUnmount(() => {
             </template>
             <template v-else>
               <div
-                v-for="(item, idx) in products"
+                v-for="item in products"
                 :key="item.uuid"
                 class="product-item"
-                :style="{ animationDelay: `${(idx % 12) * 35}ms` }"
                 role="listitem"
               >
                 <CardPerItem v-bind="item" class="h-full" />
@@ -533,15 +532,10 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped>
-/* ── Product item animasi masuk ──────────────────────────────────── */
-@keyframes fadeUp {
-  from { opacity: 0; transform: translateY(12px); }
-  to   { opacity: 1; transform: translateY(0); }
-}
 
 .product-item {
-  opacity: 0;
-  animation: fadeUp 0.35s ease-out forwards;
+  display: flex;
+  flex-direction: column;
 }
 
 /* ── Backdrop fade ────────────────────────────────────────────────── */
@@ -558,8 +552,5 @@ onBeforeUnmount(() => {
 /* ── iOS safe area ───────────────────────────────────────────────── */
 .safe-area-bottom { padding-bottom: env(safe-area-inset-bottom, 12px); }
 
-/* ── Reduced motion ──────────────────────────────────────────────── */
-@media (prefers-reduced-motion: reduce) {
-  .product-item { animation: none; opacity: 1; }
-}
+
 </style>

@@ -28,24 +28,7 @@ const props = withDefaults(defineProps<{
   modelValue: Record<string, { uuid: string; quantity: number; price: number; name: string; weight: number }>;
   variant?: "cards" | "chips";
 }>(), {
-  variant: "cards"
-});
-
-// Computed for grouped bundles
-const groupedBundles = computed(() => {
-  const groups = {
-    required: [] as AddonGroup[],
-    recommended: [] as AddonGroup[],
-    optional: [] as AddonGroup[]
-  };
-  
-  props.bundle.forEach(g => {
-    const type = g.group_type || (g.is_required ? 'required' : 'optional');
-    if (groups[type]) groups[type].push(g);
-    else groups.optional.push(g);
-  });
-  
-  return groups;
+  variant: "chips"
 });
 
 const emit = defineEmits(["update:modelValue"]);
@@ -59,9 +42,25 @@ const showDetail = (item: AddonItem) => {
   isDetailOpen.value = true;
 };
 
+// Group ordering: required → recommended → optional
+const orderedGroups = computed(() => {
+  const order = ["required", "recommended", "optional"];
+  return [...props.bundle].sort((a, b) => {
+    const aIdx = order.indexOf(a.group_type || "optional");
+    const bIdx = order.indexOf(b.group_type || "optional");
+    return aIdx - bIdx;
+  });
+});
+
+const groupTypeLabel: Record<string, { label: string; color: string; dot: string }> = {
+  required:    { label: "Wajib",       color: "text-red-600 bg-red-50 border-red-200",       dot: "bg-red-500"    },
+  recommended: { label: "Direkomendasikan", color: "text-[#03AC0E] bg-green-50 border-green-200", dot: "bg-[#03AC0E]" },
+  optional:    { label: "Opsional",    color: "text-gray-500 bg-gray-50 border-gray-200",    dot: "bg-gray-400"   },
+};
+
 const toggleItem = (group: AddonGroup, item: AddonItem) => {
   const current = { ...props.modelValue };
-  
+
   if (group.selection_type === "single") {
     if (current[item.uuid]) {
       if (!group.is_required) delete current[item.uuid];
@@ -76,14 +75,13 @@ const toggleItem = (group: AddonGroup, item: AddonItem) => {
       current[item.uuid] = { uuid: item.uuid, quantity: 1, price: item.price, name: item.name, weight: item.weight };
     }
   }
-  
+
   emit("update:modelValue", current);
 };
 
 const updateQty = (uuid: string, delta: number, max: number) => {
   const current = { ...props.modelValue };
   if (!current[uuid]) return;
-  
   const newQty = current[uuid].quantity + delta;
   if (newQty >= 1 && newQty <= max) {
     current[uuid].quantity = newQty;
@@ -92,197 +90,243 @@ const updateQty = (uuid: string, delta: number, max: number) => {
 };
 
 const formatRupiah = (angka: number) =>
-  new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", minimumFractionDigits: 0 }).format(angka || 0);
+  new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", minimumFractionDigits: 0 })
+    .format(angka || 0)
+    .replace("Rp", "Rp ");
+
+const isSelected = (uuid: string) => !!props.modelValue[uuid];
 </script>
 
 <template>
-  <div class="space-y-8 py-2">
-    <!-- Grouped Sections -->
-    <div v-for="(groups, type) in groupedBundles" :key="type">
-      <div v-if="groups.length > 0" class="space-y-6">
+  <div class="space-y-5">
+    <div
+      v-for="group in orderedGroups"
+      :key="group.uuid"
+      class="addon-group"
+    >
+      <!-- ── Group Header ── -->
+      <div class="flex items-center justify-between mb-3">
+        <div class="flex items-center gap-2">
+          <!-- Dot accent -->
+          <span
+            class="w-2 h-2 rounded-full shrink-0"
+            :class="groupTypeLabel[group.group_type]?.dot ?? 'bg-gray-400'"
+            aria-hidden="true"
+          />
+          <span class="text-[13px] font-black text-gray-800 leading-none">{{ group.name }}</span>
+          <!-- Required / type badge -->
+          <span
+            class="text-[9px] font-black px-1.5 py-0.5 rounded-full border uppercase tracking-wide leading-none"
+            :class="groupTypeLabel[group.group_type]?.color ?? 'text-gray-500 bg-gray-50 border-gray-200'"
+          >
+            {{ groupTypeLabel[group.group_type]?.label ?? 'Opsional' }}
+          </span>
+        </div>
 
+        <span class="text-[10px] text-gray-400 font-bold">
+          {{ group.selection_type === 'single' ? 'Pilih 1' : 'Pilih beberapa' }}
+        </span>
+      </div>
 
-        <div v-for="group in groups" :key="group.uuid" class="space-y-3">
-          <!-- Group Header -->
-          <div class="flex items-center justify-between">
-            <div class="flex items-center gap-2">
-              <label class="text-[12px] font-black text-gray-600 tracking-wide">
-                {{ group.name }}
-              </label>
-              <span v-if="group.is_global" class="text-[8px] font-black text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded-full uppercase leading-none border border-indigo-100">
-                Global
-              </span>
+      <!-- ── Item List (Tokopedia row style) ── -->
+      <div class="space-y-2">
+        <div
+          v-for="item in group.items"
+          :key="item.uuid"
+          class="addon-row"
+          :class="isSelected(item.uuid)
+            ? 'border-[#03AC0E] bg-[#f0fef0]'
+            : 'border-gray-100 bg-white hover:border-gray-200'"
+          @click="toggleItem(group, item)"
+          role="checkbox"
+          :aria-checked="isSelected(item.uuid)"
+          tabindex="0"
+          @keydown.space.prevent="toggleItem(group, item)"
+          @keydown.enter.prevent="toggleItem(group, item)"
+        >
+          <!-- Checkbox / Radio indicator -->
+          <div class="shrink-0 mr-3">
+            <div
+              v-if="group.selection_type === 'single'"
+              class="w-4 h-4 rounded-full border-2 flex items-center justify-center transition-all"
+              :class="isSelected(item.uuid)
+                ? 'border-[#03AC0E] bg-[#03AC0E]'
+                : 'border-gray-300 bg-white'"
+            >
+              <div
+                v-if="isSelected(item.uuid)"
+                class="w-1.5 h-1.5 bg-white rounded-full"
+              />
             </div>
-            <span v-if="group.selection_type === 'single'" class="text-[9px] text-gray-400 font-bold uppercase tracking-widest">
-              Pilih Satu
-            </span>
+            <div
+              v-else
+              class="w-4 h-4 rounded border-2 flex items-center justify-center transition-all"
+              :class="isSelected(item.uuid)
+                ? 'border-[#03AC0E] bg-[#03AC0E]'
+                : 'border-gray-300 bg-white'"
+            >
+              <UIcon
+                v-if="isSelected(item.uuid)"
+                name="i-heroicons-check"
+                class="w-2.5 h-2.5 text-white"
+              />
+            </div>
           </div>
 
-          <!-- Addon List -->
-          <div class="overflow-x-auto no-scrollbar -mx-4 px-4 sm:mx-0 sm:px-0">
-            <div 
-              class="flex flex-nowrap sm:flex-wrap gap-2.5 min-w-max sm:min-w-0 pb-2 sm:pb-0"
-              :class="{ 'sm:gap-3': variant === 'chips' }"
-            >
-              <!-- Variant: CARDS -->
-              <template v-if="variant === 'cards'">
-                <div v-for="item in group.items" :key="item.uuid" 
-                  @click="toggleItem(group, item)"
-                  :class="[
-                    modelValue[item.uuid] 
-                      ? 'border-emerald-500 text-emerald-700 bg-emerald-50/50 ring-1 ring-emerald-500/20' 
-                      : 'border-gray-200 text-gray-700 hover:border-emerald-500 hover:text-emerald-600 bg-white shadow-sm'
-                  ]"
-                  class="relative w-[160px] sm:w-[180px] shrink-0 sm:shrink px-3 py-2.5 border-2 transition-all cursor-pointer rounded-2xl text-[12px] font-bold flex flex-col gap-1 group"
-                >
-                  <!-- Info Icon -->
-                  <button 
-                    @click.stop="showDetail(item)" 
-                    class="absolute top-2 right-2 w-7 h-7 flex items-center justify-center text-gray-400 bg-white shadow-sm border border-gray-100 rounded-full hover:text-emerald-500 hover:border-emerald-200 transition-all z-10"
-                  >
-                    <UIcon name="i-heroicons-information-circle" class="w-5 h-5" />
-                  </button>
+          <!-- Thumbnail -->
+          <div class="w-10 h-10 shrink-0 rounded-lg overflow-hidden bg-gray-50 border border-gray-100 mr-3 flex items-center justify-center">
+            <img
+              v-if="item.image_url"
+              :src="item.image_url"
+              :alt="item.name"
+              class="w-full h-full object-cover"
+            />
+            <UIcon
+              v-else
+              name="i-heroicons-cube"
+              class="w-5 h-5 text-gray-300"
+              aria-hidden="true"
+            />
+          </div>
 
-                  <!-- Checkmark -->
-                  <div v-if="modelValue[item.uuid]" class="absolute bottom-0 right-0 w-6 h-6 bg-emerald-500 flex items-center justify-center rounded-tl-2xl rounded-br-2xl overflow-hidden translate-x-[1.5px] translate-y-[1.5px] shadow-sm">
-                    <svg class="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="4" d="M5 13l4 4L19 7" />
-                    </svg>
-                  </div>
-
-                  <div class="flex items-center gap-3">
-                    <div class="w-12 h-12 shrink-0 bg-gray-50 rounded-2xl overflow-hidden border border-gray-100 shadow-sm p-1">
-                      <img v-if="item.image_url" :src="item.image_url" class="w-full h-full object-cover rounded-xl" />
-                      <div v-else class="w-full h-full flex items-center justify-center text-gray-200">
-                        <UIcon name="i-heroicons-photo" class="w-6 h-6" />
-                      </div>
-                    </div>
-                    <div class="min-w-0 flex-1">
-                      <span class="truncate block text-[13px] leading-tight font-black text-gray-800">{{ item.name }}</span>
-                      <div class="flex items-center gap-1.5 mt-0.5">
-                        <span v-if="item.price > 0" class="text-[12px] font-black text-emerald-600">
-                          +{{ formatRupiah(item.price) }}
-                        </span>
-                        <span v-else class="text-[11px] font-black text-indigo-500">GRATIS</span>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  <div class="flex items-center justify-between text-[10px] mt-2 opacity-60 border-t border-gray-100 pt-1.5 font-bold">
-                    <span :class="item.stock < 10 ? 'text-rose-500' : 'text-gray-500'">Sisa: {{ item.stock }}</span>
-                    <span v-if="item.allow_quantity" class="text-gray-500">Maks: {{ item.max_quantity }}</span>
-                  </div>
-
-                  <!-- Qty Adjuster -->
-                  <div v-if="modelValue[item.uuid] && item.allow_quantity" @click.stop class="mt-2.5 flex items-center justify-between bg-white rounded-xl border border-emerald-200 p-0.5 shadow-sm">
-                    <button @click="updateQty(item.uuid, -1, item.max_quantity)" class="w-8 h-8 flex items-center justify-center text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors">
-                      <UIcon name="i-heroicons-minus" class="w-4 h-4" />
-                    </button>
-                    <span class="text-[13px] font-black w-8 text-center text-emerald-700">{{ modelValue[item.uuid].quantity }}</span>
-                    <button @click="updateQty(item.uuid, 1, item.max_quantity)" class="w-8 h-8 flex items-center justify-center text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors">
-                      <UIcon name="i-heroicons-plus" class="w-4 h-4" />
-                    </button>
-                  </div>
-                </div>
-              </template>
-
-              <!-- Variant: CHIPS (HDD Style) -->
-              <template v-else>
-                <div v-for="item in group.items" :key="item.uuid"
-                  @click="toggleItem(group, item)"
-                  :class="[
-                    modelValue[item.uuid]
-                      ? 'border-emerald-500 bg-emerald-50 text-emerald-700 ring-1 ring-emerald-500/20'
-                      : 'border-gray-200 text-gray-600 hover:border-emerald-500 bg-white'
-                  ]"
-                  class="relative px-5 py-4 border-2 rounded-2xl transition-all cursor-pointer flex flex-col items-center justify-center min-w-[120px] text-center group"
-                >
-                  <span class="text-[13px] font-black block leading-none">{{ item.name }}</span>
-                  <div class="flex items-center gap-2 mt-1.5">
-                    <span v-if="item.price > 0" class="text-[10px] font-bold opacity-70">
-                      + {{ formatRupiah(item.price) }}
-                    </span>
-                    <span v-else class="text-[10px] font-bold text-indigo-500">GRATIS</span>
-                  </div>
-
-                  <!-- Qty Adjuster for Chips -->
-                  <div v-if="modelValue[item.uuid] && item.allow_quantity" @click.stop class="mt-3 flex items-center justify-between bg-white rounded-lg border border-emerald-200 p-0.5 shadow-sm min-w-[90px]">
-                    <button @click="updateQty(item.uuid, -1, item.max_quantity)" class="w-7 h-7 flex items-center justify-center text-emerald-600 hover:bg-emerald-50 rounded-md transition-colors">
-                      <UIcon name="i-heroicons-minus" class="w-3.5 h-3.5" />
-                    </button>
-                    <span class="text-[12px] font-black w-6 text-center text-emerald-700">{{ modelValue[item.uuid].quantity }}</span>
-                    <button @click="updateQty(item.uuid, 1, item.max_quantity)" class="w-7 h-7 flex items-center justify-center text-emerald-600 hover:bg-emerald-50 rounded-md transition-colors">
-                      <UIcon name="i-heroicons-plus" class="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-
-                  <!-- Small Checkmark indicator -->
-                  <div v-if="modelValue[item.uuid]" class="absolute -top-1.5 -right-1.5 w-5 h-5 bg-emerald-500 rounded-full flex items-center justify-center shadow-md border-2 border-white">
-                    <UIcon name="i-heroicons-check" class="w-3 h-3 text-white" />
-                  </div>
-                </div>
-              </template>
+          <!-- Content -->
+          <div class="flex-1 min-w-0">
+            <p class="text-[13px] font-bold text-gray-800 truncate leading-tight">{{ item.name }}</p>
+            <div class="flex items-center gap-2 mt-0.5">
+              <span
+                v-if="item.price > 0"
+                class="text-[12px] font-black"
+                :class="isSelected(item.uuid) ? 'text-[#03AC0E]' : 'text-gray-700'"
+              >
+                +{{ formatRupiah(item.price) }}
+              </span>
+              <span v-else class="text-[11px] font-black text-[#03AC0E]">GRATIS</span>
+              <span
+                v-if="item.stock < 10"
+                class="text-[9px] font-bold text-orange-500 bg-orange-50 px-1.5 py-0.5 rounded border border-orange-100"
+              >
+                Sisa {{ item.stock }}
+              </span>
             </div>
+          </div>
+
+          <!-- Info button -->
+          <button
+            v-if="item.description"
+            class="shrink-0 ml-2 w-7 h-7 flex items-center justify-center rounded-full text-gray-400 hover:text-[#03AC0E] hover:bg-green-50 transition-colors"
+            :aria-label="`Detail ${item.name}`"
+            @click.stop="showDetail(item)"
+          >
+            <UIcon name="i-heroicons-information-circle" class="w-4.5 h-4.5" />
+          </button>
+
+          <!-- Qty Adjuster (inline) -->
+          <div
+            v-if="isSelected(item.uuid) && item.allow_quantity"
+            class="shrink-0 ml-2 flex items-center border border-[#03AC0E]/30 rounded-lg overflow-hidden bg-white"
+            @click.stop
+          >
+            <button
+              class="w-7 h-7 flex items-center justify-center text-[#03AC0E] hover:bg-green-50 transition-colors"
+              :disabled="modelValue[item.uuid]?.quantity <= 1"
+              @click="updateQty(item.uuid, -1, item.max_quantity)"
+            >
+              <UIcon name="i-heroicons-minus" class="w-3 h-3" />
+            </button>
+            <span class="w-6 text-center text-[12px] font-black text-gray-800">
+              {{ modelValue[item.uuid]?.quantity ?? 1 }}
+            </span>
+            <button
+              class="w-7 h-7 flex items-center justify-center text-[#03AC0E] hover:bg-green-50 transition-colors"
+              :disabled="modelValue[item.uuid]?.quantity >= item.max_quantity"
+              @click="updateQty(item.uuid, 1, item.max_quantity)"
+            >
+              <UIcon name="i-heroicons-plus" class="w-3 h-3" />
+            </button>
           </div>
         </div>
       </div>
     </div>
 
-    <!-- ── Detail Popup (Modal) ────────────────────────────────── -->
-    <UModal v-model="isDetailOpen" :ui="{ width: 'sm:max-w-md', rounded: 'rounded-[40px]', padding: 'p-0' }">
-      <div class="relative overflow-hidden">
-        <!-- Close Button -->
-        <button @click="isDetailOpen = false" class="absolute top-6 right-6 z-20 w-10 h-10 flex items-center justify-center bg-white/80 backdrop-blur-md rounded-full shadow-lg border border-gray-100 hover:bg-gray-50 transition-all">
-          <UIcon name="i-heroicons-x-mark" class="w-6 h-6 text-gray-900" />
-        </button>
+    <!-- ── Detail Modal ── -->
+    <UModal
+      v-model="isDetailOpen"
+      :ui="{
+        width: 'sm:max-w-sm',
+        rounded: 'rounded-2xl',
+        padding: 'p-0',
+      }"
+    >
+      <div v-if="activeDetail" class="p-6">
+        <!-- Image -->
+        <div class="aspect-square w-32 mx-auto rounded-2xl overflow-hidden bg-gray-50 border border-gray-100 mb-5 flex items-center justify-center">
+          <img
+            v-if="activeDetail.image_url"
+            :src="activeDetail.image_url"
+            :alt="activeDetail.name"
+            class="w-full h-full object-contain p-3"
+          />
+          <UIcon v-else name="i-heroicons-cube" class="w-12 h-12 text-gray-200" />
+        </div>
 
-        <div v-if="activeDetail" class="p-8">
-          <div class="aspect-square rounded-[32px] overflow-hidden bg-white border border-gray-100 shadow-xl mb-8 group">
-            <img v-if="activeDetail.image_url" :src="activeDetail.image_url" class="w-full h-full object-contain p-8 group-hover:scale-110 transition-transform duration-500" />
-            <div v-else class="w-full h-full flex items-center justify-center text-gray-100">
-              <UIcon name="i-heroicons-photo" class="w-32 h-32" />
-            </div>
+        <!-- Info -->
+        <div class="text-center mb-5">
+          <h4 class="text-base font-black text-gray-900 mb-1">{{ activeDetail.name }}</h4>
+          <p v-if="activeDetail.price > 0" class="text-[#03AC0E] font-black text-lg">
+            +{{ formatRupiah(activeDetail.price) }}
+          </p>
+          <p v-else class="text-[#03AC0E] font-black text-lg">GRATIS</p>
+        </div>
+
+        <!-- Description -->
+        <p class="text-[13px] text-gray-500 leading-relaxed text-center mb-5">
+          {{ activeDetail.description || 'Layanan tambahan untuk melengkapi kebutuhan Anda.' }}
+        </p>
+
+        <!-- Stats -->
+        <div class="flex gap-3 mb-5">
+          <div class="flex-1 bg-gray-50 rounded-xl p-3 text-center border border-gray-100">
+            <p class="text-[10px] text-gray-400 font-bold uppercase tracking-wide mb-1">Stok</p>
+            <p class="text-gray-900 font-black text-base">{{ activeDetail.stock }}</p>
           </div>
-
-          <div class="space-y-6">
-            <div>
-              <div class="flex items-center gap-2 mb-2">
-                <span class="px-2 py-0.5 bg-indigo-50 text-indigo-600 text-[10px] font-black rounded-md uppercase tracking-widest border border-indigo-100">Info Layanan</span>
-              </div>
-              <h4 class="text-2xl font-black text-gray-900 leading-tight mb-2">{{ activeDetail.name }}</h4>
-              <p v-if="activeDetail.price > 0" class="text-emerald-600 font-black text-2xl">+ {{ formatRupiah(activeDetail.price) }}</p>
-              <p v-else class="text-indigo-600 font-black text-2xl uppercase tracking-wider">GRATIS</p>
-            </div>
-
-            <div class="text-sm text-gray-600 leading-relaxed bg-gray-50/50 p-5 rounded-[24px] border border-gray-100 italic">
-              {{ activeDetail.description || 'Layanan tambahan terbaik untuk melengkapi kebutuhan sistem Anda.' }}
-            </div>
-
-            <div class="grid grid-cols-2 gap-4">
-              <div class="bg-white border border-gray-100 p-4 rounded-[24px] text-center shadow-sm">
-                <p class="text-[10px] text-gray-400 font-black uppercase tracking-widest mb-1">Stok Ready</p>
-                <p class="text-gray-900 font-black text-lg">{{ activeDetail.stock }}</p>
-              </div>
-              <div class="bg-white border border-gray-100 p-4 rounded-[24px] text-center shadow-sm">
-                <p class="text-[10px] text-gray-400 font-black uppercase tracking-widest mb-1">Batas Item</p>
-                <p class="text-gray-900 font-black text-lg">{{ activeDetail.max_quantity }}</p>
-              </div>
-            </div>
-
-            <button 
-              class="w-full py-5 bg-black text-white font-black rounded-[24px] text-sm uppercase tracking-[0.2em] shadow-xl hover:bg-gray-800 transition-all active:scale-[0.98] mt-4"
-              @click="isDetailOpen = false"
-            >
-              Lanjutkan
-            </button>
+          <div class="flex-1 bg-gray-50 rounded-xl p-3 text-center border border-gray-100">
+            <p class="text-[10px] text-gray-400 font-bold uppercase tracking-wide mb-1">Maks. Order</p>
+            <p class="text-gray-900 font-black text-base">{{ activeDetail.max_quantity }}</p>
           </div>
         </div>
+
+        <button
+          class="w-full py-3 bg-[#03AC0E] text-white font-black rounded-xl text-sm hover:bg-[#028C0B] transition-colors"
+          @click="isDetailOpen = false"
+        >
+          Mengerti
+        </button>
       </div>
     </UModal>
   </div>
 </template>
 
 <style scoped>
-.no-scrollbar::-webkit-scrollbar { display: none; }
-.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+.addon-group {
+  background: #fff;
+  border: 1.5px solid #f3f4f6;
+  border-radius: 14px;
+  padding: 14px 14px 12px;
+}
+
+.addon-row {
+  display: flex;
+  align-items: center;
+  border: 1.5px solid;
+  border-radius: 10px;
+  padding: 10px 12px;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+  outline: none;
+  user-select: none;
+}
+
+.addon-row:focus-visible {
+  box-shadow: 0 0 0 2px #03AC0E40;
+}
 </style>

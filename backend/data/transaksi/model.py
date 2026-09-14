@@ -5,7 +5,7 @@ import sqlalchemy.dialects.postgresql as pg
 from uuid import UUID, uuid4
 from datetime import datetime
 from typing import Optional, List, TYPE_CHECKING
-from sqlalchemy import func, ForeignKey
+from sqlalchemy import func, ForeignKey, Index, desc
 
 if TYPE_CHECKING:
     from backend.data.ongkir.model import Shipment
@@ -35,6 +35,7 @@ class TransactionItem(SQLModel, table=True):
             pg.UUID(as_uuid=True),
             ForeignKey("stock.uuid", ondelete="RESTRICT"),
             nullable=False,
+            index=True,
         )
     )
 
@@ -48,7 +49,7 @@ class TransactionItem(SQLModel, table=True):
 
     # ✅ Wajib ada — back_populates ke Transaction.items
     transaction: Optional["Transaction"] = Relationship(back_populates="items")
-    stock: Optional["Stock"] = Relationship()
+    stock: Optional["Stock"] = Relationship(sa_relationship_kwargs={"lazy": "selectin"})
 
 
 class Transaction(SQLModel, table=True):
@@ -78,7 +79,7 @@ class Transaction(SQLModel, table=True):
     discount_amount: int = Field(default=0, sa_column=Column(pg.INTEGER))
     coupon_code: Optional[str] = Field(default=None, sa_column=Column(pg.VARCHAR(50), index=True))
 
-    transaction_status: Optional[str] = Field(default=None, sa_column=Column(pg.VARCHAR(50)))
+    transaction_status: Optional[str] = Field(default=None, sa_column=Column(pg.VARCHAR(50), index=True))
     payment_type: Optional[str] = Field(default=None, sa_column=Column(pg.VARCHAR(50)))
     transaction_time: Optional[datetime] = Field(default=None, sa_column=Column(pg.TIMESTAMP(timezone=True)))
     settlement_time: Optional[datetime] = Field(default=None, sa_column=Column(pg.TIMESTAMP(timezone=True)))
@@ -88,7 +89,7 @@ class Transaction(SQLModel, table=True):
     raw_response: Optional[dict] = Field(default=None, sa_column=Column(pg.JSONB))
 
     created_at: datetime = Field(
-        sa_column=Column(pg.TIMESTAMP(timezone=True), server_default=func.now())
+        sa_column=Column(pg.TIMESTAMP(timezone=True), server_default=func.now(), index=True)
     )
     updated_at: datetime = Field(
         sa_column=Column(pg.TIMESTAMP(timezone=True), server_default=func.now(), onupdate=func.now())
@@ -101,3 +102,9 @@ class Transaction(SQLModel, table=True):
         sa_relationship_kwargs={"uselist": False}
     )
     user: Optional["User"] = Relationship()
+
+    __table_args__ = (
+        Index("idx_transaction_user_created", "user_id", desc("created_at")),
+        Index("idx_transaction_status_created", "transaction_status", desc("created_at")),
+        Index("idx_transaction_user_status", "user_id", "transaction_status"),
+    )

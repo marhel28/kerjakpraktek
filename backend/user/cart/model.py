@@ -3,7 +3,7 @@ import sqlalchemy.dialects.postgresql as pg
 from uuid import UUID, uuid4
 from datetime import datetime
 from typing import Optional, List
-from sqlalchemy import ForeignKey, func
+from sqlalchemy import ForeignKey, func, Index, desc
 from backend.auth.model import User
 from backend.data.stock.model import Stock
 
@@ -35,6 +35,7 @@ class Cart(SQLModel, table=True):
     )
     __table_args__ = (
         UniqueConstraint("user_uuid", "stock_uuid", "options", name="uq_user_stock_options_cart"),
+        Index("idx_cart_user_created", "user_uuid", desc("created_at")),
     )
 
     # Relationships

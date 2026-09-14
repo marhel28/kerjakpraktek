@@ -69,6 +69,53 @@ const fetchOrderDetail = async () => {
   }
 };
 
+const confirmModal = ref({
+  show: false,
+  orderId: "",
+  loading: false,
+});
+
+const successModal = ref({
+  show: false,
+  orderId: "",
+});
+
+const confirmDelivery = () => {
+  confirmModal.value = {
+    show: true,
+    orderId: orderId,
+    loading: false,
+  };
+};
+
+const executeConfirmDelivery = async () => {
+  confirmModal.value.loading = true;
+  try {
+    const response: any = await $fetch(`${config.public.apiBase}/transaksi/confirm-delivery/${orderId}`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${getToken()}` },
+    });
+    if (response.success) {
+      confirmModal.value.show = false;
+      successModal.value = {
+        show: true,
+        orderId: orderId,
+      };
+    } else {
+      alert(response.message || "Gagal mengonfirmasi penerimaan barang.");
+    }
+  } catch (err: any) {
+    alert(err?.data?.detail || "Gagal mengonfirmasi penerimaan barang.");
+  } finally {
+    confirmModal.value.loading = false;
+  }
+};
+
+const closeSuccessModal = () => {
+  successModal.value.show = false;
+  fetchOrderDetail();
+};
+
 onMounted(() => fetchOrderDetail());
 
 // ─── Stepper Logic ────────────────────────────────────────
@@ -247,6 +294,16 @@ const getStatusBadge = () => {
             <UIcon v-if="isRepaying" name="i-heroicons-arrow-path" class="w-4 h-4 animate-spin" />
             Lanjutkan Pembayaran
           </button>
+          
+          <button v-if="stepIndex === 2 && order.trx_type !== 'jasa'"
+            @click="confirmDelivery" :disabled="confirmModal.loading"
+            class="px-8 py-3 bg-[#03AC0E] text-white text-xs font-black rounded-xl hover:bg-[#028a0b] transition-all shadow-lg shadow-[#03AC0E]/20 flex items-center gap-2"
+          >
+            <UIcon v-if="confirmModal.loading" name="i-heroicons-arrow-path" class="w-4 h-4 animate-spin" />
+            <UIcon v-else name="i-heroicons-check-circle" class="w-4 h-4" />
+            Barang Sudah Sampai
+          </button>
+          
           <a :href="`https://wa.me/6282218828108?text=Halo Admin, saya ingin bertanya tentang pesanan ${order.order_id}`" 
              target="_blank"
              class="p-3 bg-white border border-gray-200 text-gray-400 hover:text-[#03AC0E] hover:border-[#03AC0E] rounded-xl transition-all shadow-sm"
@@ -353,6 +410,16 @@ const getStatusBadge = () => {
               <span class="text-[11px] text-gray-400 font-bold uppercase block mb-1">Alamat</span>
               <p class="text-[11px] font-black text-gray-900 leading-tight mb-0.5">{{ order.shipment?.recipient_name }}</p>
               <p class="text-[10px] text-gray-500 leading-relaxed line-clamp-2">{{ order.shipment?.shipping_address }}</p>
+            </div>
+            <div v-if="stepIndex === 2" class="pt-3 border-t border-gray-50">
+              <button 
+                @click="confirmDelivery" :disabled="confirmModal.loading"
+                class="w-full py-2 bg-[#03AC0E] text-white text-xs font-black rounded-lg hover:bg-[#028a0b] transition-all flex items-center justify-center gap-2"
+              >
+                <UIcon v-if="confirmModal.loading" name="i-heroicons-arrow-path" class="w-3.5 h-3.5 animate-spin" />
+                <UIcon v-else name="i-heroicons-check-circle" class="w-3.5 h-3.5" />
+                Konfirmasi Barang Sampai
+              </button>
             </div>
           </div>
         </div>
@@ -566,10 +633,102 @@ const getStatusBadge = () => {
       </section>
 
     </div>
+
+    <!-- ── MODAL KONFIRMASI (CONFIRM DELIVERY) ── -->
+    <Teleport to="body">
+      <Transition name="modal-scale">
+        <div v-if="confirmModal.show" class="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <!-- Backdrop -->
+          <div class="absolute inset-0 bg-gray-900/60 backdrop-blur-sm" @click="confirmModal.show = false"></div>
+          
+          <!-- Card -->
+          <div class="relative bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden p-6 flex flex-col items-center text-center z-10 border border-gray-100">
+            <!-- Icon -->
+            <div class="w-16 h-16 rounded-full bg-emerald-50 flex items-center justify-center text-[#03AC0E] mb-4 ring-8 ring-emerald-50/50">
+              <UIcon name="i-heroicons-question-mark-circle" class="w-10 h-10" />
+            </div>
+            
+            <h3 class="text-base font-black text-gray-900 mb-2">Konfirmasi Barang Sampai</h3>
+            <p class="text-xs text-gray-500 font-bold uppercase tracking-wider mb-6 leading-relaxed">
+              Apakah Anda yakin barang pesanan dengan ID<br/>
+              <span class="font-mono text-gray-900 font-black tracking-tight text-xs bg-gray-100 px-2 py-1 rounded">{{ confirmModal.orderId }}</span><br/>
+              sudah sampai dan diterima dengan baik?
+            </p>
+            
+            <div class="flex gap-3 w-full">
+              <button 
+                @click="confirmModal.show = false" 
+                class="flex-1 py-3 text-xs font-bold text-gray-500 bg-gray-50 border border-gray-200 rounded-xl hover:bg-gray-100 hover:text-gray-700 transition-all uppercase tracking-widest"
+              >
+                Batal
+              </button>
+              <button 
+                @click="executeConfirmDelivery" 
+                :disabled="confirmModal.loading"
+                class="flex-1 py-3 text-xs font-black text-white bg-[#03AC0E] rounded-xl hover:bg-[#028a0b] transition-all flex items-center justify-center gap-2 shadow-lg shadow-[#03AC0E]/20 disabled:opacity-50 uppercase tracking-widest"
+              >
+                <UIcon v-if="confirmModal.loading" name="i-heroicons-arrow-path" class="w-4 h-4 animate-spin" />
+                <span v-else>Ya, Sampai</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </Transition>
+    </Teleport>
+
+    <!-- ── MODAL SUKSES (ORDER COMPLETED) ── -->
+    <Teleport to="body">
+      <Transition name="modal-scale">
+        <div v-if="successModal.show" class="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <!-- Backdrop -->
+          <div class="absolute inset-0 bg-gray-900/60 backdrop-blur-sm" @click="closeSuccessModal"></div>
+          
+          <!-- Card -->
+          <div class="relative bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden p-6 flex flex-col items-center text-center z-10 border border-gray-100 animate-bounce-short">
+            <!-- Animated Success Checkmark -->
+            <div class="w-20 h-20 rounded-full bg-emerald-100 flex items-center justify-center text-[#03AC0E] mb-6 ring-8 ring-emerald-50">
+              <UIcon name="i-heroicons-check-circle" class="w-12 h-12 animate-pulse" />
+            </div>
+            
+            <h3 class="text-lg font-black text-gray-900 mb-2">Pesanan Selesai! 🎉</h3>
+            <p class="text-xs text-gray-500 font-semibold mb-6 leading-relaxed">
+              Terima kasih telah berbelanja di PasarCctv. Semoga produk kami dapat memenuhi kebutuhan keamanan Anda.
+            </p>
+            
+            <button 
+              @click="closeSuccessModal" 
+              class="w-full py-3 text-xs font-black text-white bg-gray-900 rounded-xl hover:bg-black transition-all uppercase tracking-widest shadow-lg shadow-gray-900/20"
+            >
+              Selesai
+            </button>
+          </div>
+        </div>
+      </Transition>
+    </Teleport>
+
   </div>
 </template>
 
 <style scoped>
 .no-scrollbar::-webkit-scrollbar { display: none; }
 .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+/* Modal Scale Transition */
+.modal-scale-enter-active, .modal-scale-leave-active {
+  transition: opacity 0.25s ease;
+}
+.modal-scale-enter-active .relative, .modal-scale-leave-active .relative {
+  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.25s ease;
+}
+.modal-scale-enter-from, .modal-scale-leave-to {
+  opacity: 0;
+}
+.modal-scale-enter-from .relative {
+  transform: scale(0.9) translateY(12px);
+  opacity: 0;
+}
+.modal-scale-leave-to .relative {
+  transform: scale(0.95);
+  opacity: 0;
+}
 </style>

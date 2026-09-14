@@ -54,13 +54,6 @@ function statusBadgeClass(color: string): string {
   return map[color] ?? map.gray;
 }
 
-const tabs = [
-  { label: "Biodata Diri", to: "/dashboard" },
-  { label: "Daftar Alamat", to: "/dashboard/address" },
-  { label: "Keamanan", to: "/dashboard/change-password" },
-  { label: "Notifikasi", to: "/dashboard/notifications" },
-  { label: "Pesanan Saya", to: "/dashboard/orders" },
-];
 
 const statusTabs = [
   { value: "all", label: "Semua" },
@@ -89,38 +82,35 @@ async function handlePay(booking: any) {
 
 <template>
   <div class="min-h-screen bg-white">
-    <!-- TABS (Main Dashboard Tabs) -->
-    <div class="border-b border-gray-200 overflow-x-auto no-scrollbar">
-      <div class="flex px-8">
-        <NuxtLink
-          v-for="tab in tabs"
-          :key="tab.to"
-          :to="tab.to"
-          class="px-6 py-4 text-sm font-bold whitespace-nowrap transition-colors relative"
-          :class="[
-            $route.path === tab.to || ($route.path.startsWith('/dashboard/jasa') && tab.to === '/dashboard/orders')
-              ? 'text-[#03AC0E]' 
-              : 'text-gray-500 hover:text-gray-700'
-          ]"
-        >
-          {{ tab.label }}
-          <div v-if="$route.path === tab.to || ($route.path.startsWith('/dashboard/jasa') && tab.to === '/dashboard/orders')" class="absolute bottom-0 left-0 right-0 h-1 bg-[#03AC0E] rounded-t-full"></div>
+    <!-- MOBILE HEADER -->
+    <div class="lg:hidden flex items-center justify-between px-6 py-4 border-b border-gray-100 bg-white sticky top-0 z-10">
+      <div class="flex items-center gap-4">
+        <button @click="$router.push('/dashboard')" class="p-1 -ml-1 text-gray-400 hover:text-gray-900 transition-colors">
+          <UIcon name="i-heroicons-arrow-left" class="w-5 h-5" />
+        </button>
+        <h1 class="text-base font-black text-gray-900 uppercase tracking-wider">Jasa Saya</h1>
+      </div>
+      <NuxtLink to="/services/booking" class="p-2 bg-[#03AC0E]/10 text-[#03AC0E] active:bg-[#03AC0E]/20 rounded-lg transition-all flex items-center justify-center">
+        <UIcon name="i-heroicons-plus" class="w-5 h-5" />
+      </NuxtLink>
+    </div>
+
+    <!-- DESKTOP HEADER (Tokopedia Style) -->
+    <div class="hidden lg:block px-8 py-5 border-b border-gray-200/80 bg-white">
+      <div class="flex items-center justify-between">
+        <div>
+          <h1 class="text-lg font-bold text-gray-900">Layanan Jasa Teknisi</h1>
+          <p class="text-xs text-gray-500 mt-0.5">Kelola jadwal pemasangan baru, survei lokasi, dan servis perbaikan CCTV</p>
+        </div>
+        <NuxtLink to="/services/booking" class="px-5 py-2 bg-[#03AC0E] text-white text-xs font-bold rounded-lg hover:bg-[#028a0b] transition-all flex items-center gap-1.5 shadow-sm">
+          <UIcon name="i-heroicons-plus" class="w-4 h-4" />
+          Booking Teknisi Baru
         </NuxtLink>
       </div>
     </div>
 
     <!-- CONTENT -->
-    <div class="p-8">
-      <header class="mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h2 class="text-xl font-bold text-gray-900">Layanan Jasa Saya</h2>
-          <p class="text-xs text-gray-400 mt-1 uppercase tracking-widest font-bold">Kelola jadwal pemasangan dan servis</p>
-        </div>
-        <NuxtLink to="/services/booking" class="px-6 py-2.5 bg-[#03AC0E] text-white text-xs font-bold rounded-lg hover:bg-[#028a0b] transition-all flex items-center gap-2 shadow-sm">
-          <UIcon name="i-heroicons-plus" class="w-4 h-4" />
-          Booking Baru
-        </NuxtLink>
-      </header>
+    <div class="p-4 sm:p-8">
 
       <!-- STATS -->
       <section v-if="data" class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
@@ -143,7 +133,7 @@ async function handlePay(booking: any) {
       </section>
 
       <!-- STATUS TABS (Sub-tabs) -->
-      <div class="flex items-center gap-6 border-b border-gray-100 mb-6 overflow-x-auto no-scrollbar">
+      <div class="flex items-center gap-6 border-b border-gray-100 mb-6 overflow-x-auto no-scrollbar pb-1 px-1 sm:px-0">
         <button 
           v-for="tab in statusTabs" 
           :key="tab.value" 

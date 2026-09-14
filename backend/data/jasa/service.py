@@ -14,6 +14,7 @@ import string
 from datetime import datetime, date, timezone, timedelta
 from typing import Optional, List, Dict, Any, Tuple
 from uuid import UUID
+from sqlalchemy import func
 from sqlalchemy.orm import selectinload
 from sqlmodel import select
 from backend.data.stock.model import Stock
@@ -580,13 +581,17 @@ class BookingService:
         self, session: AsyncSession, scheduled_date: date, time_slot: str
     ) -> int:
         # Menghitung semua booking yang tidak dibatalkan pada tanggal & slot tersebut
-        stmt = select(ServiceBooking).where(
-            ServiceBooking.scheduled_date == scheduled_date,
-            ServiceBooking.time_slot      == time_slot,
-            ServiceBooking.status != BookingStatus.CANCEL
+        stmt = (
+            select(func.count())
+            .select_from(ServiceBooking)
+            .where(
+                ServiceBooking.scheduled_date == scheduled_date,
+                ServiceBooking.time_slot      == time_slot,
+                ServiceBooking.status != BookingStatus.CANCEL
+            )
         )
         result = await session.exec(stmt)
-        return len(result.all())
+        return result.one() or 0
 
     # ── Submit dari Draft ─────────────────────────────────────────
 
@@ -947,20 +952,20 @@ class BookingService:
     # ── Stats ─────────────────────────────────────────────────────
 
     async def get_stats(self, session: AsyncSession) -> Dict[str, Any]:
-        result    = await session.exec(select(ServiceBooking))
-        bookings  = result.all()
+        result   = await session.exec(select(ServiceBooking.status, ServiceBooking.total_price, ServiceBooking.dp_amount))
+        bookings = result.all()
 
         by_status: Dict[str, int] = {}
         revenue   = 0
         dp_revenue= 0
 
-        for b in bookings:
-            by_status[b.status] = by_status.get(b.status, 0) + 1
-            if b.status in (BookingStatus.LUNAS, BookingStatus.DONE):
-                revenue += b.total_price
-            if b.status in (BookingStatus.DP_PAID, BookingStatus.PROGRESS,
+        for status, total_price, dp_amount in bookings:
+            by_status[status] = by_status.get(status, 0) + 1
+            if status in (BookingStatus.LUNAS, BookingStatus.DONE):
+                revenue += (total_price or 0)
+            if status in (BookingStatus.DP_PAID, BookingStatus.PROGRESS,
                             BookingStatus.DONE, BookingStatus.LUNAS):
-                dp_revenue += b.dp_amount
+                dp_revenue += (dp_amount or 0)
 
         paid_count = (
             by_status.get(BookingStatus.LUNAS, 0)
@@ -1566,6 +1571,20 @@ class PaymentService:
                     booking_number=booking2.booking_number,
                     notif_type="order",
                 )
+
+                # Kirim notifikasi ke admin jika pembayaran jasa berhasil
+                if new_status == PaymentStatus.SUCCESS:
+                    try:
+                        from backend.data.transaksi.service import _send_notification_to_admins
+                        await _send_notification_to_admins(
+                            session=session,
+                            title="Pembayaran Jasa Baru! 💰",
+                            content=f"Pembayaran {payment_type_val} untuk {booking2.booking_number} sebesar Rp{int(payment.gross_amount):,} telah diterima.",
+                            action_url=f"/transaksi/{payload.order_id}",
+                            notif_type="order",
+                        )
+                    except Exception as e:
+                        logger.error(f"Failed to send service paid notification to admin: {e}")
 
         logger.info(f"Service webhook OK: {payload.order_id} → {new_status.value if hasattr(new_status, 'value') else new_status}")
         return {"status": "ok", "payment_status": new_status.value if hasattr(new_status, "value") else new_status}

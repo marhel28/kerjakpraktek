@@ -44,6 +44,38 @@ async def init_db():
         from sqlalchemy import text
         await conn.execute(text("ALTER TABLE chatbot_feedback ADD COLUMN IF NOT EXISTS bot_reply VARCHAR(4000);"))
 
+        # 🚀 Database Query Optimizations — Mission-critical composite indexes
+        indexes_sql = [
+            "CREATE INDEX IF NOT EXISTS idx_stock_popular ON stock (is_active, stok, terjual DESC, created_at DESC);",
+            "CREATE INDEX IF NOT EXISTS idx_stock_best_deals ON stock (is_active, discount_percentage DESC, terjual DESC);",
+            "CREATE INDEX IF NOT EXISTS idx_stock_cat_active ON stock (category_slug, is_active);",
+            "CREATE INDEX IF NOT EXISTS idx_stock_brand_active ON stock (brand, is_active);",
+            "CREATE INDEX IF NOT EXISTS idx_transaction_user_created ON transaction (user_id, created_at DESC);",
+            "CREATE INDEX IF NOT EXISTS idx_transaction_status_created ON transaction (transaction_status, created_at DESC);",
+            "CREATE INDEX IF NOT EXISTS idx_transaction_user_status ON transaction (user_id, transaction_status);",
+            "CREATE INDEX IF NOT EXISTS idx_transaction_item_stock ON transaction_item (stock_id);",
+            "CREATE INDEX IF NOT EXISTS idx_promo_trx_user_created ON promo_transaction (user_id, created_at DESC);",
+            "CREATE INDEX IF NOT EXISTS idx_promo_trx_status ON promo_transaction (transaction_status);",
+            "CREATE INDEX IF NOT EXISTS idx_booking_user_status ON service_booking (user_uuid, status);",
+            "CREATE INDEX IF NOT EXISTS idx_booking_sched_status ON service_booking (scheduled_date, status);",
+            "CREATE INDEX IF NOT EXISTS idx_shipment_promo_trx ON shipment (promo_transaction_uuid);",
+            "CREATE INDEX IF NOT EXISTS idx_shipment_delivery_status ON shipment (delivery_status);",
+            "CREATE INDEX IF NOT EXISTS idx_cart_user_created ON cart (user_uuid, created_at DESC);",
+            "CREATE INDEX IF NOT EXISTS idx_user_address_user_default ON user_address (user_id, is_default);",
+        ]
+        for idx_query in indexes_sql:
+            try:
+                await conn.execute(text(idx_query))
+            except Exception as e:
+                pass
+
+    # Ensure Manticore products table exists
+    try:
+        from backend.db.es_client import es_client
+        await es_client.indices.create("products")
+    except Exception as es_err:
+        print(f"⚠️ Failed to init Manticore table: {es_err}")
+
 
 async def init_knowledge_index():
     """Load TurboQuant knowledge base index ke memori setelah DB init dan seed default FAQ."""
@@ -88,17 +120,6 @@ async def init_knowledge_index():
             repo = ChatbotKnowledgeRepository()
             await repo.init_index(session)
         print("✅ TurboQuant KB index loaded successfully.")
-
-        # Initialize Qdrant and Sync all products from DB to Qdrant
-        try:
-            from backend.data.chatbot.qdrant_service import QdrantService
-            qdrant_service = QdrantService()
-            if qdrant_service.init_collection():
-                async with db_session_maker() as session:
-                    await qdrant_service.sync_all_products(session)
-                print("✅ Qdrant database sync complete.")
-        except Exception as q_err:
-            print(f"⚠️  Failed to sync products to Qdrant: {q_err}")
     except Exception as e:
         print(f"⚠️  Failed to load KB index: {e}")
     

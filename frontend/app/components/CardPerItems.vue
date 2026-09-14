@@ -85,7 +85,7 @@ const imageAlt = computed(
     <NuxtLink
       :to="productUrl"
       :title="`${brand} ${title}`"
-      class="flex flex-col h-full bg-white transition-all duration-300 rounded-xl sm:rounded-2xl border border-gray-100 hover:border-green-500/40 hover:shadow-[0_20px_40px_-15px_rgba(22,163,74,0.12)] hover:-translate-y-1.5 overflow-hidden"
+      class="flex flex-col h-full bg-white transition-all duration-200 rounded-xl sm:rounded-2xl border border-gray-100 hover:border-green-500/30 hover:shadow-[0_8px_24px_-8px_rgba(22,163,74,0.10)] hover:-translate-y-1 overflow-hidden"
     >
       <!-- ── Gambar ─────────────────────────────────────────────── -->
       <div
@@ -139,7 +139,7 @@ const imageAlt = computed(
           quality="80"
           loading="lazy"
           sizes="xs:50vw sm:50vw md:33vw lg:25vw xl:25vw"
-          class="h-full w-full object-contain p-3 sm:p-6 transition-transform duration-700 ease-out group-hover:scale-110"
+          class="h-full w-full object-contain p-3 sm:p-6 transition-transform duration-300 ease-out group-hover:scale-105"
         />
 
         <div

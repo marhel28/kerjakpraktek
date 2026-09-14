@@ -22,7 +22,6 @@ from typing import List, Dict, Any, Tuple, Optional
 
 from backend.data.stock.service import StockService
 from .knowledge_repository import get_kb_index
-from .qdrant_service import QdrantService
 
 logger = logging.getLogger(__name__)
 
@@ -561,7 +560,6 @@ class ChatbotRAGService:
         self.retrieval = ManticoreRetrievalAgent()
         self.graph_agent = KnowledgeGraphAgent()
         self.generator = AntiHalusinasiGenerator()
-        self.qdrant_service = QdrantService()
 
     async def get_response(
         self, query: str, history: List[Dict[str, str]], session: Optional[Any] = None
@@ -638,6 +636,20 @@ class ChatbotRAGService:
             if kb_results:
                 best = kb_results[0]
                 logger.info(f"[RAG] KB hit: '{best['question']}'")
+
+                # Increment hit_count di database secara async (non-blocking)
+                if session:
+                    from .knowledge_repository import ChatbotKnowledgeRepository
+                    _kb_repo = ChatbotKnowledgeRepository()
+                    try:
+                        await _kb_repo.record_hit(best["uuid"], session)
+                        # Update juga di in-memory index agar sinkron
+                        for entry in kb_index._entries:
+                            if entry["uuid"] == best["uuid"]:
+                                entry["hit_count"] = entry.get("hit_count", 0) + 1
+                                break
+                    except Exception as hit_err:
+                        logger.warning(f"[RAG] Failed to record hit: {hit_err}")
                 
                 # Cross-reference with in-memory FAQ config to respect no_related and related_query
                 faq_item = next((f for f in FAQ_ITEMS if f["question"].lower() == best["question"].lower()), None)
@@ -678,28 +690,22 @@ class ChatbotRAGService:
                     related = await self.retrieval.retrieve_relevant_products("cctv", limit=3)
             return faq_match["answer"], related, False
 
-        # ── 5. Hybrid Retrieval (Manticore + Qdrant Vector DB) ────────
-        # Retrieve from Manticore Search (keywords/relational)
-        manticore_products = await self.retrieval.retrieve_relevant_products(query, limit=5)
-        
-        # Retrieve from Qdrant Vector DB (semantic search)
-        qdrant_products = []
-        try:
-            qdrant_products = self.qdrant_service.search_products(query, limit=5)
-        except Exception as q_err:
-            logger.error(f"[RAG] Qdrant search error: {q_err}")
+        # ── 5. Manticore Search Retrieval ────────
+        # Retrieve from Manticore Search (lexical, morphology, typo-tolerant)
+        products = await self.retrieval.retrieve_relevant_products(query, limit=5)
 
-        # Merge & Deduplicate products based on uuid
-        seen_uuids = set()
-        products = []
-        for p in qdrant_products + manticore_products:
-            uuid_str = str(p.get("uuid"))
-            if uuid_str not in seen_uuids:
-                seen_uuids.add(uuid_str)
-                products.append(p)
-                
-        # Limit to top 5 hybrid products
-        products = products[:5]
+        # Smart fallback: jika query kalimat panjang tidak menghasilkan produk, cari berdasarkan kata kunci relevan
+        if not products and len(clean_q.split()) > 1:
+            stop_words = {
+                "ada", "dan", "yang", "untuk", "mau", "cari", "bisa", "apa",
+                "berapa", "cctv", "dong", "min", "kak", "tolong", "apakah", "rekomendasi"
+            }
+            keywords = [w for w in clean_q.split() if len(w) >= 3 and w not in stop_words]
+            for kw in keywords:
+                fallback_products = await self.retrieval.retrieve_relevant_products(kw, limit=5)
+                if fallback_products:
+                    products = fallback_products
+                    break
 
         # ── 6. Transaksional Bypass (harga/stok/spek) ───────────────
         is_price = any(kw in q_lower for kw in [

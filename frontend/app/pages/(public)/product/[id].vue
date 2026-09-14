@@ -681,17 +681,26 @@ function openChat() {
 
 
           <!-- ── Dynamic Addons ────────────────────────────────── -->
-          <div v-if="addonResponse?.data?.length" class="mb-10 border-t border-gray-100 pt-8">
-            <h2 class="text-xl font-black text-gray-900 tracking-tight mb-1">
-              Layanan Tambahan
-            </h2>
-            <p class="text-xs text-gray-400 font-bold mb-6 uppercase tracking-wider">
-              Opsi tambahan untuk kenyamanan Anda
-            </p>
-            
-            <AddonPicker 
-              v-model="selectedAddons" 
-              :bundle="addonResponse.data" 
+          <div v-if="addonResponse?.data?.length" class="mb-10 border-t border-gray-100 pt-6">
+            <!-- Section Header -->
+            <div class="flex items-center justify-between mb-4">
+              <div class="flex items-center gap-2.5">
+                <span class="w-1 h-5 rounded-full bg-[#03AC0E] shrink-0" aria-hidden="true" />
+                <div>
+                  <h2 class="text-[15px] font-black text-gray-900 leading-none">Layanan Tambahan</h2>
+                  <p class="text-[11px] text-gray-400 font-medium mt-0.5">
+                    Pilih layanan sesuai kebutuhan Anda
+                  </p>
+                </div>
+              </div>
+              <span class="text-[10px] font-bold text-gray-400 bg-gray-50 border border-gray-100 px-2 py-1 rounded-lg">
+                {{ addonResponse.data.length }} paket
+              </span>
+            </div>
+
+            <AddonPicker
+              v-model="selectedAddons"
+              :bundle="addonResponse.data"
               variant="chips"
             />
           </div>
@@ -922,8 +931,6 @@ function openChat() {
 </template>
 
 <style scoped>
-@import url("https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&display=swap");
-
 .font-jakarta {
   font-family: "Plus Jakarta Sans", sans-serif;
 }

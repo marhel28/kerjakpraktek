@@ -51,6 +51,19 @@ function onSliderMove(e: MouseEvent | TouchEvent) {
   sliderPos.value = pct;
 }
 
+// ── Kontak WhatsApp & Fallback Visual ────────────────────────────
+const whatsappConsultUrl = computed(() => {
+  const msg = "Halo PasarCctv & Teknisi Padjajaran CCTV, saya tertarik dengan portofolio instalasi dan ingin konsultasi/survei lokasi."
+  return `https://wa.me/6282218828108?text=${encodeURIComponent(msg)}`
+})
+
+const featuredBeforeImage = computed(() => {
+  return data.value?.featured?.before_image || '/images/portfolio/before-cables.jpg'
+})
+const featuredAfterImage = computed(() => {
+  return data.value?.featured?.after_image || '/images/portfolio/after-conduit.jpg'
+})
+
 // ── Swiper: register Web Components sekali di client ─────────────
 // isCustomElement di nuxt.config.ts menghilangkan Vue warning,
 // register() di sini mengaktifkan elemen-nya di DOM.
@@ -91,8 +104,7 @@ onMounted(async () => {
         </h1>
 
         <p class="hero__sub">
-          1.200+ titik kamera terpasang. Kami tidak hanya menjual produk — kami mendesain
-          <strong>rasa aman</strong> untuk Anda.
+          1.200+ titik kamera terpasang. Ditenagai oleh tim teknisi bersertifikasi <strong>Padjajaran CCTV</strong>, kami tidak hanya menjual produk — kami mendesain <strong>rasa aman</strong> untuk Anda.
         </p>
 
         <div class="hero__cta">
@@ -126,17 +138,17 @@ onMounted(async () => {
 
         <div class="hero__stats">
           <div class="stat">
-            <span class="stat__num">1200<sup>+</sup></span>
+            <span class="stat__num">1.200<sup>+</sup></span>
             <span class="stat__label">Titik Kamera</span>
           </div>
           <div class="stat__div"></div>
           <div class="stat">
-            <span class="stat__num">98<sup>%</sup></span>
+            <span class="stat__num">99<sup>%</sup></span>
             <span class="stat__label">Kepuasan Klien</span>
           </div>
           <div class="stat__div"></div>
           <div class="stat">
-            <span class="stat__num">6<sup>th</sup></span>
+            <span class="stat__num">12<sup>+</sup></span>
             <span class="stat__label">Tahun Pengalaman</span>
           </div>
         </div>
@@ -158,7 +170,7 @@ onMounted(async () => {
         </div>
 
         <div
-          v-if="data.featured.before_image || data.featured.after_image"
+          v-if="featuredBeforeImage || featuredAfterImage"
           class="ba-slider"
           @mousedown="dragging = true"
           @mouseup="dragging = false"
@@ -169,15 +181,15 @@ onMounted(async () => {
           @touchmove="onSliderMove"
         >
           <img
-            v-if="data.featured.after_image"
-            :src="data.featured.after_image"
+            v-if="featuredAfterImage"
+            :src="featuredAfterImage"
             alt="Sesudah instalasi"
             class="ba-slider__img ba-slider__img--after"
           />
           <div class="ba-slider__before" :style="{ width: sliderPos + '%' }">
             <img
-              v-if="data.featured.before_image"
-              :src="data.featured.before_image"
+              v-if="featuredBeforeImage"
+              :src="featuredBeforeImage"
               alt="Sebelum instalasi"
               class="ba-slider__img"
             />
@@ -440,17 +452,62 @@ onMounted(async () => {
         <div class="bottom-cta__label">Mulai Sekarang</div>
         <h2 class="bottom-cta__title">Butuh Sistem Keamanan<br />Seperti di Atas?</h2>
         <p class="bottom-cta__sub">
-          Jadwalkan survey lokasi gratis. Kami hitung kebutuhan kabel, posisi kamera
-          ideal, dan estimasi biaya — tanpa komitmen.
+          Jadwalkan survey lokasi bersama teknisi resmi <strong>Padjajaran CCTV</strong>. Kami hitung kebutuhan kabel, posisi kamera
+          ideal, dan estimasi biaya — transparan tanpa komitmen.
         </p>
         <div class="bottom-cta__btns">
-          <button class="btn btn--primary btn--lg">Jadwalkan Survey Gratis</button>
+          <NuxtLink to="/services/booking" class="btn btn--primary btn--lg">
+            Jadwalkan Survey Gratis
+            <svg
+              width="18"
+              height="18"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2.5"
+            >
+              <path d="M5 12h14M12 5l7 7-7 7" />
+            </svg>
+          </NuxtLink>
+          <a :href="whatsappConsultUrl" target="_blank" rel="noopener" class="btn btn--wa btn--lg">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-.868-2.031-.967-.272-.099-.47-.149-.669.149-.198.297-.768.967-.941 1.165-.173.198-.347.223-.644.074-.297-.149-1.255-.462-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.521.151-.172.2-.296.3-.495.099-.198.05-.372-.025-.521-.075-.148-.669-1.611-.916-2.206-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.372s-1.04 1.016-1.04 2.479 1.065 2.876 1.213 3.074c.149.198 2.095 3.2 5.076 4.487.709.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414z"/>
+            </svg>
+            Chat WhatsApp Teknisi
+          </a>
           <NuxtLink to="/kategori/paket-cctv" class="btn btn--outline btn--lg">
             Lihat Paket Pemasangan
           </NuxtLink>
         </div>
       </div>
     </section>
+
+    <!-- ══════════════════════════════════════════════════════════
+         MOBILE STICKY CTA
+    ══════════════════════════════════════════════════════════════ -->
+    <div class="mobile-cta" role="complementary" aria-label="Tombol aksi portofolio">
+      <NuxtLink to="/services/booking" class="mobile-cta__btn mobile-cta__btn--primary">
+        <svg
+          width="16"
+          height="16"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2.5"
+        >
+          <path
+            d="M8 2v3M16 2v3M3 8h18M5 3h14a2 2 0 0 1 2 2v15a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2zM10 12h4M12 10v4"
+          />
+        </svg>
+        <span>Survey Gratis</span>
+      </NuxtLink>
+      <a :href="whatsappConsultUrl" target="_blank" rel="noopener" class="mobile-cta__btn mobile-cta__btn--wa">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-.868-2.031-.967-.272-.099-.47-.149-.669.149-.198.297-.768.967-.941 1.165-.173.198-.347.223-.644.074-.297-.149-1.255-.462-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.521.151-.172.2-.296.3-.495.099-.198.05-.372-.025-.521-.075-.148-.669-1.611-.916-2.206-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.372s-1.04 1.016-1.04 2.479 1.065 2.876 1.213 3.074c.149.198 2.095 3.2 5.076 4.487.709.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414z"/>
+        </svg>
+        <span>Tanya Teknisi</span>
+      </a>
+    </div>
   </main>
 </template>
 
@@ -479,6 +536,13 @@ onMounted(async () => {
   font-family: var(--f-body);
   min-height: 100vh;
   overflow-x: hidden;
+  padding-bottom: 80px;
+}
+
+@media (min-width: 768px) {
+  .portfolio-root {
+    padding-bottom: 0;
+  }
 }
 
 /* ── Utility ─────────────────────────────────────────────────── */
@@ -1238,6 +1302,69 @@ swiper-container::part(bullet-active) {
   flex-wrap: wrap;
   gap: 0.75rem;
   justify-content: center;
+}
+
+.btn--wa {
+  background: #03ac0e;
+  color: #fff;
+  border: 1px solid #03ac0e;
+}
+.btn--wa:hover {
+  background: #028a0b;
+  border-color: #028a0b;
+  color: #fff;
+}
+
+/* ── Mobile Sticky CTA ────────────────────────────────────────── */
+.mobile-cta {
+  display: flex;
+  gap: 0.5rem;
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 0.75rem;
+  padding-bottom: calc(0.75rem + env(safe-area-inset-bottom));
+  background: rgba(10, 10, 10, 0.94);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-top: 1px solid var(--c-border);
+  z-index: 100;
+}
+@media (min-width: 768px) {
+  .mobile-cta {
+    display: none;
+  }
+}
+.mobile-cta__btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  padding: 0.85rem 1rem;
+  border: none;
+  cursor: pointer;
+  text-decoration: none;
+  font-family: var(--f-body);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  border-radius: 8px;
+  transition: transform 0.15s, opacity 0.15s;
+}
+.mobile-cta__btn:active {
+  transform: scale(0.96);
+  opacity: 0.9;
+}
+.mobile-cta__btn--primary {
+  background: var(--c-red);
+  color: #fff;
+}
+.mobile-cta__btn--wa {
+  background: #03ac0e;
+  color: #fff;
 }
 
 /* ══════════════════════════════════════════════════════════════════

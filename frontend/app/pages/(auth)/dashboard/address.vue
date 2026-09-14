@@ -34,10 +34,8 @@ const form = reactive({
 const tabs = [
   { label: "Biodata Diri", to: "/dashboard" },
   { label: "Daftar Alamat", to: "/dashboard/address" },
-  { label: "Keamanan", to: "/dashboard/change-password" },
+  { label: "Keamanan Akun", to: "/dashboard/change-password" },
   { label: "Notifikasi", to: "/dashboard/notifications" },
-  { label: "Pesanan Saya", to: "/dashboard/orders" },
-  { label: "Layanan Jasa", to: "/dashboard/jasa" },
 ];
 
 const getToken = () => useCookie("token").value;
@@ -186,8 +184,21 @@ onMounted(async () => {
 
 <template>
   <div class="min-h-screen bg-white">
-    <!-- TABS -->
-    <div class="border-b border-gray-200 overflow-x-auto no-scrollbar">
+    <!-- MOBILE HEADER -->
+    <div class="lg:hidden flex items-center justify-between px-6 py-4 border-b border-gray-100 bg-white sticky top-0 z-10">
+      <div class="flex items-center gap-4">
+        <button @click="$router.push('/dashboard')" class="p-1 -ml-1 text-gray-400 hover:text-gray-900 transition-colors">
+          <UIcon name="i-heroicons-arrow-left" class="w-5 h-5" />
+        </button>
+        <h1 class="text-base font-black text-gray-900 uppercase tracking-wider">Daftar Alamat</h1>
+      </div>
+      <button @click="openAddModal" class="p-2 bg-[#03AC0E]/10 text-[#03AC0E] active:bg-[#03AC0E]/20 rounded-lg transition-all flex items-center justify-center">
+        <UIcon name="i-heroicons-plus" class="w-5 h-5" />
+      </button>
+    </div>
+
+    <!-- TABS (Desktop Only) -->
+    <div class="hidden lg:block border-b border-gray-200 overflow-x-auto no-scrollbar">
       <div class="flex px-8">
         <NuxtLink
           v-for="tab in tabs"
@@ -207,8 +218,9 @@ onMounted(async () => {
     </div>
 
     <!-- CONTENT -->
-    <div class="p-8">
-      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-6 mb-8">
+    <div class="p-4 sm:p-8">
+      <!-- Desktop Title Area (Hidden on Mobile) -->
+      <div class="hidden lg:flex flex-col sm:flex-row sm:items-center justify-between gap-6 mb-8">
         <div>
           <h2 class="text-xl font-bold text-gray-900">Daftar Alamat</h2>
           <p class="text-xs text-gray-400 mt-1 uppercase tracking-widest font-bold">Kelola tujuan pengiriman Anda</p>
@@ -231,10 +243,10 @@ onMounted(async () => {
 
         <div v-else class="space-y-4">
           <div v-for="addr in addresses" :key="addr.uuid || addr.id" 
-            class="bg-white border rounded-xl p-6 transition-all"
+            class="bg-white border rounded-xl p-4 sm:p-6 transition-all"
             :class="addr.is_default ? 'border-[#03AC0E] bg-emerald-50/10' : 'border-gray-200'"
           >
-            <div class="flex flex-col lg:flex-row lg:items-start justify-between gap-6">
+            <div class="flex flex-col lg:flex-row lg:items-start justify-between gap-4 sm:gap-6">
               <div class="flex-1">
                 <div class="flex items-center gap-3 mb-2">
                   <h3 class="text-sm font-bold text-gray-900 uppercase tracking-tight">{{ addr.label || 'Alamat' }}</h3>
@@ -245,7 +257,7 @@ onMounted(async () => {
                 <p class="text-xs font-bold text-gray-400 mt-2 uppercase tracking-widest">{{ addr.city }}, {{ addr.zip_code }}</p>
               </div>
 
-              <div class="flex items-center gap-6 pt-4 lg:pt-0 lg:border-l lg:pl-8 border-gray-100">
+              <div class="flex items-center gap-6 pt-4 lg:pt-0 lg:border-l lg:pl-8 border-gray-100 justify-end sm:justify-start">
                 <button @click="openEditModal(addr)" class="text-sm font-bold text-[#03AC0E] hover:underline">Ubah</button>
                 <button v-if="!addr.is_default" @click="setAsDefault(addr)" class="text-sm font-bold text-gray-500 hover:text-gray-900 transition-colors">Pilih Utama</button>
                 <button v-if="!addr.is_default" @click="deleteAddress(addr.uuid || addr.id)" class="text-gray-300 hover:text-red-600 transition-colors">

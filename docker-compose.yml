@@ -1,7 +1,5 @@
-version: '3.8'
-
 services:
-  # 🔥 DragonflyDB: Pengganti Redis yang jauh lebih cepat & multi-threaded
+  # 🌐 Cloudflare Tunnel (Opsional untuk expose public)
   cloudflared:
     image: cloudflare/cloudflared:latest
     container_name: cloudflared
@@ -11,21 +9,29 @@ services:
       - ./cloudflared:/etc/cloudflared
     depends_on:
       - backend
+
+  # ⚙️ Celery Background Worker
   celery_worker:
     build: .
     container_name: celery_worker
     restart: always
     depends_on:
-      - dragonfly
-      - db
+      dragonfly:
+        condition: service_started
+      db:
+        condition: service_healthy
     env_file:
       - ./backend/.env
     environment:
       - DATABASE_URL=postgresql+asyncpg://user_admin:password_rahasia@db:5432/marketplace_db
       - REDIS_HOST=dragonfly
       - REDIS_PORT=6379
-      - QDRANT_URL=http://qdrant:6333
-    command: celery -A backend.celery_app.celery_app worker -l info -Q default,email,auth --concurrency=4
+      - MANTICORE_URL=http://manticore:9308
+    volumes:
+      - ./backend:/app/backend
+    command: celery -A backend.celery_app.celery_app worker -l info -Q default,email,auth --concurrency=2
+
+  # 🔥 DragonflyDB: Pengganti Redis yang ultra-cepat, multi-threaded, & hemat RAM
   dragonfly:
     image: 'docker.dragonflydb.io/dragonflydb/dragonfly'
     container_name: dragonfly_service
@@ -34,10 +40,9 @@ services:
     ulimits:
       memlock: -1
     restart: always
-    # Batasi memori jika dijalankan di laptop (opsional)
-    # command: ["--memlimit=512MB"]
+    command: ["--proactor_threads=2", "--maxmemory=512MB", "--cache_mode=true"]
 
-  # 🐘 PostgreSQL: Database utama dengan fitur Healthcheck
+  # 🐘 PostgreSQL: Database utama dengan Healthcheck
   db:
     image: postgres:15-alpine
     container_name: postgres_db
@@ -50,7 +55,6 @@ services:
       - "5433:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-    # 🔥 Memastikan container sehat hanya jika Postgres benar-benar siap menerima koneksi
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U user_admin -d marketplace_db"]
       interval: 5s
@@ -64,17 +68,13 @@ services:
     restart: always
     depends_on:
       db:
-        condition: service_healthy  # 🔥 Tunggu DB sampai benar-benar siap
+        condition: service_healthy
       dragonfly:
         condition: service_started
       manticore:
-        condition: service_started  # 🔥 Pastikan backend menunggu Manticore nyala
-      qdrant:
         condition: service_started
-    # 🔥 Membaca variabel dari backend/.env
     env_file:
       - ./backend/.env
-    # 🔥 Sinkronisasi file untuk Auto-Update (Hot Reload)
     volumes:
       - ./backend:/app/backend
     environment:
@@ -82,35 +82,29 @@ services:
       - REDIS_HOST=dragonfly
       - REDIS_PORT=6379
       - MANTICORE_URL=http://manticore:9308
-      - QDRANT_URL=http://qdrant:6333
     ports:
       - "8000:8000"
-    # 🔥 Mode Development dengan auto-reload
     command: uvicorn backend:app --host 0.0.0.0 --port 8000 --reload
 
-  # ⚡ Manticore Search: Pengganti Elasticsearch yang sangat ringan & cepat
+  # ⚡ Manticore Search: Search Engine ultra-cepat & hemat RAM (~30-50MB) pengganti Elasticsearch & Qdrant
   manticore:
     image: manticoresearch/manticore:6.3.0
     container_name: manticore_db
+    environment:
+      - EXTRA=0
     ports:
       - "9306:9306"
       - "9308:9308"
     volumes:
       - manticore_data:/var/lib/manticore
     restart: always
+    healthcheck:
+      test: ["CMD", "mysql", "-h", "127.0.0.1", "-P", "9306", "-e", "SHOW STATUS"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
 
-  # ⚡ Qdrant: Vector Database untuk semantic search
-  qdrant:
-    image: qdrant/qdrant:v1.9.0
-    container_name: qdrant_db
-    ports:
-      - "6333:6333"
-      - "6334:6334"
-    volumes:
-      - qdrant_data:/qdrant/storage
-    restart: always
-    
 volumes:
   postgres_data:
   manticore_data:
-  qdrant_data:

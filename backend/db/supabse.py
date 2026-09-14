@@ -200,6 +200,84 @@ class SupabaseNotificationService:
         logger.info(f"[Notif] Bulk terkirim ✓ → {len(data)} rows")
         return data
 
+    @staticmethod
+    async def get_notifications(user_id: str, limit: int = 50) -> list:
+        url = f"{Config.SUPABASE_URL}/rest/v1/notifications"
+        headers = {
+            "apikey":        Config.SUPABASE_SERVICE_ROLE_KEY,
+            "Authorization": f"Bearer {Config.SUPABASE_SERVICE_ROLE_KEY}",
+        }
+        params = {
+            "user_id": f"eq.{user_id}",
+            "order": "created_at.desc",
+            "limit": str(limit),
+        }
+        try:
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                resp = await client.get(url, headers=headers, params=params)
+            if resp.status_code != 200:
+                logger.error(f"[Notif] Fetch GAGAL: {resp.status_code} — {resp.text}")
+                return []
+            return resp.json()
+        except Exception as e:
+            logger.error(f"[Notif] Fetch error: {e}")
+            return []
+
+    @staticmethod
+    async def mark_as_read(user_id: str, notification_id: int) -> bool:
+        url = f"{Config.SUPABASE_URL}/rest/v1/notifications"
+        headers = {
+            "apikey":        Config.SUPABASE_SERVICE_ROLE_KEY,
+            "Authorization": f"Bearer {Config.SUPABASE_SERVICE_ROLE_KEY}",
+            "Content-Type":  "application/json",
+        }
+        params = {
+            "user_id": f"eq.{user_id}",
+            "id": f"eq.{notification_id}",
+        }
+        from datetime import datetime
+        payload = {
+            "read_at": datetime.utcnow().isoformat() + "Z"
+        }
+        try:
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                resp = await client.patch(url, json=payload, headers=headers, params=params)
+            if resp.status_code not in (200, 204):
+                logger.error(f"[Notif] Mark read GAGAL: {resp.status_code} — {resp.text}")
+                return False
+            return True
+        except Exception as e:
+            logger.error(f"[Notif] Mark read error: {e}")
+            return False
+
+    @staticmethod
+    async def mark_all_as_read(user_id: str) -> bool:
+        url = f"{Config.SUPABASE_URL}/rest/v1/notifications"
+        headers = {
+            "apikey":        Config.SUPABASE_SERVICE_ROLE_KEY,
+            "Authorization": f"Bearer {Config.SUPABASE_SERVICE_ROLE_KEY}",
+            "Content-Type":  "application/json",
+        }
+        params = {
+            "user_id": f"eq.{user_id}",
+            "read_at": "is.null",
+        }
+        from datetime import datetime
+        payload = {
+            "read_at": datetime.utcnow().isoformat() + "Z"
+        }
+        try:
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                resp = await client.patch(url, json=payload, headers=headers, params=params)
+            if resp.status_code not in (200, 204):
+                logger.error(f"[Notif] Mark all read GAGAL: {resp.status_code} — {resp.text}")
+                return False
+            return True
+        except Exception as e:
+            logger.error(f"[Notif] Mark all read error: {e}")
+            return False
+
+
 
 # =============================================================
 # AUTH HELPER

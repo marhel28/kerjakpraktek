@@ -1072,6 +1072,20 @@ class PromoCheckoutService:
                 order_id=payload.order_id,
             )
 
+            # Kirim notifikasi ke admin jika pembayaran promo berhasil
+            if payload.transaction_status in ("settlement", "capture"):
+                try:
+                    from backend.data.transaksi.service import _send_notification_to_admins
+                    await _send_notification_to_admins(
+                        session=session,
+                        title="Pesanan Baru Dibayar! 💰",
+                        content=f"Pesanan promo {order_id} sebesar Rp{int(float(payload.gross_amount or 0)):,} telah berhasil dibayar.",
+                        action_url=f"/transaksi/{order_id}",
+                        notif_type="order",
+                    )
+                except Exception as e:
+                    logger.error(f"Failed to send promo paid notification to admin: {e}")
+
         await session.commit()
 
         return {

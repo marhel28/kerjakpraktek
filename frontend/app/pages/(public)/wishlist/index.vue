@@ -341,8 +341,6 @@ const applyPromoCode = () => {
 </template>
 
 <style scoped>
-@import url("https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&display=swap");
-
 main {
   font-family: "Plus Jakarta Sans", sans-serif;
 }

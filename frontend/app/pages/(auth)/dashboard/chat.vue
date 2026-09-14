@@ -187,8 +187,8 @@ onUnmounted(() => {
 <template>
   <div class="h-[calc(100vh-140px)] flex flex-col bg-white overflow-hidden rounded-xl border border-gray-200 shadow-sm relative">
     
-    <!-- TABS (Marketplace style) -->
-    <div class="border-b border-gray-200 overflow-x-auto no-scrollbar shrink-0 bg-white">
+    <!-- TABS (Desktop Only) -->
+    <div class="hidden lg:block border-b border-gray-200 overflow-x-auto no-scrollbar shrink-0 bg-white">
       <div class="flex px-4 sm:px-8">
         <NuxtLink
           v-for="tab in tabs"
@@ -209,7 +209,11 @@ onUnmounted(() => {
 
     <!-- Messenger Header -->
     <header class="px-6 py-4 border-b border-gray-100 bg-white flex items-center justify-between shrink-0 z-10">
-      <div class="flex items-center gap-4">
+      <div class="flex items-center gap-3 sm:gap-4">
+        <!-- Mobile Back Button -->
+        <button @click="$router.push('/dashboard')" class="lg:hidden p-1 -ml-2 text-gray-400 hover:text-gray-900 transition-colors">
+          <UIcon name="i-heroicons-arrow-left" class="w-5 h-5" />
+        </button>
         <div class="relative">
           <div class="w-10 h-10 bg-[#03AC0E] rounded-full flex items-center justify-center text-white shadow-sm">
             <UIcon name="i-heroicons-headset" class="w-6 h-6" />

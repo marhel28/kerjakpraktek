@@ -1,5 +1,7 @@
 from fastapi import FastAPI
+from fastapi.responses import ORJSONResponse
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
 from contextlib import asynccontextmanager
 
 from backend.db.main import init_db, init_knowledge_index
@@ -68,6 +70,7 @@ app = FastAPI(
     title="Aplikasi Marketplace",
     description="High Performance Marketplace API",
     lifespan=lifespan,
+    default_response_class=ORJSONResponse,
     root_path="",
 )
 
@@ -76,13 +79,16 @@ app.add_middleware(
     allow_origins=[
         "http://localhost:3000",
         "http://localhost:5173",
+        "https://cctv-api.desa-sidomukti.com",
+        "https://marketplace-pi-sable.vercel.app",
         "https://29a4-103-165-157-195.ngrok-free.app",
-        "https://marketplace-pi-sable.vercel.app"
     ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+app.add_middleware(GZipMiddleware, minimum_size=1000)
 
 # ── Routers ────────────────────────────────────────────────────────
 app.include_router(router_user,           prefix="/auth/user",        tags=["user"])

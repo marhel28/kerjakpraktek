@@ -3,7 +3,7 @@ import sqlalchemy.dialects.postgresql as pg
 from uuid import UUID, uuid4
 from datetime import datetime
 from typing import Optional, List, Dict, Any
-from sqlalchemy import func, Index, text, ForeignKey
+from sqlalchemy import func, Index, text, ForeignKey, desc
 
 
 class AssetStock(SQLModel, table=True):
@@ -109,6 +109,10 @@ class Stock(SQLModel, table=True):
     )
     __table_args__ = (
         Index("idx_stock_title_gin", text("to_tsvector('simple', title)"), postgresql_using="gin"),
+        Index("idx_stock_popular", "is_active", "stok", desc("terjual"), desc("created_at")),
+        Index("idx_stock_best_deals", "is_active", desc("discount_percentage"), desc("terjual")),
+        Index("idx_stock_cat_active", "category_slug", "is_active"),
+        Index("idx_stock_brand_active", "brand", "is_active"),
     )
 
 

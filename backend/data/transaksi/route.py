@@ -329,3 +329,27 @@ async def repay_transaction(
     except Exception as e:
         logger.exception(f"repay error: {e}")
         raise HTTPException(500, "Internal server error")
+
+
+# ============================================================
+# CONFIRM DELIVERY — konfirmasi barang sudah sampai
+# ============================================================
+@transaksi_route.post("/confirm-delivery/{order_id}")
+async def confirm_delivery(
+    order_id: str,
+    user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+):
+    """
+    User mengonfirmasi bahwa barang pesanan sudah diterima (delivery_status -> DELIVERED).
+    Mendukung transaksi reguler (ORD-) maupun promo (PROMO-).
+    """
+    try:
+        return await TransactionService.confirm_delivery(
+            session=session, user_id=user.uuid, order_id=order_id
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception(f"confirm_delivery error: {e}")
+        raise HTTPException(500, "Internal server error")

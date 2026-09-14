@@ -69,6 +69,14 @@
                 <Icon name="lucide:heart" class="w-[18px] h-[18px] text-gray-400 group-hover/item:text-[#03AC0E] transition-colors" />
                 <span class="text-[13px] font-bold text-gray-700 group-hover/item:text-[#03AC0E] transition-colors">Wishlist Barang</span>
               </div>
+              <transition name="badge-pop">
+                <span 
+                  v-if="wishlistCount > 0"
+                  class="bg-[#03AC0E] text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[20px] text-center shadow-sm"
+                >
+                  {{ wishlistCount }}
+                </span>
+              </transition>
             </NuxtLink>
           </nav>
 
@@ -109,14 +117,22 @@
 import { computed, onMounted } from 'vue'
 import { useNotificationStore } from '~/stores/notificationStore'
 
+import { useWishlistStore } from '~/stores/wishlist'
+
 const token = useCookie('token')
 const userDataCookie = useCookie('user_data')
 
 const notificationStore = useNotificationStore()
 const unreadCount = computed(() => notificationStore.unreadCount)
 
+const wishlistStore = useWishlistStore()
+const wishlistCount = computed(() => wishlistStore.count)
+
 onMounted(() => {
   notificationStore.init()
+  if (token.value) {
+    wishlistStore.fetchWishlist()
+  }
 })
 
 const isAuthenticated = computed(() => !!token.value)

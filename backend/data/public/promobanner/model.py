@@ -20,7 +20,7 @@ import sqlalchemy.dialects.postgresql as pg
 from uuid import UUID, uuid4
 from datetime import datetime
 from typing import Optional, List, Dict, Any
-from sqlalchemy import func, Index, text, ForeignKey, UniqueConstraint
+from sqlalchemy import func, Index, text, ForeignKey, UniqueConstraint, desc
 from enum import Enum
 
 
@@ -553,4 +553,5 @@ class PromoTransaction(SQLModel, table=True):
         Index("idx_pt_promo", "promo_uuid"),
         Index("idx_pt_status", "transaction_status"),
         Index("idx_pt_booking", "service_booking_uuid"),
+        Index("idx_promo_trx_user_created", "user_id", desc("created_at")),
     )

@@ -65,6 +65,6 @@ Config = get_settings()
 
 # --- DEBUGGING (Hapus jika sudah jalan) ---
 if not Config.IdAccount:
-    print("❌ WARNING: IdAccount is EMPTY! Check your .env file path.")
+    print("[WARN] IdAccount is EMPTY! Check your .env file path.")
 else:
-    print(f"✅ Config Loaded: IdAccount is {Config.IdAccount[:5]}...")
+    print(f"[OK] Config Loaded: IdAccount is {Config.IdAccount[:5]}...")

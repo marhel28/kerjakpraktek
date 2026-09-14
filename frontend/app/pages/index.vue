@@ -34,6 +34,7 @@ useSeoMeta({
     <Brandrunning />
     <HomeBanner class="my-8" />
     <PopularItems class="my-8" />
+    <BestDeals class="my-8" />
     <ServiceBookingBanner class="mt-2 mb-2" />
 
     <BannerSection

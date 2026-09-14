@@ -529,28 +529,34 @@
           <!-- Form kirim (untuk tab bot, ATAU tab admin saat sudah login) -->
           <div v-else class="flex flex-col gap-2">
             <!-- Autocomplete Suggestions (Hanya untuk PasarBot AI) -->
-            <div
-              v-if="activeTab === 'bot'"
-              class="flex gap-2 overflow-x-auto pb-1.5 px-0.5 no-scrollbar scroll-smooth shrink-0"
-              style="-webkit-overflow-scrolling: touch;"
-            >
-              <!-- CS Help Button -->
-              <button
-                @click="handleCSRequest"
-                class="bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-800 text-[11px] font-black px-3.5 py-1.5 rounded-full shrink-0 transition-all shadow-sm flex items-center gap-1 active:scale-95"
+            <div v-if="activeTab === 'bot'" class="relative shrink-0">
+              <!-- Gradient fade kanan: tanda ada konten lebih -->
+              <div
+                class="pointer-events-none absolute right-0 top-0 bottom-1.5 w-8 bg-gradient-to-l from-white to-transparent z-10"
+              />
+              <div
+                ref="suggestionsScrollRef"
+                class="flex gap-2 overflow-x-auto pb-1.5 px-0.5 scroll-smooth suggestions-scroll"
+                style="-webkit-overflow-scrolling: touch; scroll-behavior: smooth;"
               >
-                <Icon name="lucide:headset" class="w-3.5 h-3.5 animate-pulse" />
-                Customer Service 📞
-              </button>
+                <!-- CS Help Button -->
+                <button
+                  @click="handleCSRequest"
+                  class="bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-800 text-[11px] font-black px-3.5 py-1.5 rounded-full shrink-0 transition-all shadow-sm flex items-center gap-1 active:scale-95"
+                >
+                  <Icon name="lucide:headset" class="w-3.5 h-3.5 animate-pulse" />
+                  Customer Service 📞
+                </button>
 
-              <button
-                v-for="sug in chatbotStore.suggestions"
-                :key="sug"
-                @click="sendSuggestion(sug)"
-                class="bg-[#03AC0E]/5 hover:bg-[#03AC0E]/10 border border-[#03AC0E]/20 text-[#0D1B12] hover:text-[#03AC0E] text-[11px] font-bold px-3 py-1.5 rounded-full shrink-0 transition-all shadow-sm max-w-[220px] truncate"
-              >
-                {{ sug }}
-              </button>
+                <button
+                  v-for="sug in chatbotStore.suggestions"
+                  :key="sug"
+                  @click="sendSuggestion(sug)"
+                  class="bg-[#03AC0E]/5 hover:bg-[#03AC0E]/10 border border-[#03AC0E]/20 text-[#0D1B12] hover:text-[#03AC0E] text-[11px] font-bold px-3 py-1.5 rounded-full shrink-0 transition-all shadow-sm max-w-[200px] truncate active:scale-95"
+                >
+                  {{ sug }}
+                </button>
+              </div>
             </div>
 
             <!-- Preview gambar terpilih (hanya untuk Tanya Admin) -->
@@ -714,8 +720,9 @@ const messagesContainer = ref<HTMLElement | null>(null)
 const bottomAnchor      = ref<HTMLElement | null>(null)
 const imageInput        = ref<HTMLInputElement | null>(null)
 const textareaRef       = ref<HTMLTextAreaElement | null>(null)
-const lightboxUrl       = ref<string | null>(null)
-const selectedImages    = ref<{ file: File; preview: string }[]>([])
+const lightboxUrl          = ref<string | null>(null)
+const selectedImages       = ref<{ file: File; preview: string }[]>([])
+const suggestionsScrollRef = ref<HTMLElement | null>(null)
 
 /**
  * bannerDismissed — user bisa nutup banner tanpa kirim.
@@ -1166,5 +1173,28 @@ onUnmounted(() => {
 .no-scrollbar {
   -ms-overflow-style: none;
   scrollbar-width: none;
+}
+
+/* Suggestions scroll - scrollbar tipis yang muncul saat hover */
+.suggestions-scroll::-webkit-scrollbar {
+  height: 3px;
+}
+.suggestions-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+.suggestions-scroll::-webkit-scrollbar-thumb {
+  background-color: transparent;
+  border-radius: 10px;
+  transition: background-color 0.2s;
+}
+.suggestions-scroll:hover::-webkit-scrollbar-thumb {
+  background-color: #d1d5db;
+}
+.suggestions-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+}
+.suggestions-scroll:hover {
+  scrollbar-color: #d1d5db transparent;
 }
 </style>

@@ -2,6 +2,7 @@ import asyncio
 import io
 import re
 import json
+import hashlib
 import logging
 from typing import List, Optional, Dict, Any
 from uuid import UUID
@@ -23,6 +24,10 @@ from backend.db.es_client import (
 )
 from backend.db.redis import (
     get_redis_token,
+    cache_get,
+    cache_set,
+    cache_delete,
+    cache_delete_pattern,
     cache_coupon,
     get_cached_coupon,
     invalidate_coupon_cache,
@@ -34,6 +39,13 @@ logger = logging.getLogger(__name__)
 # ── Cache TTL ──────────────────────────────────────────────────────
 POPULAR_CACHE_KEY = "cache:popular_products:v2"
 POPULAR_CACHE_TTL = 300   # 5 menit
+
+BEST_DEALS_CACHE_KEY = "cache:best_deals:v1"
+BEST_DEALS_CACHE_TTL = 300  # 5 menit
+
+SEARCH_CACHE_TTL       = 180  # 3 menit untuk hasil pencarian
+SEARCH_BRAND_CACHE_TTL = 300  # 5 menit untuk brand
+BRANDS_LIST_CACHE_KEY  = "cache:brands:all:v1"
 
 
 class StockService:
@@ -179,7 +191,9 @@ class StockService:
                 logger.error(f"ES index failed: {e}")
 
             try:
-                await get_redis_token().delete(POPULAR_CACHE_KEY)
+                await cache_delete(POPULAR_CACHE_KEY, BEST_DEALS_CACHE_KEY)
+                await cache_delete_pattern("cache:search:*")
+                await cache_delete_pattern("cache:brands:*")
             except Exception:
                 pass
 
@@ -236,7 +250,14 @@ class StockService:
             logger.error(f"ES update failed: {e}")
 
         try:
-            await get_redis_token().delete(POPULAR_CACHE_KEY)
+            await cache_delete(
+                POPULAR_CACHE_KEY,
+                BEST_DEALS_CACHE_KEY,
+                f"stock:detail:uuid:{db_stock.uuid}",
+                f"stock:detail:slug:{db_stock.slug}" if db_stock.slug else "",
+            )
+            await cache_delete_pattern("cache:search:*")
+            await cache_delete_pattern("cache:brands:*")
         except Exception:
             pass
 
@@ -436,13 +457,9 @@ class StockService:
     async def get_popular_items(
         self, session: AsyncSession, limit: int = 10
     ) -> List[Dict]:
-        r = get_redis_token()
-        try:
-            cached = await r.get(POPULAR_CACHE_KEY)
-            if cached:
-                return json.loads(cached)
-        except Exception as e:
-            logger.warning(f"Redis popular cache read failed: {e}")
+        cached = await cache_get(POPULAR_CACHE_KEY)
+        if cached:
+            return cached
 
         stmt = (
             select(Stock)
@@ -471,11 +488,53 @@ class StockService:
             for s in stocks
         ]
 
-        try:
-            await r.set(POPULAR_CACHE_KEY, json.dumps(items), ex=POPULAR_CACHE_TTL)
-        except Exception as e:
-            logger.warning(f"Redis popular cache write failed: {e}")
+        await cache_set(POPULAR_CACHE_KEY, items, ex=POPULAR_CACHE_TTL)
+        return items
 
+    async def get_best_deals(
+        self, session: AsyncSession, limit: int = 12
+    ) -> List[Dict]:
+        """Ambil produk dengan diskon terbesar, dikache di Redis."""
+        cached = await cache_get(BEST_DEALS_CACHE_KEY)
+        if cached:
+            return cached
+
+        stmt = (
+            select(Stock)
+            .where(
+                Stock.is_active == True,
+                Stock.stok > 0,
+                Stock.discount_percentage > 0,
+                Stock.original_price > 0,
+            )
+            .options(selectinload(Stock.assets))
+            .order_by(desc(Stock.discount_percentage), desc(Stock.terjual))
+            .limit(limit)
+        )
+        result = await session.execute(stmt)
+        stocks = result.scalars().all()
+
+        items = [
+            {
+                "uuid":                str(s.uuid),
+                "title":               s.title,
+                "slug":                s.slug,
+                "price":               s.online_price,
+                "original_price":      s.original_price,
+                "discount_percentage": s.discount_percentage,
+                "brand":               s.brand,
+                "type":                s.type,
+                "terjual":             s.terjual,
+                "stok":                s.stok,
+                "category":            s.category_slug,
+                "subcategory":         s.subcategory_slug,
+                "specs":               s.specs or {},
+                "image":               s.assets[0].url if s.assets else None,
+            }
+            for s in stocks
+        ]
+
+        await cache_set(BEST_DEALS_CACHE_KEY, items, ex=BEST_DEALS_CACHE_TTL)
         return items
 
     # ══════════════════════════════════════════════════════════════
@@ -732,6 +791,13 @@ class StockService:
             if sort_by == "newest":
                 sort_by = "popular_sort"
 
+        # ── ⚡ Redis Search Cache ──────────────────────────────
+        cache_raw = f"{q}:{sorted(safe_categories)}:{brand}:{item_type}:{min_p}:{max_p}:{sort_by}:{limit}:{offset}"
+        cache_key = f"cache:search:products:{hashlib.md5(cache_raw.encode()).hexdigest()}"
+        cached = await cache_get(cache_key)
+        if cached is not None:
+            return cached
+
         where_clauses = ["is_active = 1"]
         
         if safe_categories and "semua-kategori" not in safe_categories:
@@ -816,7 +882,7 @@ class StockService:
         min_price = stats.get("min_p") or 0
         max_price = stats.get("max_p") or 0
 
-        return {
+        response_data = {
             "total": total,
             "items": items,
             "facets": {
@@ -828,6 +894,8 @@ class StockService:
             },
             "suggestion": None,
         }
+        await cache_set(cache_key, response_data, ex=SEARCH_CACHE_TTL)
+        return response_data
 
     async def search_by_brand_es(
         self, brand, q=None, categories=None,
@@ -836,9 +904,16 @@ class StockService:
         if not brand or not brand.strip():
             return {"total": 0, "items": [], "facets": {}, "suggestion": None, "brand_info": None}
 
+        safe_cats = list(categories or [])
+        cache_raw = f"{brand}:{q}:{sorted(safe_cats)}:{min_p}:{max_p}:{sort_by}:{limit}:{offset}"
+        cache_key = f"cache:search:brand:{hashlib.md5(cache_raw.encode()).hexdigest()}"
+        cached = await cache_get(cache_key)
+        if cached is not None:
+            return cached
+
         where_clauses = ["is_active = 1"]
         brand_clean = brand.strip().lower()
-        where_clauses.append(f"(brand_normalized = '{escape_sql_string(brand_clean)}' OR brand = '{escape_sql_string(brand_clean)}')")
+        where_clauses.append(f"brand_normalized = '{escape_sql_string(brand_clean)}'")
 
         # Determine match query using smart fallback hierarchy
         match_query = ""
@@ -872,7 +947,6 @@ class StockService:
             if match_query:
                 where_clauses.append(f"MATCH('{escape_sql_string(match_query)}')")
 
-        safe_cats = list(categories or [])
         if safe_cats and "semua-kategori" not in safe_cats:
             escaped_cats = ", ".join(f"'{escape_sql_string(c)}'" for c in safe_cats)
             where_clauses.append(f"(category_slug IN ({escaped_cats}) OR subcategory_slug IN ({escaped_cats}))")
@@ -897,7 +971,7 @@ class StockService:
         sql_cats  = f"SELECT category_slug, COUNT(*) as doc_count FROM products {where_sql} GROUP BY category_slug ORDER BY doc_count DESC LIMIT 30"
         sql_subcats = f"SELECT subcategory_slug, COUNT(*) as doc_count FROM products {where_sql} AND subcategory_slug != '' GROUP BY subcategory_slug ORDER BY doc_count DESC LIMIT 30"
         sql_stats  = f"SELECT MIN(online_price) as min_p, MAX(online_price) as max_p FROM products {where_sql}"
-        sql_brand_sample = f"SELECT brand FROM products {where_sql} LIMIT 1"
+        sql_brand_sample = f"SELECT brand_attr as brand FROM products {where_sql} LIMIT 1"
 
         res_items, res_count, res_cats, res_subcats, res_stats, res_sample = await asyncio.gather(
             es_client.execute_sql(sql_items),
@@ -917,7 +991,7 @@ class StockService:
         
         brand_name_actual = res_sample[0]["brand"] if res_sample else brand
 
-        return {
+        response_data = {
             "total": total,
             "items": items,
             "facets": {
@@ -928,8 +1002,15 @@ class StockService:
             "suggestion": None,
             "brand_info": {"slug": brand.lower().strip(), "name": brand_name_actual},
         }
+        await cache_set(cache_key, response_data, ex=SEARCH_BRAND_CACHE_TTL)
+        return response_data
 
     async def get_all_brands_es(self, min_product_count: int = 1) -> List[Dict]:
+        cache_key = f"{BRANDS_LIST_CACHE_KEY}:{min_product_count}"
+        cached = await cache_get(cache_key)
+        if cached is not None:
+            return cached
+
         try:
             sql = f"""
             SELECT brand_attr as brand, COUNT(*) as product_count, image_url, category_slug 
@@ -951,6 +1032,7 @@ class StockService:
                     "sample_image":  row.get("image_url"),
                     "category":      row.get("category_slug"),
                 })
+            await cache_set(cache_key, brands, ex=SEARCH_BRAND_CACHE_TTL)
             return brands
         except Exception as e:
             logger.error(f"Manticore Get All Brands Error: {e}")
@@ -1143,8 +1225,8 @@ class StockService:
                 })
                 
             count_tasks = []
-            for brand_norm in brands_to_query[:len(final_data)]:
-                brand_esc = escape_sql_string(brand_norm)
+            for item in final_data:
+                brand_esc = escape_sql_string(item["brand_name"].lower().strip())
                 count_tasks.append(es_client.execute_sql(f"SELECT COUNT(*) as total FROM products WHERE is_active = 1 AND brand_normalized = '{brand_esc}'"))
             
             count_results = await asyncio.gather(*count_tasks)

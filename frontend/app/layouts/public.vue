@@ -5,7 +5,8 @@
     <header class="sticky top-0 z-[100] shadow-sm bg-white">
       <AppNavbar />
       <ClientOnly>
-        <FloatingChat />
+        <LazyFloatingChat />
+        <LazyPromoPopup />
       </ClientOnly>
     </header>
 

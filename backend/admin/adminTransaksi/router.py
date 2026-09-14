@@ -84,3 +84,32 @@ async def update_transaction_waybill(
         "message": "Resi berhasil diupdate",
         "data": transaction
     }
+
+
+@router_transaksi_admin.get("/notifications")
+async def get_admin_notifications(
+    session: AsyncSession = Depends(get_session),
+    admin: User = Depends(get_admin)
+):
+    notifs = await TransactionAdminService.get_admin_notifications(session, admin)
+    return notifs
+
+
+@router_transaksi_admin.patch("/notifications/{notification_id}/read")
+async def mark_admin_notification_read(
+    notification_id: int,
+    session: AsyncSession = Depends(get_session),
+    admin: User = Depends(get_admin)
+):
+    success = await TransactionAdminService.mark_admin_notification_read(session, admin, notification_id)
+    return {"success": success}
+
+
+@router_transaksi_admin.post("/notifications/read-all")
+async def mark_all_admin_notifications_read(
+    session: AsyncSession = Depends(get_session),
+    admin: User = Depends(get_admin)
+):
+    success = await TransactionAdminService.mark_all_admin_notifications_read(session, admin)
+    return {"success": success}
+

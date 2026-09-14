@@ -190,10 +190,9 @@ const totalProducts = computed(() => productData.value?.total || 0)
 
       <div v-else-if="products.length" class="products-grid">
         <div
-          v-for="(product, index) in products"
+          v-for="product in products"
           :key="product.uuid"
           class="product-item"
-          :style="{ animationDelay: `${(index % 10) * 40}ms` }"
         >
           <CardPerItems
             :uuid="product.uuid"
@@ -244,8 +243,6 @@ const totalProducts = computed(() => productData.value?.total || 0)
 </template>
 
 <style scoped>
-@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&display=swap');
-
 .brand-page { font-family: 'Plus Jakarta Sans', sans-serif; }
 
 /* ── Hero Styles ── */
@@ -292,11 +289,7 @@ const totalProducts = computed(() => productData.value?.total || 0)
 @media (min-width: 768px)  { .products-grid { grid-template-columns: repeat(4, 1fr); gap: 0.875rem; } }
 @media (min-width: 1280px) { .products-grid { grid-template-columns: repeat(5, 1fr); gap: 1rem; } }
 
-@keyframes fadeUp {
-  from { opacity: 0; transform: translateY(14px); }
-  to   { opacity: 1; transform: translateY(0); }
-}
-.product-item { opacity: 0; animation: fadeUp 0.38s ease-out forwards; display: flex; flex-direction: column; }
+.product-item { display: flex; flex-direction: column; }
 
 /* ── Empty State ── */
 .empty-state { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 5rem 2rem; border: 2px dashed #e5e7eb; border-radius: 1.5rem; background: #fff; text-align: center; margin-top: 0.5rem; }
@@ -306,5 +299,5 @@ const totalProducts = computed(() => productData.value?.total || 0)
 .empty-state__btn { display: inline-flex; align-items: center; background: #111827; color: #fff; font-size: 11px; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; padding: 0.75rem 1.5rem; border-radius: 0.75rem; transition: background 0.2s; text-decoration: none; cursor: pointer; border: none; }
 .empty-state__btn:hover { background: #03AC0E; }
 
-@media (prefers-reduced-motion: reduce) { .product-item { animation: none; opacity: 1; } }
+
 </style>

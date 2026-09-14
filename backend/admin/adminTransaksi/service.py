@@ -151,3 +151,46 @@ class TransactionAdminService:
             print(f"Failed to send shipping notification: {e}")
 
         return transaction
+
+    @staticmethod
+    async def get_admin_notifications(session: AsyncSession, admin):
+        from backend.auth.model import UserMap
+        from backend.db.supabse import SupabaseNotificationService
+        
+        result_map = await session.execute(
+            select(UserMap).where(UserMap.local_user_id == str(admin.uuid))
+        )
+        user_map = result_map.scalar_one_or_none()
+        if not user_map or not user_map.supabase_user_id:
+            return []
+            
+        return await SupabaseNotificationService.get_notifications(user_map.supabase_user_id)
+
+    @staticmethod
+    async def mark_admin_notification_read(session: AsyncSession, admin, notification_id: int):
+        from backend.auth.model import UserMap
+        from backend.db.supabse import SupabaseNotificationService
+        
+        result_map = await session.execute(
+            select(UserMap).where(UserMap.local_user_id == str(admin.uuid))
+        )
+        user_map = result_map.scalar_one_or_none()
+        if not user_map or not user_map.supabase_user_id:
+            return False
+            
+        return await SupabaseNotificationService.mark_as_read(user_map.supabase_user_id, notification_id)
+
+    @staticmethod
+    async def mark_all_admin_notifications_read(session: AsyncSession, admin):
+        from backend.auth.model import UserMap
+        from backend.db.supabse import SupabaseNotificationService
+        
+        result_map = await session.execute(
+            select(UserMap).where(UserMap.local_user_id == str(admin.uuid))
+        )
+        user_map = result_map.scalar_one_or_none()
+        if not user_map or not user_map.supabase_user_id:
+            return False
+            
+        return await SupabaseNotificationService.mark_all_as_read(user_map.supabase_user_id)
+

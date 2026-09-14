@@ -15,14 +15,6 @@ const limit = ref(10);
 const totalPage = ref(1);
 const total = ref(0);
 
-const tabs = [
-  { label: "Biodata Diri", to: "/dashboard" },
-  { label: "Daftar Alamat", to: "/dashboard/address" },
-  { label: "Keamanan", to: "/dashboard/change-password" },
-  { label: "Notifikasi", to: "/dashboard/notifications" },
-  { label: "Pesanan Saya", to: "/dashboard/orders" },
-  { label: "Layanan Jasa", to: "/dashboard/jasa" },
-];
 
 const statusTabs = [
   { id: "semua", label: "Semua" },
@@ -92,6 +84,54 @@ const getStatusConfig = (trx: any) => {
   return { text: trx.transaction_status || "Proses", color: "bg-gray-50 text-gray-500 border-gray-100" };
 };
 
+const confirmModal = ref({
+  show: false,
+  orderId: "",
+  loading: false,
+});
+
+const successModal = ref({
+  show: false,
+  orderId: "",
+});
+
+const confirmDelivery = (orderId: string) => {
+  confirmModal.value = {
+    show: true,
+    orderId: orderId,
+    loading: false,
+  };
+};
+
+const executeConfirmDelivery = async () => {
+  const orderId = confirmModal.value.orderId;
+  confirmModal.value.loading = true;
+  try {
+    const response: any = await $fetch(`${config.public.apiBase}/transaksi/confirm-delivery/${orderId}`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${getToken()}` },
+    });
+    if (response.success) {
+      confirmModal.value.show = false;
+      successModal.value = {
+        show: true,
+        orderId: orderId,
+      };
+    } else {
+      alert(response.message || "Gagal mengonfirmasi penerimaan barang.");
+    }
+  } catch (err: any) {
+    alert(err?.data?.detail || "Gagal mengonfirmasi penerimaan barang.");
+  } finally {
+    confirmModal.value.loading = false;
+  }
+};
+
+const closeSuccessModal = () => {
+  successModal.value.show = false;
+  fetchTransactions();
+};
+
 onMounted(() => {
   fetchTransactions();
 });
@@ -99,35 +139,29 @@ onMounted(() => {
 
 <template>
   <div class="min-h-screen bg-white">
-    <!-- TABS (Main Dashboard Tabs) -->
-    <div class="border-b border-gray-200 overflow-x-auto no-scrollbar">
-      <div class="flex px-8">
-        <NuxtLink
-          v-for="tab in tabs"
-          :key="tab.to"
-          :to="tab.to"
-          class="px-6 py-4 text-sm font-bold whitespace-nowrap transition-colors relative"
-          :class="[
-            $route.path === tab.to 
-              ? 'text-[#03AC0E]' 
-              : 'text-gray-500 hover:text-gray-700'
-          ]"
-        >
-          {{ tab.label }}
-          <div v-if="$route.path === tab.to" class="absolute bottom-0 left-0 right-0 h-1 bg-[#03AC0E] rounded-t-full"></div>
-        </NuxtLink>
+    <!-- MOBILE HEADER -->
+    <div class="lg:hidden flex items-center gap-4 px-6 py-4 border-b border-gray-100 bg-white sticky top-0 z-10">
+      <button @click="$router.push('/dashboard')" class="p-1 -ml-1 text-gray-400 hover:text-gray-900 transition-colors">
+        <UIcon name="i-heroicons-arrow-left" class="w-5 h-5" />
+      </button>
+      <h1 class="text-base font-black text-gray-900 uppercase tracking-wider">Pesanan Saya</h1>
+    </div>
+
+    <!-- DESKTOP HEADER (Tokopedia Style) -->
+    <div class="hidden lg:block px-8 py-5 border-b border-gray-200/80 bg-white">
+      <div class="flex items-center justify-between">
+        <div>
+          <h1 class="text-lg font-bold text-gray-900">Daftar Transaksi</h1>
+          <p class="text-xs text-gray-500 mt-0.5">Pantau status pesanan dan riwayat belanja perangkat keamanan Anda</p>
+        </div>
       </div>
     </div>
 
     <!-- CONTENT -->
-    <div class="p-8">
-      <header class="mb-8">
-        <h2 class="text-xl font-bold text-gray-900">Pesanan Saya</h2>
-        <p class="text-xs text-gray-400 mt-1 uppercase tracking-widest font-bold">Pantau status transaksi Anda</p>
-      </header>
+    <div class="p-4 sm:p-8">
 
       <!-- STATUS TABS (Sub-tabs) -->
-      <div class="flex items-center gap-6 border-b border-gray-100 mb-6 overflow-x-auto no-scrollbar">
+      <div class="flex items-center gap-6 border-b border-gray-100 mb-6 overflow-x-auto no-scrollbar pb-1 px-1 sm:px-0">
         <button 
           v-for="tab in statusTabs" 
           :key="tab.id" 
@@ -205,7 +239,16 @@ onMounted(() => {
                 Lihat Detail
               </NuxtLink>
               
-              <button v-if="trx.transaction_status === 'settlement' || trx.transaction_status === 'success'" 
+              <button v-if="getStatusConfig(trx).text === 'Dikirim' && trx.trx_type !== 'jasa'"
+                @click="confirmDelivery(trx.order_id)" :disabled="confirmModal.loading"
+                class="px-6 py-2 bg-[#03AC0E] text-white text-xs font-black rounded-xl hover:bg-[#028a0b] transition-all active:scale-95 disabled:opacity-50 shadow-sm flex items-center gap-1.5"
+              >
+                <UIcon v-if="confirmModal.loading && confirmModal.orderId === trx.order_id" name="i-heroicons-arrow-path" class="w-3.5 h-3.5 animate-spin" />
+                <UIcon v-else name="i-heroicons-check-circle" class="w-3.5 h-3.5" />
+                Barang Sudah Sampai
+              </button>
+              
+              <button v-if="(trx.transaction_status === 'settlement' || trx.transaction_status === 'success') && getStatusConfig(trx).text !== 'Dikirim'" 
                 @click="navigateTo(`/product/${trx.items?.[0]?.stock_uuid}`)"
                 class="px-6 py-2 border-2 border-[#03AC0E] text-[#03AC0E] text-xs font-black rounded-xl hover:bg-[#03AC0E] hover:text-white transition-all active:scale-95 shadow-sm"
               >
@@ -223,10 +266,102 @@ onMounted(() => {
         </div>
       </main>
     </div>
+
+    <!-- ── MODAL KONFIRMASI (CONFIRM DELIVERY) ── -->
+    <Teleport to="body">
+      <Transition name="modal-scale">
+        <div v-if="confirmModal.show" class="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <!-- Backdrop -->
+          <div class="absolute inset-0 bg-gray-900/60 backdrop-blur-sm" @click="confirmModal.show = false"></div>
+          
+          <!-- Card -->
+          <div class="relative bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden p-6 flex flex-col items-center text-center z-10 border border-gray-100">
+            <!-- Icon -->
+            <div class="w-16 h-16 rounded-full bg-emerald-50 flex items-center justify-center text-[#03AC0E] mb-4 ring-8 ring-emerald-50/50">
+              <UIcon name="i-heroicons-question-mark-circle" class="w-10 h-10" />
+            </div>
+            
+            <h3 class="text-base font-black text-gray-900 mb-2">Konfirmasi Barang Sampai</h3>
+            <p class="text-xs text-gray-500 font-bold uppercase tracking-wider mb-6 leading-relaxed">
+              Apakah Anda yakin barang pesanan dengan ID<br/>
+              <span class="font-mono text-gray-900 font-black tracking-tight text-xs bg-gray-100 px-2 py-1 rounded">{{ confirmModal.orderId }}</span><br/>
+              sudah sampai dan diterima dengan baik?
+            </p>
+            
+            <div class="flex gap-3 w-full">
+              <button 
+                @click="confirmModal.show = false" 
+                class="flex-1 py-3 text-xs font-bold text-gray-500 bg-gray-50 border border-gray-200 rounded-xl hover:bg-gray-100 hover:text-gray-700 transition-all uppercase tracking-widest"
+              >
+                Batal
+              </button>
+              <button 
+                @click="executeConfirmDelivery" 
+                :disabled="confirmModal.loading"
+                class="flex-1 py-3 text-xs font-black text-white bg-[#03AC0E] rounded-xl hover:bg-[#028a0b] transition-all flex items-center justify-center gap-2 shadow-lg shadow-[#03AC0E]/20 disabled:opacity-50 uppercase tracking-widest"
+              >
+                <UIcon v-if="confirmModal.loading" name="i-heroicons-arrow-path" class="w-4 h-4 animate-spin" />
+                <span v-else>Ya, Sampai</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </Transition>
+    </Teleport>
+
+    <!-- ── MODAL SUKSES (ORDER COMPLETED) ── -->
+    <Teleport to="body">
+      <Transition name="modal-scale">
+        <div v-if="successModal.show" class="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <!-- Backdrop -->
+          <div class="absolute inset-0 bg-gray-900/60 backdrop-blur-sm" @click="closeSuccessModal"></div>
+          
+          <!-- Card -->
+          <div class="relative bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden p-6 flex flex-col items-center text-center z-10 border border-gray-100 animate-bounce-short">
+            <!-- Animated Success Checkmark -->
+            <div class="w-20 h-20 rounded-full bg-emerald-100 flex items-center justify-center text-[#03AC0E] mb-6 ring-8 ring-emerald-50">
+              <UIcon name="i-heroicons-check-circle" class="w-12 h-12 animate-pulse" />
+            </div>
+            
+            <h3 class="text-lg font-black text-gray-900 mb-2">Pesanan Selesai! 🎉</h3>
+            <p class="text-xs text-gray-500 font-semibold mb-6 leading-relaxed">
+              Terima kasih telah berbelanja di PasarCctv. Semoga produk kami dapat memenuhi kebutuhan keamanan Anda.
+            </p>
+            
+            <button 
+              @click="closeSuccessModal" 
+              class="w-full py-3 text-xs font-black text-white bg-gray-900 rounded-xl hover:bg-black transition-all uppercase tracking-widest shadow-lg shadow-gray-900/20"
+            >
+              Selesai
+            </button>
+          </div>
+        </div>
+      </Transition>
+    </Teleport>
+
   </div>
 </template>
 
 <style scoped>
 .no-scrollbar::-webkit-scrollbar { display: none; }
 .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+/* Modal Scale Transition */
+.modal-scale-enter-active, .modal-scale-leave-active {
+  transition: opacity 0.25s ease;
+}
+.modal-scale-enter-active .relative, .modal-scale-leave-active .relative {
+  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.25s ease;
+}
+.modal-scale-enter-from, .modal-scale-leave-to {
+  opacity: 0;
+}
+.modal-scale-enter-from .relative {
+  transform: scale(0.9) translateY(12px);
+  opacity: 0;
+}
+.modal-scale-leave-to .relative {
+  transform: scale(0.95);
+  opacity: 0;
+}
 </style>

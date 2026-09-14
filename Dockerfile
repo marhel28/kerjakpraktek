@@ -33,4 +33,4 @@ EXPOSE 8000
 
 # Jalankan uvicorn. 
 # Karena app ada di backend/__init__.py, kita panggil "backend:app"
-CMD ["uvicorn", "backend:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "4", "--loop", "uvloop"]
+CMD ["uvicorn", "backend:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "4", "--loop", "auto"]

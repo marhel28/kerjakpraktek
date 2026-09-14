@@ -338,7 +338,6 @@
               </template>
             </ClientOnly>
 
-            <Whitlish />
             <ClientOnly>
               <Cart />
             </ClientOnly>
@@ -382,7 +381,7 @@
               to="/services/booking"
               class="nav-link"
               :class="isComparePage ? 'hover:text-red-600' : 'hover:text-[#03AC0E]'"
-              >Maintenense &amp; Service</NuxtLink
+              >Maintenance &amp; Service</NuxtLink
             >
             <NuxtLink
               to="/contact"
@@ -546,6 +545,15 @@
                 </NuxtLink>
 
                 <NuxtLink
+                  to="/wishlist"
+                  class="flex items-center gap-3 px-5 py-3 hover:bg-gray-50 transition-colors"
+                  @click="isMobileMenuOpen = false"
+                >
+                  <UIcon name="i-heroicons-heart" class="w-5 h-5 text-gray-400" />
+                  <span class="text-[13px] font-bold text-gray-800">Wishlist Saya</span>
+                </NuxtLink>
+
+                <NuxtLink
                   to="/services/booking"
                   class="flex items-center gap-3 px-5 py-3 hover:bg-gray-50 transition-colors"
                   @click="isMobileMenuOpen = false"
@@ -555,7 +563,7 @@
                     class="w-5 h-5 text-gray-400"
                   />
                   <span class="text-[13px] font-bold text-gray-800"
-                    >Maintenense &amp; Service</span
+                    >Maintenance &amp; Service</span
                   >
                 </NuxtLink>
 
@@ -1048,23 +1056,19 @@ const props = defineProps({
 });
 import CategoryMenu from "~/components/CategoryMenu.vue";
 import BrandPop from "~/components/brands/BrandPop.vue";
-import Whitlish from "./header/whitlish.vue";
 import Cart from "./header/Cart.vue";
 
 // Import Notification Store
 import { useNotificationStore } from "~/stores/notificationStore";
-
-// ✅ FIX: Import wishlist store
-// Ganti path ini sesuai lokasi store wishlist di project kamu
-// Contoh umum: ~/stores/wishlistStore atau ~/stores/useWishlistStore
 import { useWishlistStore } from "~/stores/wishlist";
 
 const route = useRoute();
 const router = useRouter();
 const notificationStore = useNotificationStore();
-
-// ✅ FIX: Inisialisasi wishlist store
 const wishlistStore = useWishlistStore();
+
+const token = useCookie("token");
+const wishlistCount = computed(() => wishlistStore.count);
 
 // ─── UI state ────────────────────────────────────────────────────
 const isScrolled = ref(false);
@@ -1075,12 +1079,6 @@ const categoryMenuRef = ref<InstanceType<typeof CategoryMenu> | null>(null);
 const searchContainerRef = ref<HTMLElement | null>(null);
 const mobileSearchInputRef = ref<HTMLInputElement | null>(null);
 
-// ✅ FIX: wishlistCount sekarang computed dari store, bukan hardcoded ref(3)
-// Sesuaikan nama property-nya dengan store wishlist kamu:
-// - Kalau store pakai `items`: wishlistStore.items.length
-// - Kalau store pakai `count`: wishlistStore.count
-// - Kalau store pakai `wishlistCount`: wishlistStore.wishlistCount
-const wishlistCount = computed(() => wishlistStore.items?.length ?? 0);
 
 let hoverTimeout: ReturnType<typeof setTimeout> | null = null;
 
@@ -1159,8 +1157,7 @@ const isActiveRoute = (path: string) =>
   path === "/" ? route.path === "/" : route.path.startsWith(path);
 
 // ─── Trending ────────────────────────────────────────────────────
-const { data: trendingSearches } = await useFetch("/api/trending", {
-  lazy: true,
+const { data: trendingSearches } = useLazyFetch("/api/trending", {
   key: "trending",
   getCachedData: (key, nuxtApp) => nuxtApp.payload.data[key] ?? nuxtApp.static.data[key],
 });
@@ -1274,10 +1271,9 @@ onMounted(() => {
   document.addEventListener("click", handleClickOutside);
   notificationStore.init();
   // ✅ FIX: Init wishlist store saat mount (jika store punya method fetch/init)
-  // Uncomment salah satu sesuai store kamu:
-  // wishlistStore.init();
-  // wishlistStore.fetch();
-  // wishlistStore.load();
+  if (token.value) {
+    wishlistStore.fetchWishlist();
+  }
 });
 
 onUnmounted(() => {
@@ -1290,11 +1286,13 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
-@reference "~/assets/main.css";
-
 .nav-link {
-  @apply relative transition-colors duration-200;
+  position: relative;
+  transition-property: color, background-color, border-color, text-decoration-color, fill, stroke;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  transition-duration: 200ms;
 }
+
 
 /* ── Floating Overlay Transitions (Sidebar Mobile) ────────────── */
 .fade-overlay-enter-active,

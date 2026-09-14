@@ -114,6 +114,42 @@ async def _send_transaction_notification(
         logger.error(f"Failed to send notification: {e}")
 
 
+async def _send_notification_to_admins(
+    session: AsyncSession, title: str, content: str, action_url: str, notif_type: str = "order"
+):
+    try:
+        from backend.auth.model import User, UserMap, UserRole
+        # 1. Get all local admin users
+        admin_users_query = select(User).where(User.role == UserRole.ADMIN)
+        admin_users_result = await session.execute(admin_users_query)
+        admin_users = admin_users_result.scalars().all()
+        
+        if not admin_users:
+            return
+        
+        # 2. Get Supabase User IDs for all admin users
+        admin_uuids = [str(u.uuid) for u in admin_users]
+        user_maps_query = select(UserMap).where(UserMap.local_user_id.in_(admin_uuids))
+        user_maps_result = await session.execute(user_maps_query)
+        user_maps = user_maps_result.scalars().all()
+        
+        supabase_admin_ids = [m.supabase_user_id for m in user_maps if m.supabase_user_id]
+        
+        if not supabase_admin_ids:
+            return
+        
+        # 3. Send bulk notification
+        await SupabaseNotificationService.bulk_notification(
+            user_ids=supabase_admin_ids,
+            title=title,
+            content=content,
+            action_url=action_url,
+            notif_type=notif_type,
+        )
+    except Exception as e:
+        logger.error(f"Failed to send notification to admins: {e}")
+
+
 async def _clear_cart_items(session, user_uuid, stock_uuids):
     """Hapus item dari keranjang setelah checkout sukses."""
     try:
@@ -651,6 +687,72 @@ class TransactionService:
         }
 
     # ----------------------------------------------------------
+    # CONFIRM DELIVERY — user konfirmasi barang sampai
+    # ----------------------------------------------------------
+    @staticmethod
+    async def confirm_delivery(*, session: AsyncSession, user_id: UUID, order_id: str) -> dict:
+        """
+        User mengonfirmasi barang sudah sampai (delivery_status = 'DELIVERED').
+        Mendukung order_id regular (ORD-) maupun promo (PROMO-).
+        """
+        if order_id.startswith("PROMO-"):
+            query = select(PromoTransaction).where(
+                PromoTransaction.order_id == order_id,
+                PromoTransaction.user_id == user_id
+            )
+            result = await session.execute(query)
+            trx = result.scalar_one_or_none()
+            if not trx:
+                raise HTTPException(status_code=404, detail="Transaksi promo tidak ditemukan")
+            
+            ship_query = select(Shipment).where(Shipment.promo_transaction_uuid == trx.uuid)
+            ship_result = await session.execute(ship_query)
+            shipment = ship_result.scalar_one_or_none()
+        else:
+            query = select(Transaction).where(
+                Transaction.order_id == order_id,
+                Transaction.user_id == user_id
+            )
+            result = await session.execute(query)
+            trx = result.scalar_one_or_none()
+            if not trx:
+                raise HTTPException(status_code=404, detail="Transaksi tidak ditemukan")
+            
+            ship_query = select(Shipment).where(Shipment.transaction_uuid == trx.uuid)
+            ship_result = await session.execute(ship_query)
+            shipment = ship_result.scalar_one_or_none()
+
+        if not shipment:
+            raise HTTPException(status_code=400, detail="Pengiriman tidak ditemukan untuk pesanan ini")
+
+        if shipment.delivery_status == "DELIVERED":
+            return {
+                "success": True,
+                "message": "Pesanan sudah dikonfirmasi selesai sebelumnya",
+                "data": {"delivery_status": shipment.delivery_status}
+            }
+
+        shipment.delivery_status = "DELIVERED"
+        session.add(shipment)
+        await session.commit()
+        await session.refresh(shipment)
+
+        # Kirim notifikasi ke admin
+        await _send_notification_to_admins(
+            session=session,
+            title="Pesanan Diterima Pelanggan! 🎉",
+            content=f"Pelanggan telah mengonfirmasi bahwa pesanan {order_id} sudah sampai/diterima.",
+            action_url=f"/transaksi/{order_id}",
+            notif_type="order",
+        )
+
+        return {
+            "success": True,
+            "message": "Berhasil mengonfirmasi pesanan telah sampai",
+            "data": {"delivery_status": shipment.delivery_status}
+        }
+
+    # ----------------------------------------------------------
     # GET ALL TRANSACTIONS — reguler + promo digabung
     # ----------------------------------------------------------
     @staticmethod
@@ -671,9 +773,12 @@ class TransactionService:
         diurutkan by created_at (desc/asc).
         """
         combined = []
+        total = 0
+        offset = (page - 1) * limit
 
         # ── 1. Ambil Transaction biasa ─────────────────────────────
         if trx_type in (None, "regular"):
+            count_q = select(func.count()).select_from(Transaction).where(Transaction.user_id == user_id)
             q = (
                 select(Transaction)
                 .options(
@@ -683,11 +788,23 @@ class TransactionService:
                 .where(Transaction.user_id == user_id)
             )
             if status:
+                count_q = count_q.where(Transaction.transaction_status == status)
                 q = q.where(Transaction.transaction_status == status)
             if min_amount is not None:
+                count_q = count_q.where(Transaction.gross_amount >= min_amount)
                 q = q.where(Transaction.gross_amount >= min_amount)
             if max_amount is not None:
+                count_q = count_q.where(Transaction.gross_amount <= max_amount)
                 q = q.where(Transaction.gross_amount <= max_amount)
+
+            reg_count = (await session.exec(count_q)).one()
+            total += reg_count
+
+            order_col = desc(Transaction.created_at) if sort == "desc" else asc(Transaction.created_at)
+            if trx_type == "regular":
+                q = q.order_by(order_col).offset(offset).limit(limit)
+            else:
+                q = q.order_by(order_col).limit(offset + limit)
 
             trx_result = await session.exec(q)
             trx_list = trx_result.all()
@@ -763,17 +880,30 @@ class TransactionService:
 
         # ── 2. Ambil PromoTransaction ──────────────────────────────
         if trx_type in (None, "promo"):
+            count_pq = select(func.count()).select_from(PromoTransaction).where(PromoTransaction.user_id == user_id)
             pq = (
                 select(PromoTransaction)
                 .options(selectinload(PromoTransaction.items))
                 .where(PromoTransaction.user_id == user_id)
             )
             if status:
+                count_pq = count_pq.where(PromoTransaction.transaction_status == status)
                 pq = pq.where(PromoTransaction.transaction_status == status)
             if min_amount is not None:
+                count_pq = count_pq.where(PromoTransaction.gross_amount >= min_amount)
                 pq = pq.where(PromoTransaction.gross_amount >= min_amount)
             if max_amount is not None:
+                count_pq = count_pq.where(PromoTransaction.gross_amount <= max_amount)
                 pq = pq.where(PromoTransaction.gross_amount <= max_amount)
+
+            promo_count = (await session.exec(count_pq)).one()
+            total += promo_count
+
+            order_pcol = desc(PromoTransaction.created_at) if sort == "desc" else asc(PromoTransaction.created_at)
+            if trx_type == "promo":
+                pq = pq.order_by(order_pcol).offset(offset).limit(limit)
+            else:
+                pq = pq.order_by(order_pcol).limit(offset + limit)
 
             promo_result = await session.exec(pq)
             promo_list = promo_result.all()
@@ -896,12 +1026,14 @@ class TransactionService:
                 val = val.replace(tzinfo=timezone.utc)
             return val
 
-        combined.sort(key=_get_sort_key, reverse=(sort == "desc"))
-
         # ── 4. Pagination ──────────────────────────────────────────
-        total = len(combined)
-        offset = (page - 1) * limit
-        paginated = combined[offset : offset + limit]
+        if trx_type in ("regular", "promo"):
+            paginated = combined
+        else:
+            combined.sort(key=_get_sort_key, reverse=(sort == "desc"))
+            paginated = combined[offset : offset + limit]
+
+        total_pages = (total + limit - 1) // limit if limit > 0 else 1
 
         return {
             "success": True,
@@ -911,7 +1043,7 @@ class TransactionService:
                 "page": page,
                 "limit": limit,
                 "total": total,
-                "total_page": (total + limit - 1) // limit,
+                "total_page": total_pages,
             }
         }
 
@@ -1327,12 +1459,15 @@ class TransactionService:
 
         if payload.transaction_status in {"settlement", "capture"}:
             if not (payload.fraud_status and payload.fraud_status == "challenge"):
-                for trx_item in trx_items:
-                    sr = await session.exec(select(Stock).where(Stock.uuid == trx_item.stock_id))
-                    stock = sr.one_or_none()
-                    if stock:
-                        stock.terjual += trx_item.quantity
-                        session.add(stock)
+                stock_ids = [ti.stock_id for ti in trx_items if ti.stock_id]
+                if stock_ids:
+                    sr = await session.exec(select(Stock).where(Stock.uuid.in_(stock_ids)))
+                    stock_map = {s.uuid: s for s in sr.all()}
+                    for trx_item in trx_items:
+                        stock = stock_map.get(trx_item.stock_id)
+                        if stock:
+                            stock.terjual += trx_item.quantity
+                            session.add(stock)
                 ship_r = await session.exec(select(Shipment).where(Shipment.transaction_uuid == trx.uuid))
                 shipment = ship_r.one_or_none()
                 if shipment:
@@ -1386,6 +1521,16 @@ class TransactionService:
                 session=session, local_user_id=trx.user_id,
                 title=notif_title, content=notif_content, order_id=payload.order_id,
             )
+            
+            # Kirim notifikasi ke admin jika pembayaran berhasil
+            if payload.transaction_status in {"settlement", "capture"}:
+                await _send_notification_to_admins(
+                    session=session,
+                    title="Pesanan Baru Dibayar! 💰",
+                    content=f"Pesanan {order_id} sebesar Rp{int(float(payload.gross_amount or 0)):,} telah berhasil dibayar.",
+                    action_url=f"/transaksi/{order_id}",
+                    notif_type="order",
+                )
 
         await session.commit()
         return {"status": "ok", "order_id": payload.order_id, "new_status": trx.transaction_status}

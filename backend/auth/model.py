@@ -3,7 +3,7 @@ from typing import Optional
 from enum import Enum
 import pytz
 from uuid import UUID, uuid4 
-from sqlalchemy import ForeignKey
+from sqlalchemy import ForeignKey, Index
 from sqlmodel import SQLModel, Field, Column
 import sqlalchemy.dialects.postgresql as pg
 
@@ -113,6 +113,10 @@ class UserAddress(SQLModel, table=True):
     created_at: datetime = Field(
         default_factory=get_jakarta_now,
         sa_column=Column(pg.TIMESTAMP(timezone=True))
+    )
+
+    __table_args__ = (
+        Index("idx_user_address_user_default", "user_id", "is_default"),
     )
     
 

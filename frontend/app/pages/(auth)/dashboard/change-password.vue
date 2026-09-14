@@ -27,10 +27,8 @@ const done = ref(false)
 const tabs = [
   { label: "Biodata Diri", to: "/dashboard" },
   { label: "Daftar Alamat", to: "/dashboard/address" },
-  { label: "Keamanan", to: "/dashboard/change-password" },
+  { label: "Keamanan Akun", to: "/dashboard/change-password" },
   { label: "Notifikasi", to: "/dashboard/notifications" },
-  { label: "Pesanan Saya", to: "/dashboard/orders" },
-  { label: "Layanan Jasa", to: "/dashboard/jasa" },
 ];
 
 const canSubmit = computed(() => oldPassword.value.length > 0 && newPassword.value.length >= 6 && newPassword.value === confirmPassword.value)
@@ -62,8 +60,16 @@ const handleSubmit = async () => {
 
 <template>
   <div class="min-h-screen bg-white">
-    <!-- TABS -->
-    <div class="border-b border-gray-200 overflow-x-auto no-scrollbar">
+    <!-- MOBILE HEADER -->
+    <div class="lg:hidden flex items-center gap-4 px-6 py-4 border-b border-gray-100 bg-white sticky top-0 z-10">
+      <button @click="$router.push('/dashboard')" class="p-1 -ml-1 text-gray-400 hover:text-gray-900 transition-colors">
+        <UIcon name="i-heroicons-arrow-left" class="w-5 h-5" />
+      </button>
+      <h1 class="text-base font-black text-gray-900 uppercase tracking-wider">Keamanan Akun</h1>
+    </div>
+
+    <!-- TABS (Desktop Only) -->
+    <div class="hidden lg:block border-b border-gray-200 overflow-x-auto no-scrollbar">
       <div class="flex px-8">
         <NuxtLink
           v-for="tab in tabs"
@@ -83,9 +89,9 @@ const handleSubmit = async () => {
     </div>
 
     <!-- CONTENT -->
-    <div class="p-8">
+    <div class="p-4 sm:p-8">
       <div class="max-w-2xl">
-        <header class="mb-8">
+        <header class="hidden lg:block mb-8">
           <h2 class="text-xl font-bold text-gray-900">Ganti Password</h2>
           <p class="text-xs text-gray-400 mt-1 uppercase tracking-widest font-bold">Gunakan password yang kuat & unik</p>
         </header>

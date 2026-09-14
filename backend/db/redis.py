@@ -1,25 +1,91 @@
+import orjson
 from backend.config import Config
 from redis.asyncio import Redis, ConnectionPool
 from functools import lru_cache
+from typing import Any, Optional
 
-EXPIRE_JTI_TIME   = 3600   # 1 jam
-VERIFY_TOKEN_EXPIRE = 600  # 10 menit
-RESET_TOKEN_EXPIRE  = 300  # 5 menit
-COUPON_CACHE_TTL    = 300  # 5 menit
+EXPIRE_JTI_TIME     = 3600   # 1 jam
+VERIFY_TOKEN_EXPIRE = 600    # 10 menit
+RESET_TOKEN_EXPIRE  = 300    # 5 menit
+COUPON_CACHE_TTL    = 300    # 5 menit
+DEFAULT_CACHE_TTL   = 1800   # 30 menit
+
+_pool: Optional[ConnectionPool] = None
+_client: Optional[Redis] = None
 
 
-@lru_cache()
 def get_redis_token() -> Redis:
-    pool = ConnectionPool(
-        host=Config.REDIS_HOST,
-        port=Config.REDIS_PORT,
-        db=0,
-        max_connections=200,
-        # ⚠️ decode_responses=True agar semua nilai string langsung
-        # Tidak perlu .decode("utf-8") manual di mana-mana
-        decode_responses=True,
-    )
-    return Redis(connection_pool=pool)
+    """
+    Singleton Redis (Dragonfly) client dengan ConnectionPool optimal:
+    - max_connections=300 untuk high throughput async concurrency
+    - socket_timeout=3.0 & socket_connect_timeout=3.0 untuk fail-fast
+    - socket_keepalive=True untuk TCP persistensi
+    - decode_responses=True untuk string otomatis
+    """
+    global _pool, _client
+    if _client is None:
+        _pool = ConnectionPool(
+            host=Config.REDIS_HOST,
+            port=Config.REDIS_PORT,
+            db=0,
+            max_connections=300,
+            socket_timeout=3.0,
+            socket_connect_timeout=3.0,
+            socket_keepalive=True,
+            retry_on_timeout=True,
+            decode_responses=True,
+        )
+        _client = Redis(connection_pool=_pool)
+    return _client
+
+
+# ── Generic High-Performance orjson Cache Helpers ──────────────────
+async def cache_get(key: str) -> Any | None:
+    """Ambil data dari Redis lalu decode dengan orjson (ultra-cepat)."""
+    try:
+        raw = await get_redis_token().get(key)
+        if raw is not None:
+            return orjson.loads(raw)
+    except Exception:
+        pass
+    return None
+
+
+async def cache_set(key: str, data: Any, ex: int = DEFAULT_CACHE_TTL) -> bool:
+    """Simpan data ke Redis dengan orjson string serialization."""
+    try:
+        payload = orjson.dumps(data).decode("utf-8")
+        await get_redis_token().set(key, payload, ex=ex)
+        return True
+    except Exception:
+        return False
+
+
+async def cache_delete(*keys: str) -> None:
+    """Hapus satu atau beberapa key sekaligus (batch)."""
+    try:
+        valid_keys = [k for k in keys if k]
+        if valid_keys:
+            await get_redis_token().delete(*valid_keys)
+    except Exception:
+        pass
+
+
+async def cache_delete_pattern(pattern: str) -> None:
+    """Hapus semua key yang cocok dengan pattern menggunakan SCAN (non-blocking)."""
+    try:
+        r = get_redis_token()
+        cursor = 0
+        keys_to_delete = []
+        while True:
+            cursor, keys = await r.scan(cursor, match=pattern, count=100)
+            keys_to_delete.extend(keys)
+            if cursor == 0:
+                break
+        if keys_to_delete:
+            await r.delete(*keys_to_delete)
+    except Exception:
+        pass
 
 
 # ── JTI blocklist ──────────────────────────────────────────────────

@@ -86,8 +86,6 @@ defineProps<{
           :type="rec.type || ''"
           :specs="rec.specs || {}"
           class="h-full"
-          v-motion-slide-visible-once-bottom
-          :delay="index * 75"
         />
         <meta itemprop="position" :content="String(index + 1)" />
       </div>

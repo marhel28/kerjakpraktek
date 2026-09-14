@@ -6,6 +6,9 @@
 .cache
 dist
 
+# Vercel output
+.vercel
+
 # Node dependencies
 node_modules
 
