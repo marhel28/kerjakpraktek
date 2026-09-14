@@ -230,17 +230,22 @@
 
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
+import { useRoute } from 'vue-router'
 import api from '@/service/api'
 import { useToastStore } from '@/stores/toast'
 
 const toastStore = useToastStore()
+const route = useRoute()
 
 const loading = ref(true)
 const transactions = ref([])
 const totalPending = ref(0)
 const totalShipped = ref(0)
 const totalDelivered = ref(0)
-const filters = reactive({ search: '', status: 'settlement' })
+const filters = reactive({ 
+  search: route.query.search || '', 
+  status: route.query.status || 'settlement' 
+})
 const resiModal = reactive({
   show: false, loading: false,
   order_id: '', waybill: '', courier: 'JNE', status: 'SHIPPED'
@@ -260,18 +265,18 @@ async function fetchData(reset = false) {
     const allData = res.data?.data || []
     
     // Hitung Stats dari data asli (hanya settlement)
-    totalPending.value = allData.filter(t => !t.waybill_number || t.shipment?.delivery_status === 'PENDING').length
-    totalShipped.value = allData.filter(t => t.waybill_number && t.shipment?.delivery_status !== 'DELIVERED').length
+    totalPending.value = allData.filter(t => !t.shipment?.waybill_number || t.shipment?.delivery_status === 'PENDING').length
+    totalShipped.value = allData.filter(t => t.shipment?.waybill_number && t.shipment?.delivery_status !== 'DELIVERED').length
     totalDelivered.value = allData.filter(t => t.shipment?.delivery_status === 'DELIVERED').length
 
     // Filter untuk Tampilan
     let data = [...allData]
     if (filters.status === 'settlement') {
       // Perlu Dikirim: Lunas tapi belum ada resi atau status masih PENDING
-      data = data.filter(t => !t.waybill_number)
+      data = data.filter(t => !t.shipment?.waybill_number || t.shipment?.delivery_status === 'PENDING')
     } else if (filters.status === 'SHIPPED') {
       // Sedang Dikirim: Ada resi tapi belum DELIVERED
-      data = data.filter(t => t.waybill_number && t.shipment?.delivery_status !== 'DELIVERED')
+      data = data.filter(t => t.shipment?.waybill_number && t.shipment?.delivery_status !== 'DELIVERED')
     } else if (filters.status === 'DELIVERED') {
       data = data.filter(t => t.shipment?.delivery_status === 'DELIVERED')
     }
@@ -302,7 +307,7 @@ function debounceSearch() {
 // Map order data to match inputs properly
 function openResiModal(item) {
   resiModal.order_id = item.order_id
-  resiModal.waybill = item.waybill_number || ''
+  resiModal.waybill = item.shipment?.waybill_number || ''
   resiModal.courier = item.shipment?.courier_name || 'JNE'
   resiModal.status = item.shipment?.delivery_status === 'PENDING' ? 'SHIPPED' : (item.shipment?.delivery_status || 'SHIPPED')
   resiModal.show = true
@@ -342,7 +347,15 @@ function dotStyles(s) {
   return 'bg-amber-500'
 }
 
-onMounted(() => fetchData())
+onMounted(() => {
+  if (route.query.search) {
+    filters.search = route.query.search
+  }
+  if (route.query.status) {
+    filters.status = route.query.status
+  }
+  fetchData()
+})
 </script>
 
 <style scoped>

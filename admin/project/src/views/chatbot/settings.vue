@@ -36,7 +36,7 @@
                 <path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
               <span v-if="form.provider === 'internal'">
-                <strong>Sistem Internal RAG:</strong> PasarBot akan menjawab murni berdasarkan FAQ lokal yang ditambahkan admin dan relasi produk terdekat di database (Manticore + Qdrant). Tanpa biaya API eksternal dan response time instan.
+                <strong>Sistem Internal RAG:</strong> PasarBot akan menjawab murni berdasarkan FAQ lokal yang ditambahkan admin dan relasi produk terdekat di database (Manticore Search). Tanpa biaya API eksternal dan response time instan.
               </span>
               <span v-else>
                 <strong>Hybrid LLM Agent:</strong> PasarBot akan mengombinasikan pencarian database produk kita lalu mengirimkannya sebagai konteks ke model LLM pilihan Anda ({{ form.provider.toUpperCase() }}) untuk menyusun jawaban rekomendasi yang luwes dan cerdas.

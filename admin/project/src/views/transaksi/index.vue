@@ -150,18 +150,19 @@
 
 <script setup>
 import { ref, reactive, computed, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 import api from '@/service/api'
 import TransactionTable from '@/components/TransactionTable.vue'
 import StatusBadge from '@/components/StatusBadge.vue'
 
 const router = useRouter()
+const route = useRoute()
 
 // ── State ──────────────────────────────────────────────────────────
 const loading = ref(true)
 const transactions = ref([])
 const pagination = reactive({ page: 1, limit: 10, total: 0, totalPage: 1 })
-const filters = reactive({ search: '', status: '', min_amount: null, max_amount: null })
+const filters = reactive({ search: '', status: route.query.status || '', min_amount: null, max_amount: null })
 const summary = ref({ lunas: 0, pending: 0 })
 
 let searchTimer = null

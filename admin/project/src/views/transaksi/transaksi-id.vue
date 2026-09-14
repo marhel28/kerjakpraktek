@@ -95,65 +95,101 @@
                         </dl>
                     </InfoCard>
 
-                    <!-- Shipment / Booking Info -->
-                    <InfoCard v-if="trx.trx_type === 'regular' || trx.shipment" title="Info Pengiriman" subtitle="Kurir & Tujuan"
-                        icon="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" icon-bg="bg-blue-50"
-                        icon-color="text-blue-600">
-                        <div v-if="trx.shipment">
-                            <dl class="space-y-3">
-                                <div class="flex justify-between items-center gap-2">
-                                    <dt class="text-xs text-slate-500 font-medium">Kurir</dt>
-                                    <dd class="text-xs font-bold text-slate-900 uppercase">
-                                        {{ trx.shipment.courier_name }} <span class="text-slate-300 mx-1">/</span> {{ trx.shipment.courier_service }}
-                                    </dd>
-                                </div>
-                                <div class="flex justify-between items-center gap-2">
-                                    <dt class="text-xs text-slate-500 font-medium">No. Resi</dt>
-                                    <dd class="text-xs font-mono font-bold text-indigo-600">{{ trx.shipment.waybill_number || 'Belum diinput' }}</dd>
-                                </div>
-                                <div class="flex justify-between items-center gap-2 pt-1 border-t border-slate-50">
-                                    <dt class="text-xs text-slate-500 font-medium">Penerima</dt>
-                                    <dd class="text-xs text-slate-900 font-medium text-right">{{ trx.shipment.recipient_name }}</dd>
-                                </div>
-                                <div class="flex flex-col gap-1">
-                                    <dt class="text-[10px] uppercase tracking-wider text-slate-400 font-bold">Alamat Tujuan</dt>
-                                    <dd class="text-xs text-slate-600 leading-relaxed">{{ trx.shipment.shipping_address }}</dd>
-                                </div>
-                            </dl>
-                        </div>
-                        <div v-else class="flex flex-col items-center justify-center py-6 text-center">
-                            <svg class="w-8 h-8 text-slate-200 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0a2 2 0 01-2 2H6a2 2 0 01-2-2m16 0l-8 4-8-4" />
-                            </svg>
-                            <p class="text-xs text-slate-400 font-medium">Tidak ada data pengiriman</p>
-                        </div>
-                    </InfoCard>
+                    <!-- Column 2 (Shipping / Booking + Action Card) -->
+                    <div class="flex flex-col gap-4">
+                        <!-- Shipment Info -->
+                        <InfoCard v-if="trx.trx_type === 'regular' || trx.shipment" title="Info Pengiriman" subtitle="Kurir & Tujuan"
+                            icon="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" icon-bg="bg-blue-50"
+                            icon-color="text-blue-600">
+                            <div v-if="trx.shipment">
+                                <dl class="space-y-3">
+                                    <div class="flex justify-between items-center gap-2">
+                                        <dt class="text-xs text-slate-500 font-medium">Kurir</dt>
+                                        <dd class="text-xs font-bold text-slate-900 uppercase">
+                                            {{ trx.shipment.courier_name }} <span class="text-slate-300 mx-1">/</span> {{ trx.shipment.courier_service }}
+                                        </dd>
+                                    </div>
+                                    <div class="flex justify-between items-center gap-2">
+                                        <dt class="text-xs text-slate-500 font-medium">No. Resi</dt>
+                                        <dd class="text-xs font-mono font-bold text-indigo-600">{{ trx.shipment.waybill_number || 'Belum diinput' }}</dd>
+                                    </div>
+                                    <div class="flex justify-between items-center gap-2 pt-1 border-t border-slate-50">
+                                        <dt class="text-xs text-slate-500 font-medium">Penerima</dt>
+                                        <dd class="text-xs text-slate-900 font-medium text-right">{{ trx.shipment.recipient_name }}</dd>
+                                    </div>
+                                    <div class="flex flex-col gap-1">
+                                        <dt class="text-[10px] uppercase tracking-wider text-slate-400 font-bold">Alamat Tujuan</dt>
+                                        <dd class="text-xs text-slate-600 leading-relaxed">{{ trx.shipment.shipping_address }}</dd>
+                                    </div>
+                                </dl>
+                            </div>
+                            <div v-else class="flex flex-col items-center justify-center py-6 text-center">
+                                <svg class="w-8 h-8 text-slate-200 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0a2 2 0 01-2 2H6a2 2 0 01-2-2m16 0l-8 4-8-4" />
+                                </svg>
+                                <p class="text-xs text-slate-400 font-medium">Tidak ada data pengiriman</p>
+                            </div>
+                        </InfoCard>
 
-                    <!-- Booking Card -->
-                    <InfoCard v-else-if="trx.trx_type === 'booking' || trx.booking" title="Info Booking" subtitle="Layanan & Jadwal"
-                        icon="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" icon-bg="bg-amber-50"
-                        icon-color="text-amber-600">
-                        <div v-if="trx.booking">
-                            <dl class="space-y-3">
-                                <div class="flex justify-between items-center gap-2">
-                                    <dt class="text-xs text-slate-500 font-medium">Layanan</dt>
-                                    <dd class="text-xs font-bold text-slate-900 uppercase text-right">{{ trx.booking.service_name || 'Service' }}</dd>
+                        <!-- Booking Card -->
+                        <InfoCard v-else-if="trx.trx_type === 'booking' || trx.booking" title="Info Booking" subtitle="Layanan & Jadwal"
+                            icon="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" icon-bg="bg-amber-50"
+                            icon-color="text-amber-600">
+                            <div v-if="trx.booking">
+                                <dl class="space-y-3">
+                                    <div class="flex justify-between items-center gap-2">
+                                        <dt class="text-xs text-slate-500 font-medium">Layanan</dt>
+                                        <dd class="text-xs font-bold text-slate-900 uppercase text-right">{{ trx.booking.service_name || 'Service' }}</dd>
+                                    </div>
+                                    <div class="flex justify-between items-center gap-2">
+                                        <dt class="text-xs text-slate-500 font-medium">Status</dt>
+                                        <dd><StatusBadge type="delivery" :status="trx.booking.booking_status || 'PENDING'" /></dd>
+                                    </div>
+                                    <div class="flex justify-between items-center gap-2 pt-1 border-t border-slate-50">
+                                        <dt class="text-xs text-slate-500 font-medium">Jadwal</dt>
+                                        <dd class="text-xs text-slate-900 font-bold text-right">{{ formatDate(trx.booking.booking_date) }}</dd>
+                                    </div>
+                                    <div class="flex flex-col gap-1">
+                                        <dt class="text-[10px] uppercase tracking-wider text-slate-400 font-bold">Catatan User</dt>
+                                        <dd class="text-xs text-slate-600 italic">"{{ trx.booking.notes || 'Tidak ada catatan' }}"</dd>
+                                    </div>
+                                </dl>
+                            </div>
+                        </InfoCard>
+
+                        <!-- Aksi Pengiriman Card -->
+                        <div v-if="(trx.trx_type === 'regular' || trx.shipment) && trx.shipment" class="bg-white rounded-2xl border border-slate-100 shadow-sm p-5 flex flex-col justify-between gap-3">
+                            <div class="flex items-center gap-2.5">
+                                <div class="w-8 h-8 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0">
+                                    <svg class="w-4.5 h-4.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                                    </svg>
                                 </div>
-                                <div class="flex justify-between items-center gap-2">
-                                    <dt class="text-xs text-slate-500 font-medium">Status</dt>
-                                    <dd><StatusBadge type="delivery" :status="trx.booking.booking_status || 'PENDING'" /></dd>
+                                <div>
+                                    <h3 class="text-sm font-bold text-slate-800">Aksi Pengiriman</h3>
+                                    <p class="text-[10px] text-slate-400 mt-0.5">Kelola Resi & Logistik</p>
                                 </div>
-                                <div class="flex justify-between items-center gap-2 pt-1 border-t border-slate-50">
-                                    <dt class="text-xs text-slate-500 font-medium">Jadwal</dt>
-                                    <dd class="text-xs text-slate-900 font-bold text-right">{{ formatDate(trx.booking.booking_date) }}</dd>
+                            </div>
+                            <p class="text-xs text-slate-500 leading-relaxed mt-1">
+                                Pesanan ini memerlukan pengiriman kurir. Silakan masukkan nomor resi pengiriman untuk melacak logistik dan memberikan notifikasi pengiriman kepada pelanggan.
+                            </p>
+                            <div class="pt-3 border-t border-slate-50 flex items-center justify-between gap-3">
+                                <div class="flex flex-col">
+                                    <span class="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Status Kirim</span>
+                                    <span class="text-xs font-bold text-slate-700 mt-0.5">{{ trx.shipment.delivery_status }}</span>
                                 </div>
-                                <div class="flex flex-col gap-1">
-                                    <dt class="text-[10px] uppercase tracking-wider text-slate-400 font-bold">Catatan User</dt>
-                                    <dd class="text-xs text-slate-600 italic">"{{ trx.booking.notes || 'Tidak ada catatan' }}"</dd>
-                                </div>
-                            </dl>
+                                <button 
+                                  @click="goToFillWaybill"
+                                  class="py-2 px-4 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-xl transition shadow-sm shadow-indigo-100 flex items-center gap-1.5 active:scale-95"
+                                >
+                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                    </svg>
+                                    Lanjutkan Isi Resi
+                                </button>
+                            </div>
                         </div>
-                    </InfoCard>
+                    </div>
 
                     <!-- Price Breakdown -->
                     <InfoCard title="Rincian Biaya" subtitle="Final Kalkulasi"
@@ -285,13 +321,14 @@
 
 <script setup>
 import { ref, onMounted, computed, watch } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import api from '@/service/api'
 import StatusBadge from '@/components/StatusBadge.vue'
 import InfoCard from '@/components/InfoCard.vue'
 import { useToastStore } from '@/stores/toast'
 
 const route = useRoute()
+const router = useRouter()
 const toastStore = useToastStore()
 const loading = ref(true)
 const trx = ref(null)
@@ -360,6 +397,12 @@ function copyOrderId() {
 watch(() => route.params.uuid, (newVal) => {
     if (newVal) fetchDetail()
 })
+
+function goToFillWaybill() {
+    if (trx.value?.order_id) {
+        router.push(`/transaksi/shipping?search=${trx.value.order_id}`)
+    }
+}
 
 onMounted(fetchDetail)
 </script>

@@ -1,11 +1,13 @@
 // src/service/api.js
 import axios from 'axios';
 
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+
 // ============================
 // MAIN API (pakai interceptor)
 // ============================
 const api = axios.create({
-  baseURL: 'http://localhost:8000',
+  baseURL: API_BASE_URL,
   headers: {
     'Content-Type': 'application/json',
   },
@@ -15,8 +17,9 @@ const api = axios.create({
 // REFRESH CLIENT (NO interceptor)
 // ============================
 const refreshClient = axios.create({
-  baseURL: 'http://localhost:8000',
+  baseURL: API_BASE_URL,
 });
+
 
 // ============================
 // STATE

@@ -678,42 +678,55 @@ const kpiCards = computed(() => {
       key:'revenue', label:'Total Revenue', color:'blue',
       formatted: fmtRp(rev),
       icon: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>`,
-      badge: activeRange.value !== 'all' ? '+' + fmtRp((s.revenue_this_month || 0) * 0.08) : null,
-      badgeType:'green', sub: `${(s.settlement_count||0).toLocaleString('id')} order sukses`,
+      badge: activeRange.value !== 'all' ? '+' + fmtRp((s.revenue_this_month || 0) * 0.08) : 'Detail Laku ➜',
+      badgeType: activeRange.value !== 'all' ? 'green' : 'blue',
+      sub: `${(s.settlement_count||0).toLocaleString('id')} order sukses (Klik untuk rincian)`,
+      link: '/transaksi/list?status=settlement'
     },
     {
       key:'orders', label:'Total Order', color:'indigo',
       formatted: (s.total_orders||0).toLocaleString('id'),
       icon: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>`,
-      badge: s.orders_today ? `+${s.orders_today} hari ini` : null,
-      badgeType:'blue', sub: `${(s.pending_payment_count||0)} pending payment`,
+      badge: s.orders_today ? `+${s.orders_today} hari ini` : 'Rincian ➜',
+      badgeType:'blue', 
+      sub: `${(s.pending_payment_count||0)} pending payment (Klik untuk rincian)`,
+      link: '/transaksi/list'
     },
     {
       key:'booking', label:'Total Booking', color:'violet',
       formatted: (bk.total_booking||0).toLocaleString('id'),
       icon: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>`,
-      badge: bk.booking_hari_ini ? `${bk.booking_hari_ini} hari ini` : null,
-      badgeType:'violet', sub: `${(bk.pending_count||0)} menunggu konfirmasi`,
+      badge: bk.booking_hari_ini ? `${bk.booking_hari_ini} hari ini` : 'Rincian ➜',
+      badgeType:'violet', 
+      sub: `${(bk.pending_count||0)} menunggu konfirmasi (Klik untuk rincian)`,
+      link: '/jasa/booking'
     },
     {
       key:'shipped', label:'Dikirim', color:'green',
       formatted: (s.shipped_count||0).toLocaleString('id'),
       icon: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>`,
-      badge: s.processing_shipment ? `${s.processing_shipment} diproses` : null,
-      badgeType:'blue', sub: `${(s.delivered_count||0)} terkirim`,
+      badge: s.processing_shipment ? `${s.processing_shipment} diproses` : 'Rincian ➜',
+      badgeType:'blue', 
+      sub: `${(s.delivered_count||0)} terkirim (Klik untuk rincian)`,
       link: '/transaksi/shipping'
     },
     {
       key:'sold', label:'Item Terjual', color:'teal',
       formatted: (s.total_items_sold||0).toLocaleString('id'),
       icon: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>`,
-      badge: null, badgeType:'green', sub: `AOV ${fmtRp(s.avg_order_value)}`,
+      badge: 'Rincian ➜', 
+      badgeType:'green', 
+      sub: `AOV ${fmtRp(s.avg_order_value)} (Klik untuk rincian)`,
+      link: '/transaksi/list?status=settlement'
     },
     {
       key:'revenue_booking', label:'Revenue Jasa', color:'orange',
       formatted: fmtRp(bk.total_revenue||0),
       icon: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>`,
-      badge: null, badgeType:'orange', sub: `${(bk.lunas_count||0)} lunas`,
+      badge: 'Rincian ➜', 
+      badgeType:'orange', 
+      sub: `${(bk.lunas_count||0)} lunas (Klik untuk rincian)`,
+      link: '/jasa/booking?status=lunas'
     },
   ]
 })

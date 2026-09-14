@@ -153,6 +153,11 @@ const router = createRouter({
           component: () => import('@/views/settings/couriers.vue')
         },
         {
+          path: '/settings/promo-popup',
+          name: 'settings-promo-popup',
+          component: () => import('@/views/settings/promo-popup.vue')
+        },
+        {
           path: '/chatbot/faq',
           name: 'chatbot-faq',
           component: () => import('@/views/chatbot/faq.vue')

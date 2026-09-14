@@ -440,7 +440,10 @@
 <!-- ══════════════════════════════════════════════════════════ -->
 <script setup>
 import { ref, reactive, watch, computed, onMounted } from 'vue'
+import { useRoute } from 'vue-router'
 import api from '@/service/api'
+
+const route = useRoute()
 
 // ── State ──────────────────────────────────────────────────
 const bookings  = ref([])
@@ -450,7 +453,7 @@ const showAssign = ref(false)
 
 const filters = reactive({
   search: '',
-  status: '',
+  status: route.query.status || '',
   date_from: '',
   date_to: '',
 })
@@ -710,6 +713,9 @@ const statusBadge = (s) => {
 
 // ── Init ───────────────────────────────────────────────────
 onMounted(() => {
+  if (route.query.status) {
+    filters.status = route.query.status
+  }
   fetchBookings()
   fetchTechnicians()
 })

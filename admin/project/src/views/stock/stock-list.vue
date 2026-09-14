@@ -42,7 +42,9 @@
             <!-- ── Stats Cards ─────────────────────── -->
             <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
                 <div v-for="stat in stats" :key="stat.label"
-                    class="bg-white rounded-xl border border-gray-200 p-4 shadow-sm hover:shadow-md transition-shadow">
+                    @click="stat.onClick"
+                    class="bg-white rounded-xl border border-gray-200 p-4 shadow-sm hover:shadow-md transition-all cursor-pointer hover:border-indigo-300 active:scale-98 select-none"
+                >
                     <div class="flex items-start justify-between">
                         <div>
                             <p class="text-xs font-medium text-gray-400 uppercase tracking-wide">{{ stat.label }}</p>
@@ -851,27 +853,39 @@ const activeFilterCount = computed(() => {
 const stats = computed(() => [
     {
         label: 'Total Produk', value: pagination.total.toLocaleString('id'),
-        sub: 'di database', change: 1,
+        sub: 'di database (Klik untuk reset filter)', change: 1,
         icon: 'M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10',
-        iconBg: 'bg-indigo-50', iconColor: 'text-indigo-500'
+        iconBg: 'bg-indigo-50', iconColor: 'text-indigo-500',
+        onClick: () => {
+            resetFilters()
+        }
     },
     {
         label: 'Tayang (Aktif)', value: stocks.value.filter(s => s.is_active).length,
-        sub: `dari ${stocks.value.length} di halaman ini`, change: 1,
+        sub: `dari ${stocks.value.length} produk di halaman ini (Klik untuk filter)`, change: 1,
         icon: 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2',
-        iconBg: 'bg-blue-50', iconColor: 'text-blue-500'
+        iconBg: 'bg-blue-50', iconColor: 'text-blue-500',
+        onClick: () => {
+            filters.is_active = 'true'
+            resetPageAndFetch()
+        }
     },
     {
         label: 'Stok Kosong', value: stocks.value.filter(s => s.status_stok === 'habis' || (s.sisa ?? s.stok ?? 0) === 0).length,
-        sub: 'perlu diisi ulang', change: -1,
+        sub: 'perlu diisi ulang (Klik untuk filter)', change: -1,
         icon: 'M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z',
-        iconBg: 'bg-red-50', iconColor: 'text-red-400'
+        iconBg: 'bg-red-50', iconColor: 'text-red-400',
+        onClick: () => {
+            filters.stock_status = 'kosong'
+            resetPageAndFetch()
+        }
     },
     {
         label: 'Total Terjual', value: stocks.value.reduce((acc, s) => acc + (s.terjual ?? 0), 0).toLocaleString('id'),
         sub: 'dari semua produk di halaman', change: 1,
         icon: 'M13 7h8m0 0v8m0-8l-8 8-4-4-6 6',
-        iconBg: 'bg-emerald-50', iconColor: 'text-emerald-500'
+        iconBg: 'bg-emerald-50', iconColor: 'text-emerald-500',
+        onClick: () => {}
     },
 ])
 
