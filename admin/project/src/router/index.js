@@ -198,4 +198,17 @@ router.beforeEach((to, from) => {
   return true; // lanjut
 });
 
+// Tangani module chunk lama yang 404 setelah deployment baru di Vercel
+router.onError((error, to) => {
+  const msg = error?.message || '';
+  if (
+    msg.includes('Failed to fetch dynamically imported module') ||
+    msg.includes('Importing a module script failed') ||
+    msg.includes('error loading dynamically imported module')
+  ) {
+    console.warn('Chunk stale detected, reloading page to fetch latest version...');
+    window.location.href = to?.fullPath || '/';
+  }
+});
+
 export default router;

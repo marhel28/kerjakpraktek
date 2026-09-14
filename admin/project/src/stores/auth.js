@@ -1,7 +1,6 @@
 // src/stores/auth.js
 import { defineStore } from 'pinia';
 import api from '@/service/api';
-import router from '@/router';
 
 export const useAuthStore = defineStore('auth', {
   state: () => ({
@@ -39,7 +38,6 @@ export const useAuthStore = defineStore('auth', {
         localStorage.setItem('refresh_token', data.refresh_token);
         localStorage.setItem('user', JSON.stringify(data.user));
 
-        router.push('/');
         return true;
       } catch (err) {
         this.error = err.response?.data?.detail || 'Login gagal';
@@ -66,7 +64,7 @@ export const useAuthStore = defineStore('auth', {
 
       localStorage.clear();
 
-      router.push('/login');
+      window.location.href = '/login';
     },
   },
 });
