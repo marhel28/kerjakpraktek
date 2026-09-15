@@ -515,8 +515,8 @@
            PREVIEW PANEL (ImageSectionPreview.vue)
       ══════════════════════════════════════════════════════ -->
     <ImageSectionPreview v-model="isPreviewOpen" :section="previewSection" :hide-mode-picker="true" :extra-presets="[
-      { label: 'Portfolio', icon: '🖼️', url: 'http://localhost:3000/portofolio' }
-    ]" :initial-url="'http://localhost:3000/portofolio'" />
+      { label: 'Portfolio', icon: '🖼️', url: previewStore.resolveUrl('/portofolio') }
+    ]" :initial-url="previewStore.resolveUrl('/portofolio')" />
 
   </div>
 </template>
@@ -526,8 +526,10 @@ import { ref, reactive, computed, onMounted } from 'vue'
 import { useToastStore } from '@/stores/toast'
 import api from '@/service/api'
 import ImageSectionPreview from '@/components/ImageSectionPreview.vue'
+import { usePreviewStore } from '@/stores/previewStore'
 
 const toastStore = useToastStore()
+const previewStore = usePreviewStore()
 
 // ── API ──────────────────────────────────────────────────────────
 const API = {

@@ -289,11 +289,13 @@
   import { useToastStore } from '@/stores/toast'
   import api from '@/service/api'
   import ImageSectionPreview from '@/components/ImageSectionPreview.vue'
+  import { usePreviewStore } from '@/stores/previewStore'
 
   const toastStore = useToastStore()
-  
+  const previewStore = usePreviewStore()
+
   const ADMIN_BASE = '/main-bottom/admin'
-  const HOME_URL   = 'http://localhost:3000/'
+  const HOME_URL   = previewStore.resolveUrl('/')
   
   // ── State ─────────────────────────────────────────────
   const banners          = ref([])

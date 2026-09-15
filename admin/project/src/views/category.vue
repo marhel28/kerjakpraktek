@@ -342,7 +342,7 @@
         v-model="showPreview"
         :section="previewSectionSynthetic"
         :extra-presets="categoryPresets"
-        :initial-url="'http://localhost:3000/category/security-alarm'"
+        :initial-url="previewStore.resolveUrl('/category/security-alarm')"
         :hide-mode-picker="true"
       />
   
@@ -354,8 +354,10 @@ import { ref, reactive, computed, watch, onMounted } from 'vue'
 import api from '@/service/api'
 import ImageSectionPreview from '@/components/ImageSectionPreview.vue'
 import { useToastStore } from '@/stores/toast'
+import { usePreviewStore } from '@/stores/previewStore'
 
 const toastStore = useToastStore()
+const previewStore = usePreviewStore()
 
 const API_BASE = '/category'
 
@@ -511,13 +513,13 @@ const categoryPresets = computed(() => {
     presets.push({
       label: cat.name,
       icon:  '📁',
-      url:   `http://localhost:3000/category/${cat.slug}`,
+      url:   previewStore.resolveUrl(`/category/${cat.slug}`),
     })
     if (cat.subcategories?.length) {
       presets.push({
         label: `↳ ${cat.subcategories[0].name}`,
         icon:  '📂',
-        url:   `http://localhost:3000/category/${cat.slug}/${cat.subcategories[0].slug}`,
+        url:   previewStore.resolveUrl(`/category/${cat.slug}/${cat.subcategories[0].slug}`),
       })
     }
   })

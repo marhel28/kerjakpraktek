@@ -75,7 +75,7 @@
                   v-model="customUrlInput"
                   type="text"
                   class="custom-url-bar__input"
-                  placeholder="http://localhost:3000/your/path"
+                  :placeholder="previewStore.previewUrl"
                   @keydown.enter="applyCustomUrl"
                 />
                 <button class="btn btn--xs btn--primary" @click="applyCustomUrl">Go</button>
@@ -149,7 +149,10 @@
   
   <script setup>
   import { ref, watch, computed } from 'vue'
-  
+  import { usePreviewStore } from '@/stores/previewStore'
+
+  const previewStore = usePreviewStore()
+
   // ── Props & Emits ────────────────────────────────────────
   const props = defineProps({
     /** v-model: visible state */
@@ -191,14 +194,15 @@
   ])
   
   // ── Default URL Presets ──────────────────────────────────
-  const DEFAULT_PRESETS = [
-    { label: 'Home',     icon: '🏠', url: 'http://localhost:3000/' },
-    { label: 'Category', icon: '📁', url: 'http://localhost:3000/category/security-alarm' },
-    { label: 'Sub Cat',  icon: '📂', url: 'http://localhost:3000/category/kamera-cctv/kamera-cctv-series-c?category=kamera-cctv&category=kamera-cctv-series-c' },
-    { label: 'Search',   icon: '🔍', url: 'http://localhost:3000/search' },
-  ]
-  
-  const mergedPresets = computed(() => [...DEFAULT_PRESETS, ...props.extraPresets])
+  const defaultPresets = computed(() => [
+    { label: 'Preview',  icon: '🌐', url: previewStore.previewUrl },
+    { label: 'Home',     icon: '🏠', url: previewStore.resolveUrl('/') },
+    { label: 'Category', icon: '📁', url: previewStore.resolveUrl('/category/security-alarm') },
+    { label: 'Sub Cat',  icon: '📂', url: previewStore.resolveUrl('/category/kamera-cctv/kamera-cctv-series-c?category=kamera-cctv&category=kamera-cctv-series-c') },
+    { label: 'Search',   icon: '🔍', url: previewStore.resolveUrl('/search') },
+  ])
+
+  const mergedPresets = computed(() => [...defaultPresets.value, ...props.extraPresets])
   
   // ── Mode Options (same as parent) ────────────────────────
   const modeOptions = [
@@ -230,15 +234,23 @@
     return 'single'
   }
   
+  const normalizeUrl = (url) => {
+    if (!url) return previewStore.previewUrl
+    if (url.startsWith('http://localhost:3000')) {
+      return url.replace('http://localhost:3000', previewStore.baseUrl)
+    }
+    return url
+  }
+
   // ── State ────────────────────────────────────────────────
   const localMode       = ref('auto')
-  const activeUrl       = ref(DEFAULT_PRESETS[0].url)
+  const activeUrl       = ref(previewStore.previewUrl)
   const iframeKey       = ref(0)
   const isRefreshing    = ref(false)
   const showCustomInput = ref(false)
   const customUrlInput  = ref('')
   const isCustomUrl     = ref(false)
-  
+
   // Sync localMode & initialUrl when section/panel opens
   watch(
     () => [props.section, props.modelValue],
@@ -246,20 +258,17 @@
       if (!visible) return
       localMode.value = section?.mode || 'auto'
       if (props.initialUrl) {
-        activeUrl.value = props.initialUrl
-        isCustomUrl.value = !mergedPresets.value.some(p => p.url === props.initialUrl)
+        const target = normalizeUrl(props.initialUrl)
+        activeUrl.value = target
+        isCustomUrl.value = !mergedPresets.value.some(p => p.url === target)
       } else {
         // Auto-pick a preset that makes sense based on identifier
         const id = section?.identifier ?? ''
         if (id.startsWith('category:')) {
           const slug = id.replace('category:', '')
-          // Try to build a matching URL from presets or construct one
-          const catPreset = mergedPresets.value.find(p => p.url.includes('/category/'))
-          activeUrl.value = catPreset
-            ? `http://localhost:3000/category/${slug}`
-            : DEFAULT_PRESETS[0].url
+          activeUrl.value = previewStore.resolveUrl(`/category/${slug}`)
         } else {
-          activeUrl.value = DEFAULT_PRESETS[0].url
+          activeUrl.value = previewStore.previewUrl
         }
         isCustomUrl.value = false
       }

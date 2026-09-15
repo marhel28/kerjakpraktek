@@ -379,10 +379,10 @@
     </Teleport>
 
     <!-- ── Live Preview Section ────────────── -->
-    <ImageSectionPreview 
+    <ImageSectionPreview
       v-model="showLivePreview"
       :section="previewSection"
-      initialUrl="http://localhost:3000/product/sample-cctv-kit"
+      :initial-url="previewStore.resolveUrl('/product/sample-cctv-kit')"
       hideModePicker
     />
   </div>
@@ -392,6 +392,9 @@
 import { ref, onMounted, reactive, computed } from 'vue'
 import { get, post, patch, del } from '@/service/api'
 import ImageSectionPreview from '@/components/ImageSectionPreview.vue'
+import { usePreviewStore } from '@/stores/previewStore'
+
+const previewStore = usePreviewStore()
 
 // ── State ────────────────────────────────────────────────
 const groups = ref([])

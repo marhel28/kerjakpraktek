@@ -38,7 +38,21 @@
   
         <!-- Right: actions -->
         <div class="flex items-center space-x-1 md:space-x-2 shrink-0">
-  
+
+          <!-- ── Preview Website Button ──────────────────────────────── -->
+          <a
+            :href="previewStore.previewUrl"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-indigo-600 bg-indigo-50 hover:bg-indigo-100 hover:text-indigo-700 rounded-xl transition-all active:scale-95 border border-indigo-100/80 shadow-sm"
+            title="Buka Preview Website"
+          >
+            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+            </svg>
+            <span class="hidden sm:inline">Preview Web</span>
+          </a>
+
           <!-- ── Notif Pesan ─────────────────────────────────────────── -->
           <RouterLink
             to="/pesan"
@@ -247,6 +261,10 @@
                   class="block px-4 py-2 text-sm text-gray-600 hover:bg-indigo-50 hover:text-indigo-700 transition-colors">
                   Settings
                 </a>
+                <RouterLink to="/settings/preview"
+                  class="block px-4 py-2 text-sm text-gray-600 hover:bg-indigo-50 hover:text-indigo-700 transition-colors">
+                  Pengaturan Preview
+                </RouterLink>
                 <div class="border-t border-gray-100 my-1"></div>
                 <button
                   @click="handleLogout"
@@ -270,9 +288,10 @@
   import { useMessageStore } from '@/stores/messageStore'
   import { useNotificationStore } from '@/stores/notificationStore'
   import { useToastStore } from '@/stores/toast'
-  
+  import { usePreviewStore } from '@/stores/previewStore'
+
   defineEmits(['toggle-sidebar'])
-  
+
   const router = useRouter()
   const isProfileOpen = ref(false)
   const isNotificationsOpen = ref(false)
@@ -280,6 +299,7 @@
   const messageStore = useMessageStore()
   const notificationStore = useNotificationStore()
   const toastStore = useToastStore()
+  const previewStore = usePreviewStore()
   
   const closeProfile = () => {
     setTimeout(() => { isProfileOpen.value = false }, 150)

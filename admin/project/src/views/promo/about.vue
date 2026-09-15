@@ -7,6 +7,9 @@
 import { ref, computed, reactive, watch, onMounted } from "vue";
 import api from "@/service/api";
 import ImageSectionPreview from "@/components/ImageSectionPreview.vue";
+import { usePreviewStore } from "@/stores/previewStore";
+
+const previewStore = usePreviewStore();
 
 // ── Remote state ─────────────────────────────────────────────────
 const pageData  = ref(null);
@@ -717,8 +720,8 @@ onMounted(fetchPage);
       v-model="showPreview"
       :section="pageData"
       :hide-mode-picker="true"
-      :extra-presets="[{ label: 'About', icon: '👤', url: 'http://localhost:3000/about' }]"
-      :initial-url="'http://localhost:3000/about'"
+      :extra-presets="[{ label: 'About', icon: '👤', url: previewStore.resolveUrl('/about') }]"
+      :initial-url="previewStore.resolveUrl('/about')"
     />
 
     <!-- ══ TOAST ══════════════════════════════════════════════════ -->

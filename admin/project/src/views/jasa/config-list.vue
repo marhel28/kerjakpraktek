@@ -200,7 +200,7 @@
     <!-- Live Preview Modal -->
     <ImageSectionPreview
       v-model="showPreview"
-      :initial-url="'http://localhost:3000/services/booking'"
+      :initial-url="previewStore.resolveUrl('/services/booking')"
       hide-mode-picker
     />
   </div>
@@ -211,6 +211,9 @@ import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import api from '@/service/api'
 import ImageSectionPreview from '@/components/ImageSectionPreview.vue'
+import { usePreviewStore } from '@/stores/previewStore'
+
+const previewStore = usePreviewStore()
 
 interface CategoryConfig {
   id: string
