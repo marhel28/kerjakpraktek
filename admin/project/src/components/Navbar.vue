@@ -8,6 +8,7 @@
           <button
             @click="$emit('toggle-sidebar')"
             class="p-2 -ml-2 text-gray-500 rounded-xl hover:bg-gray-100 hover:text-gray-800 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500/50 active:scale-95"
+            title="Toggle sidebar (Alt + S)"
           >
             <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
               <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16" />
