@@ -3,17 +3,8 @@
       class="sticky top-0 z-40 w-full bg-white/70 backdrop-blur-md border-b border-gray-200 transition-all duration-300">
       <div class="flex items-center justify-between h-16 px-4 md:px-6">
   
-        <!-- Left: toggle + title -->
+        <!-- Left: title -->
         <div class="flex items-center space-x-4">
-          <button
-            @click="$emit('toggle-sidebar')"
-            class="p-2 -ml-2 text-gray-500 rounded-xl hover:bg-gray-100 hover:text-gray-800 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500/50 active:scale-95"
-            title="Toggle sidebar (Alt + S)"
-          >
-            <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16" />
-            </svg>
-          </button>
           <h1 class="hidden sm:block text-lg font-semibold text-gray-800 tracking-tight">Dashboard</h1>
         </div>
   
@@ -290,8 +281,6 @@
   import { useNotificationStore } from '@/stores/notificationStore'
   import { useToastStore } from '@/stores/toast'
   import { usePreviewStore } from '@/stores/previewStore'
-
-  defineEmits(['toggle-sidebar'])
 
   const router = useRouter()
   const isProfileOpen = ref(false)

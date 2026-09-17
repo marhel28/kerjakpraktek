@@ -27,10 +27,7 @@
 
     <!-- Main Content Area -->
     <div class="flex-1 flex flex-col min-w-0 overflow-hidden transition-all duration-300">
-      <Navbar
-        @toggle-sidebar="handleToggleSidebar"
-        :unread-count="messageStore.totalUnreadBadge"
-      />
+      <Navbar :unread-count="messageStore.totalUnreadBadge" />
 
       <main class="flex-1 relative z-0 overflow-y-auto p-4 sm:p-6 md:p-8">
         <router-view />
@@ -47,16 +44,8 @@ import Navbar from '@/components/Navbar.vue'
 import { useMessageStore } from '@/stores/messageStore'
 import { useSidebar } from '@/composables/useSidebar'
 
-const { isCollapsed, isMobileOpen, toggleCollapse, toggleMobile, closeMobile } = useSidebar()
+const { isCollapsed, isMobileOpen, toggleCollapse, closeMobile } = useSidebar()
 const messageStore = useMessageStore()
-
-const handleToggleSidebar = () => {
-  if (typeof window !== 'undefined' && window.innerWidth < 1024) {
-    toggleMobile()
-  } else {
-    toggleCollapse()
-  }
-}
 
 onMounted(() => {
   messageStore.startInboxPolling()
