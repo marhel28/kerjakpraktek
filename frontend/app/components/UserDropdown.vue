@@ -156,6 +156,10 @@ const userInitials = computed(() => {
 
 const handleLogout = async () => {
   notificationStore.cleanup()
+  try {
+    const { usePesanStore } = await import('~/stores/UsePesanStore')
+    usePesanStore().reset()
+  } catch { /* abaikan */ }
   token.value = null
   userDataCookie.value = null
   

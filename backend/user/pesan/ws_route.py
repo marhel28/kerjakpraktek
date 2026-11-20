@@ -2,13 +2,12 @@ import logging
 from typing import Optional
 from uuid import UUID
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Query, status
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.auth.utility import decode_token
 from backend.auth.service import UserService
 from backend.auth.model import User, UserRole
 from backend.db.redis import token_jti_bloclist
-from backend.db.main import get_session
+from backend.db.main import db_session_maker
 from backend.user.pesan.ws_manager import chat_ws_manager
 
 logger = logging.getLogger(__name__)
@@ -17,10 +16,12 @@ user_service = UserService()
 router = APIRouter(tags=["WebSocket Chat"])
 
 
-async def authenticate_ws_token(token: str, db: AsyncSession) -> Optional[User]:
+async def authenticate_ws_token(token: str) -> Optional[User]:
     """
     Validasi JWT token dari query param WebSocket.
     Mengecek payload, expiration, dan blacklist Redis.
+    Session DB dibuka-tutup sendiri agar tidak bocor (get_session adalah
+    async generator yang harus di-close; di konteks WS tidak ada Depends).
     """
     token_data = decode_token(token)
     if not token_data:
@@ -34,11 +35,13 @@ async def authenticate_ws_token(token: str, db: AsyncSession) -> Optional[User]:
         return None
 
     user_email = token_data["user"]["email"]
-    user = await user_service.get_user_by_email(user_email, db)
-    if not user or not user.is_verified:
-        return None
-
-    return user
+    async with db_session_maker() as db:
+        user = await user_service.get_user_by_email(user_email, db)
+        if not user or not user.is_verified:
+            return None
+        # Detach agar bisa dipakai setelah session close (hanya field sederhana)
+        db.expunge(user)
+        return user
 
 
 @router.websocket("/ws/chat/{user_id}")
@@ -51,14 +54,10 @@ async def chat_websocket_endpoint(
     Duplex WebSocket untuk sistem pesan customer ↔ admin.
     URL: ws://{host}/ws/chat/{user_id}?token={token}
     """
-    authenticated_user: Optional[User] = None
-
-    async for db in get_session():
-        authenticated_user = await authenticate_ws_token(token, db)
-        break
+    authenticated_user: Optional[User] = await authenticate_ws_token(token)
 
     if not authenticated_user:
-        logger.warning(f"[WS Chat] Unauthorized connection rejected for user_id: {user_id}")
+        logger.warning("[WS Chat] Unauthorized connection rejected for user_id: %s", user_id)
         await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
         return
 
@@ -88,16 +87,19 @@ async def chat_websocket_endpoint(
             data = await websocket.receive_json()
             event_type = data.get("type")
 
-            if event_type == "ping":
-                await websocket.send_json({"type": "pong"})
+            if event_type == "ping" or event_type == "pong":
+                await websocket.send_json({"type": "pong" if event_type == "ping" else "ping"})
             elif event_type == "typing":
                 # Forward typing status ke lawan bicara
                 target_user_id = data.get("target_user_id")
                 if is_admin and target_user_id:
-                    await chat_ws_manager.send_to_user(
-                        UUID(target_user_id),
-                        {"type": "typing", "sender": "admin"},
-                    )
+                    try:
+                        await chat_ws_manager.send_to_user(
+                            UUID(str(target_user_id)),
+                            {"type": "typing", "sender": "admin"},
+                        )
+                    except (ValueError, AttributeError):
+                        logger.warning("[WS Chat] Invalid target_user_id: %r", target_user_id)
                 elif not is_admin:
                     await chat_ws_manager.broadcast_to_admins({
                         "type": "typing",

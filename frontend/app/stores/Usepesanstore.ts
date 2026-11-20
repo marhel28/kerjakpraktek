@@ -19,7 +19,7 @@
 
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import { useChatSocket } from '~/composables/useChatSocket'
+import { useChatSocket, __isWsListenerBound, __markWsListenerBound, __resetWsListenerBound } from '~/composables/useChatSocket'
 
 // ── Types ──────────────────────────────────────────────────────────
 export interface MessageImage {
@@ -73,7 +73,8 @@ export const usePesanStore = defineStore('pesan', () => {
   let isPopupOpen = false
 
   // ── WebSocket ────────────────────────────────────────────────────
-  const { connect, on, off } = useChatSocket()
+  const { connect, disconnect, on } = useChatSocket()
+  let wsInitialized = false
 
   // ── Computed ─────────────────────────────────────────────────────
   const sortedMessages = computed(() =>
@@ -120,7 +121,11 @@ export const usePesanStore = defineStore('pesan', () => {
   }
 
   // ── WebSocket Event Handlers ─────────────────────────────────────
+  // Idempotent: initAfterLogin() dipanggil dari plugin + FloatingChat + login,
+  // jadi listener hanya di-bind sekali untuk cegah pesan ganda.
   function _setupWebSocketListeners() {
+    if (__isWsListenerBound()) return
+    __markWsListenerBound()
     on('new_message', (msg: ChatMessage) => {
       _mergeMessages([msg])
       unreadCount.value = messages.value.filter(
@@ -143,6 +148,8 @@ export const usePesanStore = defineStore('pesan', () => {
 
   // ── Chat actions ──────────────────────────────────────────────────
   async function initAfterLogin() {
+    if (wsInitialized) return
+    wsInitialized = true
     try {
       const res = await $fetch<{ unread_count: number }>('/api/pesan?action=unread')
       unreadCount.value = res.unread_count
@@ -252,6 +259,9 @@ export const usePesanStore = defineStore('pesan', () => {
   }
 
   function reset() {
+    disconnect()
+    __resetWsListenerBound()
+    wsInitialized = false
     messages.value = []
     unreadCount.value = 0
     lastSentAt.value = null
@@ -274,11 +284,12 @@ export const usePesanStore = defineStore('pesan', () => {
     setPendingContext,
     clearPendingContext,
     initAfterLogin,
+    disconnect,
     loadMoreHistory,
     onPopupOpen,
     onPopupClose,
     startPassivePolling: initAfterLogin, // alias fallback backwards compatibility
-    stopPolling: () => {}, // no-op compatibility
+    stopPolling: disconnect,
     sendMessage,
     markAllRead,
     reset,

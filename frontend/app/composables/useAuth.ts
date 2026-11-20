@@ -71,6 +71,15 @@ export const useAuth = () => {
     } catch {
       console.warn('Logout API ditolak')
     } finally {
+      // Putus WebSocket chat + reset state pesan agar tidak bocor ke akun berikutnya
+      try {
+        const { useChatSocket } = await import('~/composables/useChatSocket')
+        useChatSocket().disconnect()
+      } catch { /* abaikan */ }
+      try {
+        const { usePesanStore } = await import('~/stores/UsePesanStore')
+        usePesanStore().reset()
+      } catch { /* abaikan */ }
       // Clear semua cookies
       token.value = null
       refreshTokenCookie.value = null
