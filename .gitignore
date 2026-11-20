@@ -53,3 +53,13 @@ venv/
 backend/.env
 cloudflared/
 *.pem
+
+# Agent tooling & generated output (lokal saja)
+.agents/
+.opencode/
+.playwright-mcp/
+graphify-out/
+antislop_skill.md
+skills_info.json
+skills-lock.json
+repo_info.json
