@@ -1,9 +1,13 @@
 <script setup lang="ts">
 import { useUserStore } from "~/stores/user";
-import { computed } from "vue";
+import { usePesanStore } from "~/stores/UsePesanStore";
+import { computed, ref } from "vue";
+import { useNotificationStore } from "~/stores/notificationStore";
 
 const { logout } = useAuth();
 const userStore = useUserStore();
+const pesanStore = usePesanStore();
+const notificationStore = useNotificationStore();
 
 // Marketplace Color: #03AC0E (Tokopedia Green)
 
@@ -11,7 +15,7 @@ const navigationGroups = computed(() => [
   {
     title: "Kotak Masuk",
     items: [
-      { label: "Chat", to: "/dashboard/chat", icon: "i-heroicons-chat-bubble-left-right" },
+      { label: "Chat CS", isChatAction: true, icon: "i-heroicons-chat-bubble-left-right" },
       { label: "Pesan Bantuan", to: "/dashboard/help", icon: "i-heroicons-question-mark-circle" },
     ]
   },
@@ -34,15 +38,19 @@ const navigationGroups = computed(() => [
   }
 ]);
 
-const userAvatar = computed(() => {
-  const name = userStore.profile?.username || "Pengguna";
-  return `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=03AC0E&color=fff&bold=true`;
+const userInitials = computed(() => {
+  const name = userStore.profile?.username || "P";
+  return name
+    .split(" ")
+    .map((w) => w[0])
+    .slice(0, 2)
+    .join("")
+    .toUpperCase();
 });
 
+const showLogoutConfirm = ref(false);
 const handleLogout = async () => {
-  if (confirm("Apakah Anda yakin ingin keluar?")) {
-    await logout();
-  }
+  showLogoutConfirm.value = true;
 };
 </script>
 
@@ -53,12 +61,10 @@ const handleLogout = async () => {
       <!-- ── 1. Profile Section (Tokopedia Style) ── -->
       <div class="bg-white rounded-xl border border-gray-200/80 shadow-sm p-4">
         <div class="flex items-center gap-3">
-          <div class="shrink-0 relative">
-            <NuxtImg
-              :src="userAvatar"
-              class="w-12 h-12 rounded-full border border-gray-100 ring-2 ring-emerald-500/20 object-cover"
-              alt="Avatar"
-            />
+          <div
+            class="shrink-0 w-12 h-12 rounded-full bg-[#03AC0E] text-white flex items-center justify-center font-bold text-sm ring-2 ring-emerald-500/20"
+          >
+            {{ userInitials }}
           </div>
           <div class="flex-1 min-w-0">
             <div class="flex items-center justify-between">
@@ -81,59 +87,6 @@ const handleLogout = async () => {
         </div>
       </div>
 
-      <!-- ── 2. Dompet & Kupon (Tokopedia Saldo & Koin Box) ── -->
-      <div class="bg-white rounded-xl border border-gray-200/80 shadow-sm p-3.5 divide-y divide-gray-100">
-        <!-- Saldo Akun -->
-        <div class="flex items-center justify-between pb-2.5">
-          <div class="flex items-center gap-2.5">
-            <div class="w-8 h-8 rounded-lg bg-emerald-50 text-[#03AC0E] flex items-center justify-center">
-              <UIcon name="i-heroicons-wallet" class="w-4 h-4" />
-            </div>
-            <div>
-              <p class="text-[11px] text-gray-500 font-medium">Saldo PasarCctv</p>
-              <p class="text-xs font-bold text-gray-900">Rp 0</p>
-            </div>
-          </div>
-          <button class="text-[11px] font-bold text-[#03AC0E] hover:underline">
-            Top Up
-          </button>
-        </div>
-
-        <!-- Koin & Kupon -->
-        <div class="pt-2.5 grid grid-cols-2 gap-2">
-          <div class="flex items-center gap-2">
-            <div class="w-7 h-7 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center">
-              <UIcon name="i-heroicons-circle-stack" class="w-3.5 h-3.5" />
-            </div>
-            <div>
-              <p class="text-[10px] text-gray-400 font-medium">Koin Reward</p>
-              <p class="text-[11px] font-bold text-gray-800">0 Koin</p>
-            </div>
-          </div>
-          <div class="flex items-center gap-2">
-            <div class="w-7 h-7 rounded-lg bg-rose-50 text-rose-500 flex items-center justify-center">
-              <UIcon name="i-heroicons-ticket" class="w-3.5 h-3.5" />
-            </div>
-            <div>
-              <p class="text-[10px] text-gray-400 font-medium">Kupon Saya</p>
-              <p class="text-[11px] font-bold text-[#03AC0E]">2 Kupon</p>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- ── 3. Membership Card (Tokopedia PLUS) ── -->
-      <div class="bg-gradient-to-br from-emerald-500/10 via-emerald-50 to-teal-50 rounded-xl border border-emerald-200/60 shadow-sm p-3.5">
-        <div class="flex items-center justify-between mb-1.5">
-          <div class="flex items-center gap-1.5">
-            <UIcon name="i-heroicons-sparkles" class="w-4 h-4 text-emerald-600" />
-            <span class="text-xs font-bold text-emerald-950 uppercase tracking-wider">PasarCctv Plus</span>
-          </div>
-          <span class="px-1.5 py-0.5 bg-emerald-600 text-white text-[9px] font-black rounded uppercase">Aktif</span>
-        </div>
-        <p class="text-[11px] text-emerald-800 leading-snug font-medium">Gratis ongkir tanpa batas & diskon jasa teknisi</p>
-      </div>
-
       <!-- ── 4. Navigation Menu Grouped ── -->
       <div class="bg-white rounded-xl border border-gray-200/80 shadow-sm overflow-hidden py-2">
         <div v-for="(group, idx) in navigationGroups" :key="idx" class="mb-1.5 last:mb-0">
@@ -142,22 +95,55 @@ const handleLogout = async () => {
           </div>
           
           <div class="flex flex-col">
-            <NuxtLink
-              v-for="item in group.items"
-              :key="item.to"
-              :to="item.to"
-              :exact="item.exact"
-              class="group flex items-center gap-3 px-4 py-2 transition-colors hover:bg-gray-50"
-              active-class="active-item"
-            >
-              <UIcon
-                :name="item.icon"
-                class="w-4 h-4 text-gray-400 group-hover:text-[#03AC0E] group-[.active-item]:text-[#03AC0E] transition-colors"
-              />
-              <span class="text-xs font-medium text-gray-600 group-hover:text-[#03AC0E] group-[.active-item]:text-[#03AC0E] group-[.active-item]:font-bold">
-                {{ item.label }}
-              </span>
-            </NuxtLink>
+            <template v-for="item in group.items" :key="item.label">
+              <!-- Chat Trigger Button (Open Floating Chat directly) -->
+              <button
+                v-if="(item as any).isChatAction"
+                type="button"
+                @click="pesanStore.onPopupOpen()"
+                class="group flex items-center justify-between px-4 py-2.5 transition-all hover:bg-gray-50 rounded-xl mx-2 font-medium text-left cursor-pointer"
+              >
+                <div class="flex items-center gap-3 min-w-0">
+                  <UIcon
+                    :name="item.icon"
+                    class="w-4 h-4 text-gray-400 group-hover:text-[#03AC0E] transition-colors shrink-0"
+                  />
+                  <span class="text-xs font-semibold text-gray-700 group-hover:text-[#03AC0E] truncate">
+                    {{ item.label }}
+                  </span>
+                </div>
+                <span class="text-[10px] bg-emerald-50 text-[#03AC0E] font-extrabold px-1.5 py-0.5 rounded-md uppercase">Live</span>
+              </button>
+
+              <!-- Standard Nav Link -->
+              <NuxtLink
+                v-else
+                :to="(item as any).to"
+                :exact="(item as any).exact"
+                class="group flex items-center justify-between px-4 py-2.5 transition-all hover:bg-gray-50 rounded-xl mx-2 font-medium"
+                active-class="active-item"
+              >
+                <div class="flex items-center gap-3 min-w-0">
+                  <UIcon
+                    :name="item.icon"
+                    class="w-4 h-4 text-gray-400 group-hover:text-[#03AC0E] group-[.active-item]:text-[#03AC0E] transition-colors shrink-0"
+                  />
+                  <span class="text-xs font-semibold text-gray-700 group-hover:text-[#03AC0E] group-[.active-item]:text-[#03AC0E] group-[.active-item]:font-extrabold truncate">
+                    {{ item.label }}
+                  </span>
+                </div>
+                <div class="flex items-center gap-1">
+                  <span
+                    v-if="(item as any).to === '/dashboard/notifications' && notificationStore.unreadCount > 0"
+                    class="min-w-5 h-5 px-1 flex items-center justify-center rounded-full bg-red-500 text-white text-[10px] font-bold"
+                  >{{ notificationStore.unreadCount > 9 ? '9+' : notificationStore.unreadCount }}</span>
+                  <UIcon
+                    name="i-heroicons-chevron-right"
+                    class="w-3.5 h-3.5 text-gray-300 group-hover:text-[#03AC0E] group-[.active-item]:text-[#03AC0E] transition-colors"
+                  />
+                </div>
+              </NuxtLink>
+            </template>
           </div>
           <div v-if="idx < navigationGroups.length - 1" class="mx-4 my-1.5 border-b border-gray-100"></div>
         </div>
@@ -175,6 +161,39 @@ const handleLogout = async () => {
       </div>
 
     </div>
+
+    <!-- Modal Konfirmasi Logout -->
+    <Teleport to="body">
+      <div
+        v-if="showLogoutConfirm"
+        class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-900/60 backdrop-blur-xs"
+        @click.self="showLogoutConfirm = false"
+      >
+        <div class="w-full max-w-sm bg-white rounded-2xl p-6 shadow-xl border border-gray-100 text-center">
+          <div class="w-12 h-12 rounded-full bg-red-50 text-red-600 flex items-center justify-center mx-auto mb-4">
+            <UIcon name="i-heroicons-arrow-left-on-rectangle" class="w-6 h-6" />
+          </div>
+          <h3 class="text-base font-bold text-gray-900 mb-1">Keluar dari Akun?</h3>
+          <p class="text-xs text-gray-500 mb-6 leading-relaxed">
+            Anda harus masuk kembali untuk mengakses pesanan dan data akun.
+          </p>
+          <div class="flex items-center gap-3">
+            <button
+              @click="showLogoutConfirm = false"
+              class="flex-1 py-2.5 px-4 rounded-xl border border-gray-200 text-xs font-bold text-gray-600 hover:bg-gray-50 transition-colors"
+            >
+              Batal
+            </button>
+            <button
+              @click="logout(); showLogoutConfirm = false"
+              class="flex-1 py-2.5 px-4 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-bold transition-colors shadow-sm"
+            >
+              Ya, Keluar
+            </button>
+          </div>
+        </div>
+      </div>
+    </Teleport>
   </aside>
 </template>
 

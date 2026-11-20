@@ -613,7 +613,7 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="min-h-screen bg-[#F3F4F5] font-sans pb-32 lg:pb-16 text-gray-900 selection:bg-[#03AC0E] selection:text-white">
+  <div class="min-h-screen bg-[#F7F8F9] font-sans pb-32 lg:pb-16 text-gray-900 selection:bg-[#03AC0E] selection:text-white">
 
     <div v-if="configLoading" class="flex items-center justify-center min-h-screen">
       <div class="flex flex-col items-center gap-4">

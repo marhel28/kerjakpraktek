@@ -42,16 +42,11 @@ function formatRupiah(amount: number): string {
   return new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", minimumFractionDigits: 0 }).format(amount);
 }
 
-function statusBadgeClass(color: string): string {
-  const map: Record<string, string> = {
-    amber: "bg-amber-50 text-amber-600 border-amber-100",
-    blue: "bg-blue-50 text-blue-600 border-blue-100",
-    green: "bg-emerald-50 text-emerald-600 border-emerald-100",
-    purple: "bg-purple-50 text-purple-600 border-purple-100",
-    red: "bg-red-50 text-red-500 border-red-100",
-    gray: "bg-gray-50 text-gray-500 border-gray-100",
-  };
-  return map[color] ?? map.gray;
+import { useOrderStatus } from "~/composables/useOrderStatus";
+const { getBookingStatus } = useOrderStatus();
+
+function toBadgeClass(status: string): string {
+  return getBookingStatus(status).badge;
 }
 
 
@@ -88,7 +83,7 @@ async function handlePay(booking: any) {
         <button @click="$router.push('/dashboard')" class="p-1 -ml-1 text-gray-400 hover:text-gray-900 transition-colors">
           <UIcon name="i-heroicons-arrow-left" class="w-5 h-5" />
         </button>
-        <h1 class="text-base font-black text-gray-900 uppercase tracking-wider">Jasa Saya</h1>
+        <h1 class="text-base font-bold text-gray-900">Jasa Saya</h1>
       </div>
       <NuxtLink to="/services/booking" class="p-2 bg-[#03AC0E]/10 text-[#03AC0E] active:bg-[#03AC0E]/20 rounded-lg transition-all flex items-center justify-center">
         <UIcon name="i-heroicons-plus" class="w-5 h-5" />
@@ -115,20 +110,20 @@ async function handlePay(booking: any) {
       <!-- STATS -->
       <section v-if="data" class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
         <div class="bg-gray-50 p-4 rounded-xl border border-gray-100">
-          <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Total</p>
-          <p class="text-xl font-black text-gray-900">{{ data.stats.total }}</p>
+          <p class="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1">Total</p>
+          <p class="text-xl font-bold text-gray-900">{{ data.stats.total }}</p>
         </div>
         <div class="bg-gray-50 p-4 rounded-xl border border-gray-100">
-          <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Aktif</p>
-          <p class="text-xl font-black text-[#03AC0E]">{{ data.stats.active }}</p>
+          <p class="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1">Aktif</p>
+          <p class="text-xl font-bold text-[#03AC0E]">{{ data.stats.active }}</p>
         </div>
         <div class="bg-gray-50 p-4 rounded-xl border border-gray-100">
-          <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Selesai</p>
-          <p class="text-xl font-black text-gray-900">{{ data.stats.done }}</p>
+          <p class="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1">Selesai</p>
+          <p class="text-xl font-bold text-gray-900">{{ data.stats.done }}</p>
         </div>
         <div class="bg-red-50 p-4 rounded-xl border border-red-100">
-          <p class="text-[10px] font-bold text-red-400 uppercase tracking-widest mb-1">Tagihan</p>
-          <p class="text-lg font-black text-red-600 truncate">{{ data.stats.pending_payment > 0 ? formatRupiah(data.stats.pending_payment) : 'Lunas' }}</p>
+          <p class="text-[10px] font-bold text-red-500 uppercase tracking-widest mb-1">Tagihan</p>
+          <p class="text-lg font-bold text-red-600 truncate">{{ data.stats.pending_payment > 0 ? formatRupiah(data.stats.pending_payment) : 'Lunas' }}</p>
         </div>
       </section>
 
@@ -160,10 +155,14 @@ async function handlePay(booking: any) {
           <div v-for="i in 3" :key="i" class="h-40 bg-gray-50 rounded-xl animate-pulse"></div>
         </div>
 
-        <div v-else-if="!data || data.bookings.items.length === 0" class="py-24 text-center border-2 border-dashed border-gray-100 rounded-xl">
-          <UIcon name="i-heroicons-calendar-days" class="w-12 h-12 text-gray-200 mx-auto mb-4" />
-          <p class="text-sm font-bold text-gray-400">Belum ada data booking.</p>
-        </div>
+        <DashboardEmptyState
+          v-else-if="!data || data.bookings.items.length === 0"
+          icon="i-heroicons-calendar-days"
+          title="Belum Ada Booking Jasa"
+          description="Jadwalkan pemasangan, maintenance, atau konsultasi teknisi CCTV Anda sekarang."
+          cta-label="Booking Teknisi"
+          cta-to="/services/booking"
+        />
 
         <div v-else class="space-y-4">
           <div v-for="booking in data.bookings.items" :key="String(booking.uuid)" 
@@ -173,7 +172,7 @@ async function handlePay(booking: any) {
               <div class="flex items-center gap-3">
                 <UIcon name="i-heroicons-wrench-screwdriver" class="w-5 h-5 text-gray-400" />
                 <span class="text-xs font-bold text-gray-900 uppercase tracking-tight">Layanan Jasa</span>
-                <span :class="statusBadgeClass(booking.status_color)" class="px-2 py-0.5 rounded text-[10px] font-bold border">
+                <span :class="toBadgeClass(booking.status_color)" class="px-2 py-0.5 rounded text-[10px] font-bold border">
                   {{ booking.status_label }}
                 </span>
                 <span class="text-xs font-bold text-gray-300">#{{ booking.booking_number }}</span>
@@ -200,7 +199,7 @@ async function handlePay(booking: any) {
                   <p v-if="booking.action.action === 'pay_dp'" class="text-[10px] font-bold text-amber-500 uppercase tracking-widest mt-1">DP: {{ formatRupiah(booking.dp_amount) }}</p>
                 </div>
                 <div class="flex items-center gap-3">
-                  <NuxtLink :to="`/dashboard/orders/${booking.booking_number}`" class="text-sm font-bold text-[#03AC0E] hover:underline">Detail</NuxtLink>
+                  <NuxtLink :to="`/dashboard/jasa/${booking.uuid}`" class="text-sm font-bold text-[#03AC0E] hover:underline">Detail</NuxtLink>
                   <button v-if="booking.action.action.startsWith('pay')" @click="handlePay(booking)" :disabled="payingUuid === String(booking.uuid)"
                     class="px-6 py-2 bg-[#03AC0E] text-white text-xs font-bold rounded-lg hover:bg-[#028a0b] transition-all shadow-sm flex items-center gap-2"
                   >

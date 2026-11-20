@@ -1,11 +1,11 @@
 <script setup lang="ts">
 import { computed, ref, onBeforeUnmount } from "vue";
 
-// ─── SEO ─────────────────────────────────────────────────────────
+// --- SEO ---------------------------------------------------------
 const siteUrl = useRuntimeConfig().public.siteUrl ?? "https://yourdomain.com";
 
 useSeoMeta({
-  title: "Brand Resmi CCTV & Keamanan — Official Partner Store | PasarCctv",
+  title: "Brand Resmi CCTV dan Keamanan: Official Partner Store | PasarCctv",
   description:
     "Katalog resmi brand CCTV dan perangkat keamanan terbaik dunia: Dahua, Hikvision, Ezviz, Imou, Tapo, Tiandy, Seagate, WD, dan lainnya. 100% Original bergaransi resmi.",
   ogTitle: "Brand Resmi CCTV & Keamanan | PasarCctv",
@@ -15,7 +15,7 @@ useSeoMeta({
   ogType: "website",
 });
 
-// ─── Data Tagline & Specialty Curation ──────────────────────────
+// --- Data Tagline & Specialty Curation ---------------------------
 const BRAND_METADATA: Record<string, { tagline: string; badge: string }> = {
   dahua: {
     tagline: "Spesialis Kamera Pengawas IP, XVR & Teknologi AI WizSense",
@@ -63,8 +63,8 @@ const BRAND_METADATA: Record<string, { tagline: string; badge: string }> = {
   },
 };
 
-// ─── Fetch Data ──────────────────────────────────────────────────
-const { data: brandsData, pending } = await useFetch<any[]>("/api/brands", {
+// --- Fetch Data --------------------------------------------------
+const { data: brandsData, pending, error, refresh } = await useFetch<any[]>("/api/brands", {
   key: "brands:index:v3",
   lazy: true,
   transform: (data) => {
@@ -103,7 +103,7 @@ const { data: brandsData, pending } = await useFetch<any[]>("/api/brands", {
 
 const allBrands = computed(() => brandsData.value || []);
 
-// ─── Search & Filter State ───────────────────────────────────────
+// --- Search & Filter State ---------------------------------------
 const searchQuery = ref("");
 const selectedBrandFilter = ref("all");
 
@@ -131,7 +131,7 @@ const totalSkuAllBrands = computed(() =>
   allBrands.value.reduce((acc, b) => acc + (b.total || 0), 0)
 );
 
-// ─── Drag to Scroll Logic ────────────────────────────────────────
+// --- Drag to Scroll Logic ----------------------------------------
 const isDragging = ref(false);
 const hasDragged = ref(false);
 const startX = ref(0);
@@ -182,7 +182,7 @@ onBeforeUnmount(() => {
   window.removeEventListener("mouseup", stopDrag);
 });
 
-// ─── Button Scroll Helper ────────────────────────────────────────
+// --- Button Scroll Helper ----------------------------------------
 const scrollSlider = (brandId: string, direction: "left" | "right") => {
   const slider = document.getElementById(`slider-${brandId}`);
   if (slider) {
@@ -198,57 +198,56 @@ const scrollToBrand = (brandSlug: string) => {
   selectedBrandFilter.value = "all";
   const el = document.getElementById(`brand-section-${brandSlug}`);
   if (el) {
+    el.setAttribute("tabindex", "-1");
     el.scrollIntoView({ behavior: "smooth", block: "start" });
+    el.focus({ preventScroll: true });
   }
 };
 </script>
 
 <template>
   <main class="brands-page min-h-screen bg-slate-50/70 text-slate-800">
-    <!-- ── 1. Clean Professional Header (Tokopedia / Blibli Style) ── -->
-    <header class="bg-gradient-to-b from-slate-900 via-slate-900 to-slate-800 text-white border-b border-slate-800 pt-8 pb-14 lg:pb-16 relative overflow-hidden">
-      <!-- Subtle ambient pattern -->
-      <div class="absolute inset-0 opacity-10 pointer-events-none bg-[radial-gradient(#10b981_1px,transparent_1px)] [background-size:16px_16px]"></div>
-
-      <div class="max-w-[1360px] mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+    <!-- 1. Clean Light Header -->
+    <header class="bg-white border-b border-slate-200/80 pt-6 pb-10 sm:pb-12 relative overflow-hidden">
+      <div class="max-w-[1360px] mx-auto px-4 sm:px-6 lg:px-8">
         <!-- Breadcrumbs -->
-        <nav aria-label="Breadcrumb" class="flex items-center gap-2 text-xs text-slate-400 mb-6 font-medium">
-          <NuxtLink to="/" class="hover:text-white transition-colors">Beranda</NuxtLink>
-          <UIcon name="i-heroicons-chevron-right" class="w-3 h-3 text-slate-500" />
-          <span class="text-emerald-400 font-semibold">Brand Resmi</span>
+        <nav aria-label="Breadcrumb" class="flex items-center gap-2 text-xs text-slate-500 mb-4 font-medium">
+          <NuxtLink to="/" class="hover:text-[#03AC0E] transition-colors">Beranda</NuxtLink>
+          <UIcon name="i-tabler-chevron-right" class="w-3.5 h-3.5 text-slate-400" />
+          <span class="text-[#03AC0E] font-medium">Brand Resmi</span>
         </nav>
 
-        <div class="grid lg:grid-cols-12 gap-8 items-center">
-          <div class="lg:col-span-8 space-y-4">
-            <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-xs font-semibold">
-              <UIcon name="i-heroicons-check-badge" class="w-4 h-4 text-emerald-400" />
-              <span>100% Produk Original & Bergaransi Pabrik</span>
+        <div class="grid lg:grid-cols-12 gap-6 lg:gap-8 items-center">
+          <div class="lg:col-span-8 space-y-3">
+            <div class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#E6F7E9] border border-[#C8E6CC] text-[#0D1B12] text-xs font-medium">
+              <UIcon name="i-tabler-circle-check" class="w-4 h-4 text-[#03AC0E]" />
+              <span>Official Store & Distributor Resmi</span>
             </div>
 
-            <h1 class="text-3xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight text-white leading-tight">
-              Official Store & Brand Resmi
+            <h1 class="text-2xl sm:text-3xl lg:text-4xl font-semibold tracking-tight text-slate-900 leading-tight">
+              Brand Resmi CCTV & Security System
             </h1>
 
-            <p class="text-slate-300 text-sm sm:text-base max-w-2xl leading-relaxed font-normal">
-              Eksplorasi katalog sistem keamanan CCTV terbaik dunia langsung dari prinsipal resmi. Seluruh perangkat dijamin keasliannya dengan jaminan garansi ganti baru dan dukungan teknisi profesional.
+            <p class="text-slate-600 text-xs sm:text-sm max-w-2xl leading-relaxed">
+              Katalog resmi perangkat keamanan dunia bergaransi prinsipal. 100% barang original, siap kirim dengan jaminan klaim garansi mudah dan dukungan teknisi tersertifikasi.
             </p>
 
             <!-- 4 Trust Badges -->
-            <div class="pt-2 grid grid-cols-2 sm:grid-cols-4 gap-3">
-              <div class="flex items-center gap-2 p-2.5 rounded-xl bg-white/5 border border-white/10 text-xs font-medium text-slate-200">
-                <UIcon name="i-heroicons-shield-check" class="w-5 h-5 text-emerald-400 shrink-0" />
+            <div class="pt-2 grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+              <div class="flex items-center gap-2 p-2 rounded-xl bg-slate-50 border border-slate-200/80 text-xs font-medium text-slate-700">
+                <UIcon name="i-tabler-shield-check" class="w-4 h-4 text-[#03AC0E] shrink-0" />
                 <span>Garansi 1-2 Thn</span>
               </div>
-              <div class="flex items-center gap-2 p-2.5 rounded-xl bg-white/5 border border-white/10 text-xs font-medium text-slate-200">
-                <UIcon name="i-heroicons-wrench-screwdriver" class="w-5 h-5 text-blue-400 shrink-0" />
+              <div class="flex items-center gap-2 p-2 rounded-xl bg-slate-50 border border-slate-200/80 text-xs font-medium text-slate-700">
+                <UIcon name="i-tabler-tool" class="w-4 h-4 text-[#03AC0E] shrink-0" />
                 <span>Teknisi Ahli</span>
               </div>
-              <div class="flex items-center gap-2 p-2.5 rounded-xl bg-white/5 border border-white/10 text-xs font-medium text-slate-200">
-                <UIcon name="i-heroicons-truck" class="w-5 h-5 text-amber-400 shrink-0" />
-                <span>Kirim Seluruh RI</span>
+              <div class="flex items-center gap-2 p-2 rounded-xl bg-slate-50 border border-slate-200/80 text-xs font-medium text-slate-700">
+                <UIcon name="i-tabler-truck" class="w-4 h-4 text-[#03AC0E] shrink-0" />
+                <span>Kirim Se-Indonesia</span>
               </div>
-              <div class="flex items-center gap-2 p-2.5 rounded-xl bg-white/5 border border-white/10 text-xs font-medium text-slate-200">
-                <UIcon name="i-heroicons-document-check" class="w-5 h-5 text-purple-400 shrink-0" />
+              <div class="flex items-center gap-2 p-2 rounded-xl bg-slate-50 border border-slate-200/80 text-xs font-medium text-slate-700">
+                <UIcon name="i-tabler-file-check" class="w-4 h-4 text-[#03AC0E] shrink-0" />
                 <span>Faktur Resmi</span>
               </div>
             </div>
@@ -256,18 +255,18 @@ const scrollToBrand = (brandSlug: string) => {
 
           <!-- Quick Stats Panel -->
           <div class="lg:col-span-4 flex lg:justify-end">
-            <div class="bg-white/5 border border-white/10 backdrop-blur-md rounded-2xl p-6 w-full sm:max-w-xs space-y-4">
-              <div class="flex items-center justify-between pb-3 border-b border-white/10">
-                <span class="text-xs text-slate-400 uppercase tracking-wider font-semibold">Total Brand</span>
-                <span class="text-2xl font-black text-white">{{ allBrands.length || 11 }} Brand</span>
+            <div class="bg-white border border-slate-200 rounded-2xl p-5 w-full sm:max-w-xs shadow-xs space-y-3">
+              <div class="flex items-center justify-between pb-2.5 border-b border-slate-100">
+                <span class="text-xs text-slate-500 uppercase tracking-wider font-medium">Brand Resmi</span>
+                <span class="text-xl font-medium text-slate-900">{{ allBrands.length || 11 }} Brand</span>
               </div>
-              <div class="flex items-center justify-between pb-3 border-b border-white/10">
-                <span class="text-xs text-slate-400 uppercase tracking-wider font-semibold">Total Katalog</span>
-                <span class="text-2xl font-black text-emerald-400">{{ totalSkuAllBrands }}+ SKU</span>
+              <div class="flex items-center justify-between pb-2.5 border-b border-slate-100">
+                <span class="text-xs text-slate-500 uppercase tracking-wider font-medium">Total Katalog</span>
+                <span class="text-xl font-medium text-[#03AC0E]">{{ totalSkuAllBrands }}+ SKU</span>
               </div>
               <div class="flex items-center justify-between">
-                <span class="text-xs text-slate-400 uppercase tracking-wider font-semibold">Layanan Jasa</span>
-                <span class="text-xs font-bold text-slate-200 bg-emerald-500/20 text-emerald-300 px-2.5 py-1 rounded-md">Standby 24/7</span>
+                <span class="text-xs text-slate-500 uppercase tracking-wider font-medium">Layanan Instalasi</span>
+                <span class="text-xs font-medium bg-[#03AC0E] text-white px-2.5 py-0.5 rounded-full">Bandung & Cimahi</span>
               </div>
             </div>
           </div>
@@ -275,18 +274,18 @@ const scrollToBrand = (brandSlug: string) => {
       </div>
     </header>
 
-    <!-- ── 2. Brand Directory Bar & Search Controls ── -->
+    <!-- 2. Brand Directory Bar & Search Controls -->
     <div class="max-w-[1360px] mx-auto px-4 sm:px-6 lg:px-8 -mt-6 relative z-20">
-      <div class="bg-white rounded-2xl border border-slate-200 shadow-md p-4 sm:p-5 space-y-4">
+      <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 sm:p-5 space-y-4">
         <!-- Search bar + brand filter count -->
         <div class="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
           <div class="relative flex-1 max-w-md">
-            <UIcon name="i-heroicons-magnifying-glass" class="w-5 h-5 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+            <UIcon name="i-tabler-search" class="w-5 h-5 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
             <input
               v-model="searchQuery"
               type="text"
               placeholder="Cari nama brand atau produk (mis: Dahua, NVR, Ezviz)..."
-              class="w-full pl-10 pr-9 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white text-slate-800 placeholder-slate-400 transition"
+              class="w-full pl-10 pr-9 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#03AC0E] focus:bg-white text-slate-800 placeholder-slate-400 transition"
             />
             <button
               v-if="searchQuery"
@@ -294,7 +293,7 @@ const scrollToBrand = (brandSlug: string) => {
               class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
               aria-label="Hapus pencarian"
             >
-              <UIcon name="i-heroicons-x-mark" class="w-4 h-4" />
+              <UIcon name="i-tabler-x" class="w-4 h-4" />
             </button>
           </div>
 
@@ -303,35 +302,35 @@ const scrollToBrand = (brandSlug: string) => {
             <button
               v-if="selectedBrandFilter !== 'all' || searchQuery"
               @click="selectedBrandFilter = 'all'; searchQuery = ''"
-              class="text-xs text-emerald-600 font-semibold hover:underline"
+              class="text-xs text-[#03AC0E] font-medium hover:underline"
             >
               Reset Filter
             </button>
           </div>
         </div>
 
-        <!-- Quick Jump Brand Chips (Horizontal Scrolling Marquee-style) -->
+        <!-- Quick Jump Brand Chips -->
         <div class="flex items-center gap-2 overflow-x-auto pb-1 hide-scrollbar pt-1">
           <button
             @click="selectedBrandFilter = 'all'"
             :class="[
-              'px-3.5 py-1.5 rounded-lg text-xs font-bold shrink-0 transition flex items-center gap-1.5',
+              'px-3.5 py-1.5 rounded-full text-xs font-medium shrink-0 transition flex items-center gap-1.5 border',
               selectedBrandFilter === 'all'
-                ? 'bg-slate-900 text-white shadow-xs'
-                : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
+                ? 'bg-[#03AC0E] text-white border-[#03AC0E] shadow-xs'
+                : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-200'
             ]"
           >
             <span>Semua Brand</span>
-            <span class="text-[10px] px-1.5 py-0.2 rounded-full bg-white/20">{{ allBrands.length }}</span>
+            <span :class="['text-[10px] px-1.5 py-0.5 rounded-full', selectedBrandFilter === 'all' ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-500']">{{ allBrands.length }}</span>
           </button>
 
           <button
             v-for="b in allBrands"
             :key="b.id"
             @click="scrollToBrand(b.id)"
-            class="px-3 py-1.5 rounded-lg text-xs font-semibold shrink-0 transition flex items-center gap-2 bg-slate-100 hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-300 border border-transparent text-slate-700"
+            class="px-3 py-1.5 rounded-full text-xs font-medium shrink-0 transition flex items-center gap-2 bg-white hover:bg-[#E6F7E9] hover:text-[#03AC0E] hover:border-[#C8E6CC] border border-slate-200 text-slate-700 shadow-xs"
           >
-            <img :src="b.logo" :alt="b.name" class="w-4 h-4 object-contain grayscale group-hover:grayscale-0" />
+            <img :src="b.logo" :alt="b.name" class="w-4 h-4 object-contain" />
             <span>{{ b.name }}</span>
             <span class="text-[10px] text-slate-400 font-normal">({{ b.total }})</span>
           </button>
@@ -339,10 +338,30 @@ const scrollToBrand = (brandSlug: string) => {
       </div>
     </div>
 
-    <!-- ── 3. Brand Showcase Sections (Anti-Jompang & Balanced) ── -->
+    <!-- 3. Brand Showcase Sections -->
     <div class="max-w-[1360px] mx-auto px-4 sm:px-6 lg:px-8 py-10 sm:py-12">
+      <!-- Error State -->
+      <div
+        v-if="error"
+        class="bg-white rounded-2xl border border-red-200 p-8 text-center max-w-md mx-auto my-12 shadow-sm"
+      >
+        <div class="w-12 h-12 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-3 text-red-500">
+          <UIcon name="i-tabler-alert-triangle" class="w-6 h-6" />
+        </div>
+        <h3 class="text-base font-medium text-slate-900 mb-1">Gagal Memuat Katalog Brand</h3>
+        <p class="text-xs text-slate-500 mb-4 leading-relaxed">
+          Terjadi kesalahan saat memuat data. Silakan muat ulang halaman atau coba beberapa saat lagi.
+        </p>
+        <button
+          @click="refresh()"
+          class="px-4 py-2 rounded-xl bg-[#03AC0E] hover:bg-[#02930c] text-white text-xs font-medium transition shadow-xs"
+        >
+          Coba Lagi
+        </button>
+      </div>
+
       <!-- Loading Skeleton -->
-      <div v-if="pending" class="space-y-8">
+      <div v-else-if="pending" class="space-y-8">
         <div v-for="i in 3" :key="i" class="bg-white rounded-2xl border border-slate-200 p-6 space-y-6">
           <div class="flex items-center justify-between">
             <div class="flex items-center gap-4">
@@ -366,15 +385,15 @@ const scrollToBrand = (brandSlug: string) => {
         class="bg-white rounded-2xl border border-slate-200 p-12 text-center max-w-md mx-auto my-12 shadow-sm"
       >
         <div class="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4 text-slate-400">
-          <UIcon name="i-heroicons-magnifying-glass" class="w-8 h-8" />
+          <UIcon name="i-tabler-search" class="w-8 h-8" />
         </div>
-        <h3 class="text-lg font-bold text-slate-900 mb-1">Brand Tidak Ditemukan</h3>
+        <h3 class="text-lg font-medium text-slate-900 mb-1">Brand Tidak Ditemukan</h3>
         <p class="text-sm text-slate-500 mb-6 leading-relaxed">
           Tidak ada brand atau produk yang cocok dengan pencarian "{{ searchQuery }}". Silakan periksa ejaan atau reset filter.
         </p>
         <button
           @click="searchQuery = ''; selectedBrandFilter = 'all'"
-          class="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold transition"
+          class="px-4 py-2 rounded-xl bg-[#03AC0E] hover:bg-[#02930c] text-white text-sm font-medium transition shadow-xs"
         >
           Tampilkan Semua Brand
         </button>
@@ -388,13 +407,13 @@ const scrollToBrand = (brandSlug: string) => {
           :id="`brand-section-${brand.id}`"
           class="bg-white rounded-2xl border border-slate-200/90 shadow-xs hover:shadow-md transition-shadow overflow-hidden scroll-mt-24"
         >
-          <!-- ── Brand Header Bar ── -->
-          <div class="p-5 sm:p-6 border-b border-slate-100 flex flex-col md:flex-row md:items-center justify-between gap-4 bg-gradient-to-r from-slate-50/70 via-white to-white">
+          <!-- Brand Header Bar -->
+          <div class="p-5 sm:p-6 border-b border-slate-100 flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white">
             <div class="flex items-center gap-4 min-w-0">
-              <!-- Logo Container: Clean, crisp, white square with subtle border -->
+              <!-- Logo Container -->
               <NuxtLink
                 :to="`/brands/${brand.id}`"
-                class="w-16 h-16 sm:w-20 sm:h-20 bg-white rounded-xl border border-slate-200 p-2.5 flex items-center justify-center shrink-0 shadow-2xs hover:border-emerald-400 transition"
+                class="w-16 h-16 sm:w-20 sm:h-20 bg-white rounded-xl border border-slate-200 p-2.5 flex items-center justify-center shrink-0 shadow-xs hover:border-[#03AC0E] transition"
               >
                 <NuxtImg
                   :src="brand.logo"
@@ -406,13 +425,13 @@ const scrollToBrand = (brandSlug: string) => {
 
               <div class="min-w-0 flex-1">
                 <div class="flex flex-wrap items-center gap-2">
-                  <NuxtLink :to="`/brands/${brand.id}`" class="hover:text-emerald-700 transition">
-                    <h2 class="text-xl sm:text-2xl font-extrabold text-slate-900 tracking-tight leading-tight">
+                  <NuxtLink :to="`/brands/${brand.id}`" class="hover:text-[#03AC0E] transition">
+                    <h2 class="text-xl sm:text-2xl font-medium text-slate-900 tracking-tight leading-tight">
                       {{ brand.name }}
                     </h2>
                   </NuxtLink>
-                  <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-bold bg-blue-50 text-blue-700 border border-blue-200/80">
-                    <UIcon name="i-heroicons-check-badge" class="w-3.5 h-3.5 text-blue-600" />
+                  <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-medium bg-[#E6F7E9] text-[#03AC0E] border border-[#C8E6CC]">
+                    <UIcon name="i-tabler-circle-check" class="w-3.5 h-3.5 text-[#03AC0E]" />
                     <span>{{ brand.badge }}</span>
                   </span>
                 </div>
@@ -422,10 +441,10 @@ const scrollToBrand = (brandSlug: string) => {
                 </p>
 
                 <div class="flex items-center gap-3 mt-1.5 text-xs text-slate-500">
-                  <span class="font-bold text-slate-800">{{ brand.total }} Produk Siap Kirim</span>
+                  <span class="font-medium text-slate-800">{{ brand.total }} Produk Siap Kirim</span>
                   <span class="text-slate-300">•</span>
-                  <span class="text-emerald-600 font-semibold flex items-center gap-1">
-                    <UIcon name="i-heroicons-shield-check" class="w-3.5 h-3.5" />
+                  <span class="text-[#03AC0E] font-medium flex items-center gap-1">
+                    <UIcon name="i-tabler-shield-check" class="w-3.5 h-3.5" />
                     Garansi Resmi Terjamin
                   </span>
                 </div>
@@ -438,31 +457,33 @@ const scrollToBrand = (brandSlug: string) => {
               <div v-if="brand.products.length > 3" class="hidden sm:flex items-center gap-1.5">
                 <button
                   @click="scrollSlider(brand.id, 'left')"
+                  :aria-controls="`slider-${brand.id}`"
                   class="w-8 h-8 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 hover:text-slate-900 flex items-center justify-center transition"
                   aria-label="Scroll Sebelumnya"
                 >
-                  <UIcon name="i-heroicons-chevron-left" class="w-4 h-4" />
+                  <UIcon name="i-tabler-chevron-left" class="w-4 h-4" />
                 </button>
                 <button
                   @click="scrollSlider(brand.id, 'right')"
+                  :aria-controls="`slider-${brand.id}`"
                   class="w-8 h-8 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 hover:text-slate-900 flex items-center justify-center transition"
                   aria-label="Scroll Selanjutnya"
                 >
-                  <UIcon name="i-heroicons-chevron-right" class="w-4 h-4" />
+                  <UIcon name="i-tabler-chevron-right" class="w-4 h-4" />
                 </button>
               </div>
 
               <NuxtLink
                 :to="`/brands/${brand.id}`"
-                class="inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl bg-slate-900 hover:bg-emerald-600 text-white text-xs sm:text-sm font-semibold transition shadow-xs"
+                class="inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl bg-[#03AC0E] hover:bg-[#02930c] text-white text-xs sm:text-sm font-medium transition shadow-xs"
               >
-                <span>Kunjungi Store {{ brand.name }}</span>
-                <UIcon name="i-heroicons-arrow-right" class="w-4 h-4" />
+                <span>Kunjungi Official Store</span>
+                <UIcon name="i-tabler-arrow-right" class="w-4 h-4" />
               </NuxtLink>
             </div>
           </div>
 
-          <!-- ── Product Showcase Slider (Seimbang, Rapi, Anti-Jompang) ── -->
+          <!-- Product Showcase Slider -->
           <div class="p-4 sm:p-6 bg-slate-50/40 relative">
             <div v-if="brand.products && brand.products.length > 0">
               <div
@@ -475,25 +496,25 @@ const scrollToBrand = (brandSlug: string) => {
                 <div
                   v-for="product in brand.products"
                   :key="product.uuid"
-                  class="w-[185px] sm:w-[220px] md:w-[230px] shrink-0 snap-start select-none flex flex-col"
+                  class="w-[190px] sm:w-[220px] md:w-[240px] shrink-0 snap-start select-none flex flex-col h-auto"
                 >
                   <CardPerItems
                     v-bind="product"
-                    class="h-full bg-white border border-slate-200 rounded-xl shadow-2xs hover:shadow-md hover:border-emerald-400 transition duration-300"
+                    class="h-full"
                   />
                 </div>
 
                 <!-- Final Card: View All Products for this brand -->
                 <NuxtLink
                   :to="`/brands/${brand.id}`"
-                  class="w-[185px] sm:w-[220px] shrink-0 snap-start bg-white border-2 border-dashed border-slate-200 rounded-xl p-6 flex flex-col items-center justify-center text-center gap-3 hover:border-emerald-500 hover:bg-emerald-50/40 transition group"
+                  class="w-[190px] sm:w-[220px] md:w-[240px] shrink-0 snap-start bg-white border border-slate-200 rounded-xl p-6 flex flex-col items-center justify-center text-center gap-3 hover:border-[#03AC0E] hover:bg-[#E6F7E9]/20 transition group shadow-xs"
                 >
-                  <div class="w-12 h-12 rounded-full bg-slate-100 group-hover:bg-emerald-600 group-hover:text-white text-slate-600 flex items-center justify-center transition shadow-xs">
-                    <UIcon name="i-heroicons-arrow-right" class="w-5 h-5" />
+                  <div class="w-12 h-12 rounded-full bg-[#E6F7E9] text-[#03AC0E] group-hover:bg-[#03AC0E] group-hover:text-white flex items-center justify-center transition shadow-xs">
+                    <UIcon name="i-tabler-arrow-right" class="w-5 h-5" />
                   </div>
                   <div>
-                    <div class="text-sm font-bold text-slate-800 group-hover:text-emerald-700">Lihat Semua</div>
-                    <div class="text-xs text-slate-400 mt-0.5">Katalog {{ brand.name }} ({{ brand.total }})</div>
+                    <div class="text-sm font-medium text-slate-900 group-hover:text-[#03AC0E]">Lihat Semua</div>
+                    <div class="text-xs text-slate-500 mt-0.5">Katalog {{ brand.name }} ({{ brand.total }} Produk)</div>
                   </div>
                 </NuxtLink>
               </div>
@@ -502,8 +523,8 @@ const scrollToBrand = (brandSlug: string) => {
             <!-- Fallback if 0 products loaded -->
             <div v-else class="py-8 text-center text-slate-400 text-xs sm:text-sm">
               <p>Katalog produk {{ brand.name }} sedang dalam pembaruan inventaris.</p>
-              <NuxtLink :to="`/brands/${brand.id}`" class="text-emerald-600 font-semibold hover:underline mt-1 inline-block">
-                Kunjungi halaman resmi {{ brand.name }} →
+              <NuxtLink :to="`/brands/${brand.id}`" class="text-[#03AC0E] font-medium hover:underline mt-1 inline-block">
+                Kunjungi halaman resmi {{ brand.name }}
               </NuxtLink>
             </div>
           </div>
@@ -514,10 +535,6 @@ const scrollToBrand = (brandSlug: string) => {
 </template>
 
 <style scoped>
-.brands-page {
-  font-family: 'Plus Jakarta Sans', sans-serif;
-}
-
 .hide-scrollbar::-webkit-scrollbar {
   display: none;
 }

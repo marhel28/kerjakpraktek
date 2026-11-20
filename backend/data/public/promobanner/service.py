@@ -816,6 +816,18 @@ class PromoCheckoutService:
             order_id=order_id,
         )
 
+        try:
+            from backend.data.transaksi.service import _send_notification_to_admins
+            await _send_notification_to_admins(
+                session=session,
+                title="Pesanan Promo Baru! 🎁",
+                content=f"Pesanan promo {order_id} ({promo.name}) sebesar Rp{int(gross_amount):,} menunggu pembayaran.",
+                action_url=f"/transaksi/{order_id}",
+                notif_type="order",
+            )
+        except Exception as e:
+            logger.error(f"Failed to send promo created notification to admin: {e}")
+
         # 19. Invalidate cache promo
         r = _get_redis()
         await r.delete(f"{PROMO_CACHE_PREFIX}{promo.uuid}")
@@ -1009,8 +1021,16 @@ class PromoCheckoutService:
                             stock.terjual += pti.quantity
                             session.add(stock)
 
-                notif_title = "✅ Pembayaran Promo Berhasil"
-                notif_content = f"Pesanan promo #{payload.order_id} dikonfirmasi. Hemat terjamin!"
+                from backend.data.ongkir.model import Shipment as _PromoShipment
+                ship_r = await session.exec(
+                    select(_PromoShipment).where(_PromoShipment.promo_transaction_uuid == promo_trx.uuid)
+                )
+                promo_ship = ship_r.one_or_none()
+                if promo_ship:
+                    promo_ship.delivery_status = "PROCESSING"
+                    session.add(promo_ship)
+                notif_title = "✅ Pembayaran Promo Berhasil & Pesanan Diproses 📦"
+                notif_content = f"Pesanan promo #{payload.order_id} dikonfirmasi. Hemat terjamin! Pesanan sedang diproses."
                 
                 # 📝 Log Activity
                 await ActivityService(session).log_activity(

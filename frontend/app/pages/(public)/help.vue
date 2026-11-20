@@ -1,397 +1,467 @@
-<script setup lang="ts">
-useSeoMeta({
-  title: 'Pusat Bantuan - PasarCCTV',
-  description: 'Temukan jawaban seputar cara belanja, pengiriman, pembayaran, jasa instalasi, dan garansi produk di PasarCCTV.',
-})
-
-const searchQuery = ref('')
-const searchInput = ref<HTMLInputElement | null>(null)
-
-const categories = [
-  {
-    id: 'transaksi',
-    icon: 'i-heroicons-shopping-bag',
-    color: '#03AC0E',
-    bg: '#f0fef0',
-    title: 'Cara Transaksi',
-    desc: 'Panduan langkah demi langkah untuk berbelanja dan memesan jasa instalasi.',
-    link: '/helps/cara-belanja',
-    topics: ['Cara beli produk', 'Booking jasa pasang', 'Cara batalkan pesanan'],
-    keywords: ['beli', 'belanja', 'transaksi', 'pesan', 'order', 'keranjang', 'checkout', 'booking', 'batal'],
-  },
-  {
-    id: 'pengiriman',
-    icon: 'i-heroicons-truck',
-    color: '#2563EB',
-    bg: '#eff6ff',
-    title: 'Pengiriman & Lacak Resi',
-    desc: 'Jadwal cut-off pengiriman, mitra kurir, dan cara melacak posisi paket Anda.',
-    link: '/helps/shipping',
-    topics: ['Jadwal operasional', 'Lacak resi', 'Estimasi tiba'],
-    keywords: ['kirim', 'pengiriman', 'resi', 'kurir', 'lacak', 'ekspedisi', 'paket', 'jne', 'jnt', 'sicepat', 'estimasi'],
-  },
-  {
-    id: 'pembayaran',
-    icon: 'i-heroicons-credit-card',
-    color: '#7C3AED',
-    bg: '#f5f3ff',
-    title: 'Pembayaran',
-    desc: 'Metode pembayaran yang tersedia, keamanan transaksi, dan cara konfirmasi bayar.',
-    link: '/helps/cara-belanja',
-    topics: ['Transfer Bank', 'E-Wallet', 'Kartu Kredit'],
-    keywords: ['bayar', 'pembayaran', 'transfer', 'bank', 'ewallet', 'kartu', 'kredit', 'midtrans', 'gopay', 'ovo', 'konfirmasi'],
-  },
-  {
-    id: 'jasa',
-    icon: 'i-heroicons-wrench-screwdriver',
-    color: '#D97706',
-    bg: '#fffbeb',
-    title: 'Jasa Instalasi',
-    desc: 'Cara booking teknisi, area layanan, biaya transport, dan garansi pasang.',
-    link: '/helps/cara-belanja',
-    topics: ['Area coverage', 'Biaya teknisi', 'Garansi instalasi'],
-    keywords: ['jasa', 'instalasi', 'pasang', 'teknisi', 'booking', 'area', 'biaya', 'transport', 'garansi', 'dp'],
-  },
-  {
-    id: 'produk',
-    icon: 'i-heroicons-shield-check',
-    color: '#0891B2',
-    bg: '#ecfeff',
-    title: 'Garansi & Produk',
-    desc: 'Informasi garansi resmi, proses klaim, dan kebijakan pengembalian barang.',
-    link: '/helps/cara-belanja',
-    topics: ['Garansi resmi', 'Klaim garansi', 'Return & refund'],
-    keywords: ['garansi', 'produk', 'klaim', 'return', 'refund', 'rusak', 'cacat', 'retur', 'resmi'],
-  },
-  {
-    id: 'akun',
-    icon: 'i-heroicons-user-circle',
-    color: '#6B7280',
-    bg: '#f9fafb',
-    title: 'Akun & Keamanan',
-    desc: 'Kelola profil, ganti password, verifikasi email, dan proteksi akun Anda.',
-    link: '/dashboard',
-    topics: ['Ubah profil', 'Ganti password', 'Keamanan akun'],
-    keywords: ['akun', 'profil', 'password', 'keamanan', 'email', 'verifikasi', 'login', 'daftar', 'register'],
-  },
-]
-
-const faqs = [
-  {
-    q: 'Bagaimana cara melacak pesanan saya?',
-    a: 'Masuk ke Dashboard → Status Pesanan. Nomor resi akan muncul otomatis setelah barang dikirim oleh tim gudang kami.',
-    keywords: ['lacak', 'resi', 'pesanan', 'status', 'kirim'],
-  },
-  {
-    q: 'Apakah produk yang dijual bergaransi resmi?',
-    a: 'Ya. Semua perangkat seperti Hikvision, Dahua, dan Ezviz memiliki garansi resmi pabrik 1–3 tahun.',
-    keywords: ['garansi', 'resmi', 'produk', 'hikvision', 'dahua'],
-  },
-  {
-    q: 'Berapa lama proses pengiriman?',
-    a: 'Pesanan yang masuk sebelum cut-off (15.00 WIB) akan dikirim hari yang sama. Estimasi tiba 1–3 hari kerja untuk Pulau Jawa.',
-    keywords: ['pengiriman', 'lama', 'estimasi', 'hari', 'kirim', 'cutoff'],
-  },
-  {
-    q: 'Apakah bisa konsultasi sebelum membeli?',
-    a: 'Bisa! Gunakan fitur Chat yang tersedia di setiap halaman produk atau hubungi CS kami via WhatsApp.',
-    keywords: ['konsultasi', 'chat', 'tanya', 'whatsapp', 'cs'],
-  },
-  {
-    q: 'Bagaimana jika ada kendala saat instalasi?',
-    a: 'Teknisi kami memberikan garansi pekerjaan. Jika ada masalah dalam 30 hari setelah instalasi, kami akan kembali tanpa biaya tambahan.',
-    keywords: ['kendala', 'instalasi', 'masalah', 'garansi', 'teknisi'],
-  },
-]
-
-// ── Search logic ──
-const q = computed(() => searchQuery.value.trim().toLowerCase())
-
-const filteredCategories = computed(() => {
-  if (!q.value) return categories
-  return categories.filter(cat => {
-    const haystack = [cat.title, cat.desc, ...cat.topics, ...cat.keywords].join(' ').toLowerCase()
-    return haystack.includes(q.value)
-  })
-})
-
-const filteredFaqs = computed(() => {
-  if (!q.value) return faqs
-  return faqs.filter(faq => {
-    const haystack = [faq.q, faq.a, ...faq.keywords].join(' ').toLowerCase()
-    return haystack.includes(q.value)
-  })
-})
-
-const hasNoResult = computed(() =>
-  q.value.length > 0 && filteredCategories.value.length === 0 && filteredFaqs.value.length === 0
-)
-
-const isSearching = computed(() => q.value.length > 0)
-
-function clearSearch() {
-  searchQuery.value = ''
-  searchInput.value?.focus()
-}
-
-// ── FAQ accordion ──
-const openFaq = ref<number | null>(null)
-const toggleFaq = (i: number) => {
-  openFaq.value = openFaq.value === i ? null : i
-}
-
-// Reset FAQ open state when filter changes
-watch(filteredFaqs, () => { openFaq.value = null })
-</script>
-
 <template>
-  <main class="bg-[#f5f5f5] min-h-screen pb-16">
+  <main class="bg-[#F7F8F9] min-h-screen pb-16 font-['Open_Sans',sans-serif] text-gray-900">
+    <!-- ════════════════════════════════════════════════════════════
+         HERO SEARCH: Amazon Customer Service Hub layout
+         ════════════════════════════════════════════════════════════ -->
+    <header class="bg-white border-b border-gray-200 pt-8 pb-10 px-4 sm:px-6 lg:px-8">
+      <div class="max-w-5xl mx-auto">
+        <!-- Breadcrumb -->
+        <nav aria-label="Breadcrumb" class="mb-4 flex items-center gap-2 text-xs font-medium text-gray-500 font-['Plus_Jakarta_Sans',sans-serif]">
+          <NuxtLink to="/" class="hover:text-[#03AC0E] transition-colors">Beranda</NuxtLink>
+          <span class="text-gray-300">/</span>
+          <span class="text-gray-800">Pusat Bantuan</span>
+        </nav>
 
-    <!-- ── Hero Banner ── -->
-    <div class="bg-white border-b border-gray-100">
-      <div class="max-w-[1200px] mx-auto px-4 lg:px-8 py-10 lg:py-14">
-        <div class="flex flex-col lg:flex-row lg:items-center gap-6 lg:gap-12">
-          <div class="flex-1">
-            <!-- Breadcrumb -->
-            <nav class="flex items-center gap-1.5 text-[12px] text-gray-400 mb-4">
-              <NuxtLink to="/" class="hover:text-[#03AC0E] transition-colors">Beranda</NuxtLink>
-              <UIcon name="i-heroicons-chevron-right" class="w-3 h-3" />
-              <span class="text-gray-700 font-semibold">Pusat Bantuan</span>
-            </nav>
-            <h1 class="text-2xl lg:text-3xl font-black text-gray-900 tracking-tight mb-2">
-              Ada yang bisa kami bantu?
-            </h1>
-            <p class="text-[14px] text-gray-500 leading-relaxed max-w-lg">
-              Temukan jawaban seputar belanja, pengiriman, pembayaran, dan layanan instalasi CCTV kami.
-            </p>
-          </div>
-
-          <!-- ── Search Box ── -->
-          <div class="lg:w-[420px] shrink-0">
-            <div class="relative">
-              <UIcon
-                name="i-heroicons-magnifying-glass"
-                class="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none"
-                aria-hidden="true"
-              />
-              <input
-                ref="searchInput"
-                v-model="searchQuery"
-                type="search"
-                placeholder="Cari topik bantuan... (misal: resi, garansi, bayar)"
-                autocomplete="off"
-                class="w-full pl-12 pr-10 py-3.5 bg-white border-2 border-gray-200 rounded-xl text-[14px] font-medium text-gray-800 placeholder-gray-400 focus:outline-none focus:border-[#03AC0E] transition-colors"
-              />
-              <!-- Clear button -->
-              <button
-                v-if="searchQuery"
-                class="absolute right-3 top-1/2 -translate-y-1/2 w-6 h-6 flex items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200 transition-colors"
-                aria-label="Hapus pencarian"
-                @click="clearSearch"
-              >
-                <UIcon name="i-heroicons-x-mark" class="w-3.5 h-3.5 text-gray-500" />
-              </button>
-            </div>
-
-            <!-- Search hint -->
-            <p v-if="!isSearching" class="text-[11px] text-gray-400 mt-2 text-center">
-              Atau pilih kategori di bawah untuk panduan lengkap
-            </p>
-            <p v-else class="text-[11px] text-gray-500 mt-2">
-              Menampilkan hasil untuk
-              <strong class="text-gray-800">"{{ searchQuery }}"</strong>
-              &mdash;
-              <span class="text-[#03AC0E] font-semibold">
-                {{ filteredCategories.length }} topik, {{ filteredFaqs.length }} FAQ
-              </span>
-            </p>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <div class="max-w-[1200px] mx-auto px-4 lg:px-8 py-8">
-
-      <!-- ── No Result ── -->
-      <div
-        v-if="hasNoResult"
-        class="bg-white rounded-2xl border border-gray-100 p-10 text-center mb-8"
-      >
-        <div class="w-14 h-14 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-4">
-          <UIcon name="i-heroicons-magnifying-glass" class="w-7 h-7 text-gray-300" />
-        </div>
-        <p class="text-[15px] font-black text-gray-900 mb-1">Tidak ada hasil ditemukan</p>
-        <p class="text-[13px] text-gray-400 mb-5">
-          Coba kata kunci lain atau hubungi CS kami langsung.
-        </p>
-        <button
-          class="inline-flex items-center gap-2 bg-[#03AC0E] text-white text-[12px] font-black px-5 py-2.5 rounded-xl hover:bg-[#028C0B] transition-colors"
-          @click="clearSearch"
-        >
-          <UIcon name="i-heroicons-arrow-uturn-left" class="w-4 h-4" />
-          Tampilkan Semua Topik
-        </button>
-      </div>
-
-      <!-- ── Kategori Bantuan ── -->
-      <div v-if="filteredCategories.length > 0" class="mb-10">
-        <div class="flex items-center gap-2 mb-5">
-          <span class="w-1 h-5 bg-[#03AC0E] rounded-full shrink-0" aria-hidden="true" />
-          <h2 class="text-[15px] font-black text-gray-900">
-            {{ isSearching ? 'Topik yang cocok' : 'Topik Bantuan' }}
-          </h2>
-          <span
-            v-if="isSearching"
-            class="text-[11px] font-bold text-[#03AC0E] bg-green-50 px-2 py-0.5 rounded-full"
-          >
-            {{ filteredCategories.length }} hasil
+        <div class="text-center max-w-2xl mx-auto mb-6">
+          <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-[#E6F7E9] text-[#03AC0E] border border-[#C8E6CC] mb-3 font-['Plus_Jakarta_Sans',sans-serif]">
+            <UIcon name="i-heroicons-shield-check" class="w-4 h-4 shrink-0" />
+            <span>PasarCCTV Care</span>
           </span>
+          <h1 class="text-2xl sm:text-3xl lg:text-4xl font-black tracking-tight text-gray-900 font-['Plus_Jakarta_Sans',sans-serif]">
+            Ada yang bisa kami bantu?
+          </h1>
+          <p class="text-xs sm:text-sm text-gray-600 mt-2 leading-relaxed">
+            Cari solusi kendala teknis, lacak pesanan, atau konsultasi langsung dengan tim teknisi dan sales resmi kami.
+          </p>
         </div>
 
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-          <NuxtLink
-            v-for="cat in filteredCategories"
-            :key="cat.id"
-            :to="cat.link"
-            class="group bg-white border border-gray-100 rounded-2xl p-5 hover:border-gray-200 hover:shadow-[0_4px_16px_-4px_rgba(0,0,0,0.08)] transition-all duration-200"
+        <!-- Search Input with Real-time Filter -->
+        <div class="max-w-2xl mx-auto relative mb-4">
+          <div class="relative flex items-center">
+            <span class="absolute left-4 text-gray-400" aria-hidden="true">
+              <UIcon name="i-heroicons-magnifying-glass" class="w-5 h-5" />
+            </span>
+            <input
+              v-model="searchQuery"
+              type="text"
+              placeholder="Ketik kendala Anda (contoh: garansi, pairing DMSS, lacak resi, reset DVR)..."
+              class="w-full pl-12 pr-10 py-3.5 bg-white border border-gray-300 focus:border-[#03AC0E] focus:ring-2 focus:ring-[#03AC0E]/20 rounded-xl text-sm text-gray-900 outline-none shadow-xs transition-all placeholder:text-gray-400 font-['Open_Sans',sans-serif]"
+              aria-label="Pencarian pusat bantuan"
+            />
+            <button
+              v-if="searchQuery"
+              type="button"
+              class="absolute right-3.5 text-gray-400 hover:text-gray-700 p-1"
+              aria-label="Hapus kata kunci pencarian"
+              @click="searchQuery = ''"
+            >
+              <UIcon name="i-heroicons-x-mark" class="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+
+        <!-- Tokopedia Care Popular Search Chips -->
+        <div class="max-w-2xl mx-auto flex flex-wrap items-center justify-center gap-2">
+          <span class="text-xs text-gray-400 font-semibold font-['Plus_Jakarta_Sans',sans-serif]">Sering Dicari:</span>
+          <button
+            v-for="chip in popularChips"
+            :key="chip"
+            type="button"
+            class="px-2.5 py-1 bg-gray-100 hover:bg-[#E6F7E9] hover:text-[#03AC0E] border border-gray-200 hover:border-[#C8E6CC] rounded-full text-xs text-gray-700 transition-colors font-medium cursor-pointer"
+            @click="searchQuery = chip"
           >
-            <div class="flex items-start gap-4">
-              <div
-                class="w-11 h-11 rounded-xl flex items-center justify-center shrink-0"
-                :style="{ background: cat.bg }"
-              >
-                <UIcon :name="cat.icon" class="w-5 h-5" :style="{ color: cat.color }" />
-              </div>
-              <div class="flex-1 min-w-0">
-                <div class="flex items-center justify-between mb-1">
-                  <h3 class="text-[14px] font-black text-gray-900">{{ cat.title }}</h3>
-                  <UIcon
-                    name="i-heroicons-chevron-right"
-                    class="w-4 h-4 text-gray-300 group-hover:text-[#03AC0E] group-hover:translate-x-0.5 transition-all shrink-0"
-                  />
-                </div>
-                <p class="text-[12px] text-gray-500 leading-relaxed mb-3">{{ cat.desc }}</p>
-                <div class="flex flex-wrap gap-1.5">
-                  <span
-                    v-for="topic in cat.topics"
-                    :key="topic"
-                    class="text-[10px] font-semibold text-gray-500 bg-gray-50 border border-gray-100 px-2 py-0.5 rounded-full"
-                  >
-                    {{ topic }}
-                  </span>
-                </div>
-              </div>
-            </div>
-          </NuxtLink>
+            {{ chip }}
+          </button>
         </div>
       </div>
+    </header>
 
-      <!-- ── FAQ ── -->
-      <div v-if="filteredFaqs.length > 0" class="bg-white rounded-2xl border border-gray-100 overflow-hidden mb-8">
-        <div class="px-6 py-5 border-b border-gray-100 flex items-center justify-between">
-          <div class="flex items-center gap-2.5">
-            <div class="w-8 h-8 bg-[#f0fef0] rounded-lg flex items-center justify-center">
-              <UIcon name="i-heroicons-chat-bubble-bottom-center-text" class="w-4 h-4 text-[#03AC0E]" />
-            </div>
+    <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 mt-8 space-y-10">
+      <!-- ════════════════════════════════════════════════════════════
+           AMAZON QUICK ACTIONS: 4 Solusi Cepat
+           ════════════════════════════════════════════════════════════ -->
+      <section aria-labelledby="quick-actions-heading">
+        <h2 id="quick-actions-heading" class="text-sm font-bold uppercase tracking-wider text-gray-500 mb-3 font-['Plus_Jakarta_Sans',sans-serif]">
+          Solusi Cepat
+        </h2>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <NuxtLink
+            v-for="action in quickActions"
+            :key="action.title"
+            :to="action.to"
+            class="bg-white border border-gray-200 hover:border-[#03AC0E] p-4 rounded-xl shadow-xs hover:shadow-sm transition-all group flex flex-col justify-between"
+          >
             <div>
-              <h2 class="text-[14px] font-black text-gray-900 leading-none">
-                {{ isSearching ? 'FAQ yang cocok' : 'Pertanyaan Umum (FAQ)' }}
-              </h2>
-              <p class="text-[11px] text-gray-400 mt-0.5">
-                {{ isSearching ? `${filteredFaqs.length} pertanyaan ditemukan` : 'Jawaban cepat untuk pertanyaan yang sering ditanyakan' }}
+              <div class="w-10 h-10 rounded-lg bg-[#E6F7E9] text-[#03AC0E] flex items-center justify-center mb-3 group-hover:bg-[#03AC0E] group-hover:text-white transition-colors">
+                <UIcon :name="action.icon" class="w-5 h-5" />
+              </div>
+              <h3 class="text-xs font-bold text-gray-900 group-hover:text-[#03AC0E] transition-colors leading-snug font-['Plus_Jakarta_Sans',sans-serif]">
+                {{ action.title }}
+              </h3>
+              <p class="text-[11px] text-gray-500 mt-1 leading-normal">
+                {{ action.desc }}
               </p>
             </div>
-          </div>
-          <span
-            v-if="isSearching"
-            class="text-[11px] font-bold text-[#03AC0E] bg-green-50 px-2 py-0.5 rounded-full"
-          >
-            {{ filteredFaqs.length }} hasil
+            <div class="pt-3 mt-3 border-t border-gray-100 flex items-center justify-between text-xs font-semibold text-[#03AC0E]">
+              <span>{{ action.cta }}</span>
+              <UIcon name="i-heroicons-arrow-right" class="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
+            </div>
+          </NuxtLink>
+        </div>
+      </section>
+
+      <!-- ════════════════════════════════════════════════════════════
+           TOKOPEDIA CARE CATEGORY PILLS
+           ════════════════════════════════════════════════════════════ -->
+      <section aria-labelledby="faq-section-heading">
+        <div class="flex items-center justify-between mb-4">
+          <h2 id="faq-section-heading" class="text-sm font-bold uppercase tracking-wider text-gray-500 font-['Plus_Jakarta_Sans',sans-serif]">
+            Kategori Kendala & Pertanyaan
+          </h2>
+          <span v-if="filteredFaqs.length" class="text-xs text-gray-400">
+            Menampilkan {{ filteredFaqs.length }} topik
           </span>
         </div>
 
-        <div class="divide-y divide-gray-50">
-          <div v-for="(faq, i) in filteredFaqs" :key="faq.q">
+        <!-- Horizontal Scrollable Tabs -->
+        <div class="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-none">
+          <button
+            type="button"
+            class="px-3.5 py-2 rounded-lg text-xs font-bold shrink-0 transition-colors cursor-pointer font-['Plus_Jakarta_Sans',sans-serif]"
+            :class="activeCategory === 'all' ? 'bg-[#03AC0E] text-white shadow-xs' : 'bg-white border border-gray-200 text-gray-700 hover:border-gray-300'"
+            @click="activeCategory = 'all'"
+          >
+            Semua Topik
+          </button>
+          <button
+            v-for="cat in categories"
+            :key="cat.id"
+            type="button"
+            class="px-3.5 py-2 rounded-lg text-xs font-bold shrink-0 transition-colors cursor-pointer flex items-center gap-1.5 font-['Plus_Jakarta_Sans',sans-serif]"
+            :class="activeCategory === cat.id ? 'bg-[#03AC0E] text-white shadow-xs' : 'bg-white border border-gray-200 text-gray-700 hover:border-gray-300'"
+            @click="activeCategory = cat.id"
+          >
+            <UIcon :name="cat.icon" class="w-3.5 h-3.5" />
+            <span>{{ cat.name }}</span>
+          </button>
+        </div>
+
+        <!-- ════════════════════════════════════════════════════════════
+             ACCORDION FAQ LIST
+             ════════════════════════════════════════════════════════════ -->
+        <div class="mt-4 bg-white border border-gray-200 rounded-xl overflow-hidden shadow-xs divide-y divide-gray-100">
+          <div
+            v-for="item in filteredFaqs"
+            :key="item.id"
+            class="transition-colors"
+          >
             <button
-              class="w-full flex items-center justify-between px-6 py-4 text-left hover:bg-gray-50/50 transition-colors"
-              @click="toggleFaq(i)"
+              type="button"
+              class="w-full px-5 py-4 text-left flex items-center justify-between gap-4 hover:bg-gray-50 transition-colors cursor-pointer"
+              :aria-expanded="expandedFaq === item.id"
+              @click="toggleFaq(item.id)"
             >
-              <span class="text-[13px] font-semibold text-gray-800 pr-4 leading-snug">{{ faq.q }}</span>
-              <div
-                class="w-6 h-6 rounded-full flex items-center justify-center shrink-0 transition-all duration-200"
-                :class="openFaq === i ? 'bg-[#03AC0E] rotate-180' : 'bg-gray-100'"
-              >
-                <UIcon
-                  name="i-heroicons-chevron-down"
-                  class="w-3.5 h-3.5 transition-colors"
-                  :class="openFaq === i ? 'text-white' : 'text-gray-400'"
-                />
+              <div class="flex items-center gap-3 min-w-0">
+                <span class="w-6 h-6 rounded-full bg-[#E6F7E9] text-[#03AC0E] text-xs font-bold flex items-center justify-center shrink-0 font-['Plus_Jakarta_Sans',sans-serif]">
+                  Q
+                </span>
+                <span class="text-xs sm:text-sm font-bold text-gray-900 leading-snug font-['Plus_Jakarta_Sans',sans-serif]">
+                  {{ item.q }}
+                </span>
               </div>
+              <UIcon
+                name="i-heroicons-chevron-down"
+                class="w-4 h-4 text-gray-400 shrink-0 transition-transform duration-200"
+                :class="{ 'rotate-180 text-[#03AC0E]': expandedFaq === item.id }"
+              />
             </button>
+
+            <!-- Accordion Body -->
             <div
-              class="overflow-hidden transition-all duration-200"
-              :class="openFaq === i ? 'max-h-48' : 'max-h-0'"
+              v-show="expandedFaq === item.id"
+              class="px-5 pb-5 pt-1 text-xs sm:text-sm text-gray-600 leading-relaxed pl-14 font-['Open_Sans',sans-serif]"
             >
-              <p class="px-6 pb-4 text-[13px] text-gray-500 leading-relaxed">{{ faq.a }}</p>
+              <div class="space-y-2">
+                <p v-for="(paragraph, pIdx) in item.a" :key="pIdx">
+                  {{ paragraph }}
+                </p>
+              </div>
+
+              <!-- Action Link if provided -->
+              <div v-if="item.action" class="mt-3 pt-3 border-t border-gray-100">
+                <NuxtLink
+                  :to="item.action.to"
+                  class="inline-flex items-center gap-1.5 text-xs font-bold text-[#03AC0E] hover:underline font-['Plus_Jakarta_Sans',sans-serif]"
+                >
+                  <span>{{ item.action.text }}</span>
+                  <UIcon name="i-heroicons-arrow-right" class="w-3.5 h-3.5" />
+                </NuxtLink>
+              </div>
+            </div>
+          </div>
+
+          <!-- Empty State -->
+          <div v-if="filteredFaqs.length === 0" class="p-10 text-center text-gray-500">
+            <UIcon name="i-heroicons-question-mark-circle" class="w-10 h-10 mx-auto text-gray-300 mb-2" />
+            <p class="text-sm font-bold text-gray-800 font-['Plus_Jakarta_Sans',sans-serif]">
+              Tidak menemukan jawaban untuk "{{ searchQuery }}"
+            </p>
+            <p class="text-xs text-gray-500 mt-1 max-w-sm mx-auto">
+              Silakan hubungi tim teknisi atau sales kami langsung melalui WhatsApp untuk konsultasi kendala spesifik.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ════════════════════════════════════════════════════════════
+           DIRECT CHANNELS: Tokopedia Care Direct Support Cards
+           ════════════════════════════════════════════════════════════ -->
+      <section aria-labelledby="direct-support-heading">
+        <h2 id="direct-support-heading" class="text-sm font-bold uppercase tracking-wider text-gray-500 mb-3 font-['Plus_Jakarta_Sans',sans-serif]">
+          Masih Butuh Bantuan? Hubungi Langsung
+        </h2>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <!-- WhatsApp Sales -->
+          <div class="bg-white border border-gray-200 rounded-xl p-5 shadow-xs hover:border-[#03AC0E] transition-colors flex flex-col justify-between">
+            <div>
+              <div class="flex items-center gap-2.5 mb-2">
+                <div class="w-9 h-9 rounded-lg bg-[#E6F7E9] text-[#03AC0E] flex items-center justify-center shrink-0">
+                  <UIcon name="i-heroicons-shopping-bag" class="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 class="text-xs font-bold text-gray-900 font-['Plus_Jakarta_Sans',sans-serif]">
+                    WhatsApp Divisi Sales
+                  </h3>
+                  <p class="text-[11px] text-gray-500">Cek stok, faktur pajak, dan pemesanan ritel/B2B</p>
+                </div>
+              </div>
+              <p class="text-xs text-gray-600 leading-relaxed mb-4">
+                Layanan konsultasi pemilihan kamera, DVR, NVR, switch PoE, dan diskon kuantitas proyek.
+              </p>
+            </div>
+            <div class="pt-3 border-t border-gray-100 flex items-center justify-between">
+              <span class="text-xs font-mono font-bold text-gray-900">+62 821-1777-9003</span>
+              <a
+                href="https://wa.me/6282117779003?text=Halo%20PasarCCTV%20Sales,%20saya%20butuh%20bantuan%20pemesanan."
+                target="_blank"
+                rel="noopener"
+                class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#03AC0E] hover:bg-[#028C0B] text-white text-xs font-bold rounded-lg transition-colors font-['Plus_Jakarta_Sans',sans-serif]"
+              >
+                <span>Chat Sales</span>
+                <UIcon name="i-heroicons-arrow-top-right-on-square" class="w-3.5 h-3.5" />
+              </a>
+            </div>
+          </div>
+
+          <!-- WhatsApp Teknisi -->
+          <div class="bg-white border border-gray-200 rounded-xl p-5 shadow-xs hover:border-gray-400 transition-colors flex flex-col justify-between">
+            <div>
+              <div class="flex items-center gap-2.5 mb-2">
+                <div class="w-9 h-9 rounded-lg bg-gray-100 text-gray-800 flex items-center justify-center shrink-0">
+                  <UIcon name="i-heroicons-wrench-screwdriver" class="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 class="text-xs font-bold text-gray-900 font-['Plus_Jakarta_Sans',sans-serif]">
+                    WhatsApp Divisi Teknisi
+                  </h3>
+                  <p class="text-[11px] text-gray-500">Klaim garansi, konfigurasi online, dan survei lapangan</p>
+                </div>
+              </div>
+              <p class="text-xs text-gray-600 leading-relaxed mb-4">
+                Bantuan setting aplikasi DMSS, Hik-Connect, reset kata sandi, dan perbaikan perangkat.
+              </p>
+            </div>
+            <div class="pt-3 border-t border-gray-100 flex items-center justify-between">
+              <span class="text-xs font-mono font-bold text-gray-900">+62 822-1882-8108</span>
+              <a
+                href="https://wa.me/6282218828108?text=Halo%20Teknisi%20PasarCCTV,%20saya%20butuh%20panduan%20teknis%20perangkat."
+                target="_blank"
+                rel="noopener"
+                class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-gray-900 hover:bg-black text-white text-xs font-bold rounded-lg transition-colors font-['Plus_Jakarta_Sans',sans-serif]"
+              >
+                <span>Chat Teknisi</span>
+                <UIcon name="i-heroicons-arrow-top-right-on-square" class="w-3.5 h-3.5" />
+              </a>
             </div>
           </div>
         </div>
-      </div>
-
-      <!-- ── Kontak CS ── -->
-      <div class="bg-white rounded-2xl border border-gray-100 p-6">
-        <div class="flex items-center gap-2 mb-5">
-          <span class="w-1 h-5 bg-[#03AC0E] rounded-full shrink-0" aria-hidden="true" />
-          <h2 class="text-[15px] font-black text-gray-900">Masih butuh bantuan?</h2>
-        </div>
-
-        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          <a
-            href="https://wa.me/6281234567890"
-            target="_blank"
-            rel="noopener noreferrer"
-            class="group flex items-center gap-3 p-4 bg-[#f0fef0] border border-green-100 rounded-xl hover:border-[#03AC0E]/30 hover:bg-green-50 transition-all"
-          >
-            <div class="w-10 h-10 bg-[#03AC0E] rounded-xl flex items-center justify-center shrink-0">
-              <UIcon name="i-heroicons-chat-bubble-left-ellipsis" class="w-5 h-5 text-white" />
-            </div>
-            <div class="min-w-0">
-              <p class="text-[13px] font-black text-gray-900">WhatsApp CS</p>
-              <p class="text-[11px] text-gray-500">Respon cepat &lt; 5 menit</p>
-            </div>
-            <UIcon name="i-heroicons-arrow-top-right-on-square" class="w-3.5 h-3.5 text-gray-300 group-hover:text-[#03AC0E] ml-auto shrink-0 transition-colors" />
-          </a>
-
-          <NuxtLink
-            to="/"
-            class="group flex items-center gap-3 p-4 bg-blue-50 border border-blue-100 rounded-xl hover:border-blue-300 transition-all"
-          >
-            <div class="w-10 h-10 bg-blue-500 rounded-xl flex items-center justify-center shrink-0">
-              <UIcon name="i-heroicons-cpu-chip" class="w-5 h-5 text-white" />
-            </div>
-            <div class="min-w-0">
-              <p class="text-[13px] font-black text-gray-900">Live Chat AI</p>
-              <p class="text-[11px] text-gray-500">Tersedia 24/7</p>
-            </div>
-            <UIcon name="i-heroicons-chevron-right" class="w-3.5 h-3.5 text-gray-300 group-hover:text-blue-500 ml-auto shrink-0 transition-colors" />
-          </NuxtLink>
-
-          <a
-            href="mailto:cs@pasarcctv.id"
-            class="group flex items-center gap-3 p-4 bg-gray-50 border border-gray-100 rounded-xl hover:border-gray-200 transition-all"
-          >
-            <div class="w-10 h-10 bg-gray-700 rounded-xl flex items-center justify-center shrink-0">
-              <UIcon name="i-heroicons-envelope" class="w-5 h-5 text-white" />
-            </div>
-            <div class="min-w-0">
-              <p class="text-[13px] font-black text-gray-900">Email Support</p>
-              <p class="text-[11px] text-gray-500">Balasan 1×24 jam</p>
-            </div>
-            <UIcon name="i-heroicons-arrow-top-right-on-square" class="w-3.5 h-3.5 text-gray-300 group-hover:text-gray-600 ml-auto shrink-0 transition-colors" />
-          </a>
-        </div>
-      </div>
-
+      </section>
     </div>
   </main>
 </template>
+
+<script setup lang="ts">
+import { ref, computed } from "vue";
+
+// ─── SEO ─────────────────────────────────────────────────────────
+useSeoMeta({
+  title: "Pusat Bantuan & Panduan Teknis — PasarCCTV",
+  description:
+    "Pusat bantuan resmi PasarCCTV. Panduan instalasi kamera CCTV, pairing aplikasi DMSS dan Hik-Connect, klaim garansi resmi distributor, dan jadwal teknisi.",
+});
+
+// ─── Search & State ──────────────────────────────────────────────
+const searchQuery = ref("");
+const activeCategory = ref("all");
+const expandedFaq = ref<string | null>("g1");
+
+const popularChips = [
+  "Klaim Garansi",
+  "Lacak Resi",
+  "Setting DMSS",
+  "Survei Lokasi",
+  "Reset Password DVR",
+];
+
+const toggleFaq = (id: string) => {
+  expandedFaq.value = expandedFaq.value === id ? null : id;
+};
+
+// ─── Quick Actions Data ──────────────────────────────────────────
+const quickActions = [
+  {
+    title: "Lacak Pesanan",
+    desc: "Cek progres pengiriman paket dan nomor resi ekspedisi kurir.",
+    to: "/helps/shipping",
+    icon: "i-heroicons-truck",
+    cta: "Cek Status",
+  },
+  {
+    title: "Booking Teknisi",
+    desc: "Jadwalkan survei lokasi gratis dan pemasangan rapi pipa conduit.",
+    to: "/services/booking",
+    icon: "i-heroicons-calendar-days",
+    cta: "Atur Jadwal",
+  },
+  {
+    title: "Klaim Garansi & RMA",
+    desc: "Prosedur penggantian unit baru untuk cacat produksi tahun ke-1.",
+    to: "/contact",
+    icon: "i-heroicons-shield-check",
+    cta: "Ajukan Klaim",
+  },
+  {
+    title: "Showroom & Lokasi",
+    desc: "Kunjungi showroom fisik Bogor dan workshop teknisi Bandung.",
+    to: "/store-locator",
+    icon: "i-heroicons-building-storefront",
+    cta: "Lihat Peta",
+  },
+];
+
+// ─── Categories ──────────────────────────────────────────────────
+const categories = [
+  { id: "garansi", name: "Garansi & RMA", icon: "i-heroicons-shield-check" },
+  { id: "teknis", name: "Bantuan Teknis", icon: "i-heroicons-wrench-screwdriver" },
+  { id: "pemasangan", name: "Jasa Instalasi", icon: "i-heroicons-bolt" },
+  { id: "pembelian", name: "Pemesanan & Bayar", icon: "i-heroicons-credit-card" },
+  { id: "pengiriman", name: "Pengiriman", icon: "i-heroicons-truck" },
+];
+
+// ─── FAQ Data: Real CCTV troubleshooting, No AI Slop ─────────────
+const faqs = [
+  {
+    id: "g1",
+    categoryId: "garansi",
+    q: "Berapa lama masa garansi resmi kamera CCTV yang dibeli di PasarCCTV?",
+    a: [
+      "Seluruh unit kamera, DVR, dan NVR resmi distributor (Dahua, Hikvision, Ezviz, Tiandy, Imou) bergaransi 1 hingga 3 tahun tergantung tipe produk.",
+      "Tahun pertama mencakup fasilitas penggantian unit baru (replacement) bila ditemukan cacat produksi perangkat keras. Garansi tidak mencakup kerusakan fisik luar, kemasukan air pada tipe non-waterproof, atau tersambar petir (overvoltage).",
+    ],
+    action: {
+      text: "Konsultasikan Klaim Garansi via WhatsApp",
+      to: "/contact",
+    },
+  },
+  {
+    id: "g2",
+    categoryId: "garansi",
+    q: "Bagaimana alur pengajuan klaim garansi perangkat yang bermasalah?",
+    a: [
+      "Langkah 1: Siapkan foto serial number (SN) yang tertera di stiker unit atau dus, beserta nomor nota pembelian.",
+      "Langkah 2: Kirim data ke WhatsApp Teknisi Resmi PasarCCTV (+62 822-1882-8108).",
+      "Langkah 3: Teknisi akan memandu pengecekan awal secara remote. Jika unit terkonfirmasi rusak, Anda dapat membawa atau mengirimkan unit ke showroom Bogor atau workshop Bandung.",
+    ],
+  },
+  {
+    id: "t1",
+    categoryId: "teknis",
+    q: "Kamera IP tidak muncul online di aplikasi DMSS atau Hik-Connect?",
+    a: [
+      "Periksa tiga hal mendasar berikut:",
+      "1. Pastikan kabel LAN tercolok sempurna pada port PoE switch dan lampu indikator oranye/hijau berkedip aktif.",
+      "2. Cek apakah IP DVR/NVR berada dalam subnet yang sama dengan modem internet ISP (misal 192.168.1.xxx).",
+      "3. Masuk ke menu Jaringan (Network) DVR/NVR, aktifkan fitur DHCP sekali lalu simpan, kemudian periksa status Cloud P2P harus tertera 'Online'.",
+    ],
+  },
+  {
+    id: "t2",
+    categoryId: "teknis",
+    q: "Bagaimana cara mereset kata sandi DVR atau NVR yang lupa?",
+    a: [
+      "Demi keamanan, reset password DVR/NVR Dahua atau Hikvision memerlukan validasi kode QR GUID atau file reset XML resmi dari SADP Tool.",
+      "Buka layar login DVR, klik 'Forgot Password', lalu scan QR code yang muncul menggunakan aplikasi akun terdaftar, atau hubungi teknisi kami untuk mendapatkan security code harian distributor resmi.",
+    ],
+  },
+  {
+    id: "p1",
+    categoryId: "pemasangan",
+    q: "Apakah survei lokasi sebelum pemasangan CCTV dikenakan biaya?",
+    a: [
+      "Survei lokasi di wilayah Kota/Kabupaten Bogor, Depok, Bandung Raya, dan Cimahi tidak dikenakan biaya komitmen awal.",
+      "Teknisi kami akan datang mengukur jalur kabel, menentukan blind spot, menghitung kebutuhan pipa conduit, dan memberikan penawaran tertulis transparan sebelum Anda menyetujui pengerjaan.",
+    ],
+    action: {
+      text: "Jadwalkan Survei Teknisi Sekarang",
+      to: "/services/booking",
+    },
+  },
+  {
+    id: "p2",
+    categoryId: "pemasangan",
+    q: "Apa perbedaan instalasi standar dengan pipa conduit protector?",
+    a: [
+      "Instalasi pipa conduit membungkus seluruh bentangan kabel UTP/RG59 di dalam pipa PVC khusus kelistrikan (clipsal/high impact).",
+      "Hal ini melindungi kabel dari gigitan tikus, paparan sinar UV matahari, gesekan sudut plafon, dan membuat jalur kabel terlihat rapi standar gedung perkantoran dan industri.",
+    ],
+  },
+  {
+    id: "b1",
+    categoryId: "pembelian",
+    q: "Apakah PasarCCTV melayani faktur pajak dan pengadaan B2B perusahaan?",
+    a: [
+      "Ya. Kami menerbitkan Faktur Pajak PPN resmi dan dokumen penawaran resmi (Surat Penawaran Harga, Invoice, Kwitansi Bermaterai) untuk instansi pemerintah, BUMN, pabrik, dan korporat.",
+      "Kirimkan NPWP perusahaan dan daftar kebutuhan perangkat ke email cs@pasarcctv.com atau hubungi WhatsApp Sales kami.",
+    ],
+  },
+  {
+    id: "b2",
+    categoryId: "pembelian",
+    q: "Metode pembayaran apa saja yang didukung?",
+    a: [
+      "Kami menerima Transfer Bank (BCA, Mandiri, BNI, BRI), Virtual Account otomatis, QRIS untuk transaksi ritel, serta termin pembayaran (Term of Payment) khusus proyek korporasi yang lolos verifikasi legalitas.",
+    ],
+  },
+  {
+    id: "s1",
+    categoryId: "pengiriman",
+    q: "Berapa lama pesanan unit CCTV diproses dan dikirim?",
+    a: [
+      "Pesanan barang jadi sebelum pukul 15.00 WIB dikirim pada hari kerja yang sama menggunakan JNE, J&T, SiCepat, atau kurir instan GoSend/GrabExpress untuk wilayah Bogor dan Bandung.",
+      "Pengiriman luar pulau menggunakan packing kayu dan asuransi penuh untuk melindungi sensor lensa kaca kamera dan hard disk rekaman.",
+    ],
+  },
+];
+
+// ─── Computed FAQ Filter ─────────────────────────────────────────
+const filteredFaqs = computed(() => {
+  let result = faqs;
+
+  if (activeCategory.value !== "all") {
+    result = result.filter((item) => item.categoryId === activeCategory.value);
+  }
+
+  const query = searchQuery.value.trim().toLowerCase();
+  if (query) {
+    result = result.filter(
+      (item) =>
+        item.q.toLowerCase().includes(query) ||
+        item.a.some((p) => p.toLowerCase().includes(query))
+    );
+  }
+
+  return result;
+});
+</script>

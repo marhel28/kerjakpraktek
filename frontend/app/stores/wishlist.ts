@@ -54,7 +54,13 @@ export const useWishlistStore = defineStore('wishlist', {
     // ==========================================
     async toggle(productData: any) {
       // Pastikan kita mendapatkan UUID produk dengan aman dari berbagai komponen
-      const stockUuid = String(productData.id || productData.stock_uuid)
+      // Handle berbagai shape: { id }, { stock_uuid }, { uuid }, { stock: { uuid } }
+      const stockUuid = String(
+        productData.id ||
+        productData.stock_uuid ||
+        productData.uuid ||
+        productData.stock?.uuid
+      )
       const isAlreadyInWishlist = this.isInWishlist(stockUuid)
 
       if (isAlreadyInWishlist) {
@@ -83,6 +89,10 @@ export const useWishlistStore = defineStore('wishlist', {
           // Jika API gagal, kembalikan state seperti semula
           this.items = backupItems
           console.error('Gagal menghapus wishlist:', err)
+          try {
+            const toast = useToast()
+            toast.add({ title: 'Gagal', description: 'Gagal menghapus dari wishlist', color: 'error' })
+          } catch {}
         }
 
       } else {

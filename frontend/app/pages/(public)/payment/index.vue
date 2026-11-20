@@ -4,16 +4,16 @@ import { useCheckoutStore } from "~/stores/checkout";
 
 definePageMeta({ layout: "public" });
 
+const config = useRuntimeConfig();
 useHead({
   script: [
     {
       src: "https://app.sandbox.midtrans.com/snap/snap.js",
-      "data-client-key": "SB-Mid-client-pn3mYe4w4xeY6F0w",
+      "data-client-key": config.public.midtransClientKey,
       async: true,
     },
   ],
 });
-const config = useRuntimeConfig();
 const checkoutStore = useCheckoutStore();
 const API_TRANSAKSI = `${config.public.apiBase}/transaksi`;
 const API_CEK = `${config.public.apiBase}/cek`;

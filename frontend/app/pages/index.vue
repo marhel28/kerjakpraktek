@@ -3,6 +3,7 @@ import Brandrunning from "@/components/brandrunning.vue";
 import CategoryGrid from "@/components/images/CategoryGrid.vue";
 import BannerSection from "@/components/BannerSection.vue";
 import ServiceBookingBanner from "@/components/ServiceBookingBanner.vue";
+import FlashSaleSection from "@/components/home/FlashSaleSection.vue";
 
 const { data: homeBannerData } = await useFetch(
   `/api/banner/${encodeURIComponent("home:hero-carousel")}`,
@@ -33,15 +34,16 @@ useSeoMeta({
     <BannerUtama />
     <Brandrunning />
     <HomeBanner class="my-8" />
+    <FlashSaleSection class="my-8" />
     <PopularItems class="my-8" />
-    <BestDeals class="my-8" />
     <ServiceBookingBanner class="mt-2 mb-2" />
 
+    <!-- Banner Promosi Produk Beranda (Eksklusif, Terpisah dari Hero Atas) -->
     <BannerSection
-      identifier="home:hero-carousel"
-      :autoplay-delay="5000"
+      identifier="home:promo-strip"
+      :autoplay-delay="6000"
       :show-title="false"
-      class="mb-6"
+      class="my-8"
     />
 
     <!-- Bottom Banner Grid (maks 4) -->

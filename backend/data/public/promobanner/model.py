@@ -167,6 +167,14 @@ class Promo(SQLModel, table=True):
         default=None,
         sa_column=Column(pg.INTEGER, nullable=True)
     )  # Kuota khusus flash sale (terpisah dari quota utama)
+    flash_sale_mode: str = Field(
+        default="manual",
+        sa_column=Column(pg.VARCHAR(20), nullable=False, server_default="manual")
+    )  # manual | auto
+    auto_strategy: Optional[str] = Field(
+        default=None,
+        sa_column=Column(pg.VARCHAR(30), nullable=True)
+    )  # discount | sold | stock_clearance
 
     # ── Metadata Tambahan ──────────────────────────────────────────
     # Untuk menyimpan config tambahan spesifik tipe promo

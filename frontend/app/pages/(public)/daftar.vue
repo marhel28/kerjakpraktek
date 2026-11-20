@@ -1,502 +1,317 @@
 <template>
-  <div
-    class="min-h-[100dvh] sm:min-h-screen flex items-center justify-center bg-white sm:bg-gray-50 sm:py-12 sm:px-4 font-sans selection:bg-black selection:text-white"
-  >
-    <div
-      class="w-full h-[100dvh] sm:h-auto max-w-5xl sm:max-h-[95vh] bg-white sm:border border-gray-200 sm:shadow-xl sm:rounded-xl overflow-hidden flex flex-col lg:flex-row relative"
+  <div class="min-h-screen bg-gray-50 py-10 sm:py-14 px-4 flex flex-col justify-center font-['Open_Sans',sans-serif]">
+    <AmazonAuthCard
+      :is-registration="true"
+      hero-image="https://static.jakmall.id/2023/12/images/products/e92af9/original/xiaomi-kamera-cctv-smart-google-home-alexa-360-rotation-full-hd-c200.png"
     >
-      <!-- ═══════════════════════════════════════════════════════════
-           LEFT PANEL — hanya tampil di lg+
-      ════════════════════════════════════════════════════════════ -->
-      <div class="hidden lg:block lg:w-5/12 bg-black relative">
-        <img
-          src="https://static.jakmall.id/2023/12/images/products/e92af9/original/xiaomi-kamera-cctv-smart-google-home-alexa-360-rotation-full-hd-c200.png"
-          alt="PasarCctv Security"
-          class="w-full h-full object-cover opacity-50 mix-blend-luminosity grayscale"
-        />
+      <!-- Header Tagline -->
+      <template #header-tagline>
+        <h1 class="text-2xl font-black text-black tracking-tight uppercase font-['Plus_Jakarta_Sans',sans-serif]">
+          {{ currentStep === 0 ? "Buat Akun" : "Lengkapi Profil" }}
+        </h1>
+        <p class="text-gray-500 text-xs font-bold mt-1 uppercase tracking-widest font-['Plus_Jakarta_Sans',sans-serif]">
+          {{ currentStep === 0 ? "Data Akun Utama Pelanggan" : "Info Pengiriman & Tipe Akun" }}
+        </p>
+      </template>
+
+      <!-- Form Content -->
+      <template #form>
+        <!-- Error alert -->
+        <AmazonAlertError v-if="errorMsg" :message="errorMsg" />
+
+        <!-- Sukses Step 1 Banner -->
         <div
-          class="absolute inset-0 bg-gradient-to-tr from-black via-black/60 to-transparent"
-        ></div>
-
-        <!-- Logo -->
-        <div class="absolute top-12 left-12">
-          <div class="flex flex-col leading-none">
-            <span class="text-3xl font-black text-white tracking-tighter uppercase italic"
-              >PasarCctv</span
-            >
-            <span class="text-lg font-light text-gray-400 tracking-[0.3em] uppercase mt-1"
-              >CCTV</span
-            >
-          </div>
-        </div>
-
-        <!-- Deskripsi + Steps -->
-        <div class="absolute bottom-16 left-12 right-12 text-white">
-          <div class="barcode-element-white mb-6"></div>
-          <h1 class="text-4xl font-black uppercase tracking-tighter leading-[1.1] mb-5">
-            Ekosistem <br />
-            <span class="text-red-600">Keamanan</span> & <br />
-            Layanan <span class="text-red-600">Teknis.</span>
-          </h1>
-          <p class="text-gray-400 text-sm font-medium leading-relaxed max-w-sm">
-            Satu portal terpadu untuk pengadaan unit CCTV original, klaim garansi, dan
-            pemesanan jasa teknisi ahli bersertifikat.
-          </p>
-
-          <div class="mt-8 flex flex-col gap-3">
-            <div
-              v-for="(step, i) in steps"
-              :key="i"
-              class="flex items-center gap-3 transition-opacity duration-300"
-              :class="currentStep === i ? 'opacity-100' : 'opacity-40'"
-            >
-              <div
-                class="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-black shrink-0 transition-colors"
-                :class="
-                  currentStep > i
-                    ? 'bg-red-600 text-white'
-                    : currentStep === i
-                    ? 'bg-white text-black'
-                    : 'border border-gray-600 text-gray-600'
-                "
-              >
-                <template v-if="currentStep > i">✓</template>
-                <template v-else>{{ i + 1 }}</template>
-              </div>
-              <span class="text-xs font-bold uppercase tracking-wider">{{ step }}</span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- ═══════════════════════════════════════════════════════════
-           RIGHT PANEL — form utama
-      ════════════════════════════════════════════════════════════ -->
-      <div class="w-full lg:w-7/12 flex flex-col h-full overflow-hidden bg-white">
-        <!-- Mobile header -->
-        <div
-          class="lg:hidden sticky top-0 z-20 bg-white/85 backdrop-blur-md border-b border-gray-100 px-5 py-4 flex items-center justify-between shrink-0"
+          v-if="currentStep === 1"
+          class="bg-green-50 border border-green-300 p-3.5 rounded-md mb-4 flex items-start gap-2.5"
+          role="status"
         >
-          <div class="flex flex-col leading-none">
-            <span class="text-xl font-black text-black tracking-tighter uppercase italic"
-              >PasarCctv</span
-            >
-            <span
-              class="text-[10px] font-light text-gray-500 tracking-[0.3em] uppercase mt-1"
-              >CCTV</span
-            >
-          </div>
-          <span
-            class="text-[10px] font-black bg-black text-white px-2.5 py-1 rounded-sm tracking-widest"
-          >
-            {{ currentStep + 1 }}/{{ steps.length }}
-          </span>
+          <UIcon name="i-heroicons-check-circle" class="w-4 h-4 text-green-700 shrink-0 mt-0.5" />
+          <p class="text-xs text-green-900 leading-relaxed font-bold">
+            Akun berhasil dibuat! Tautan verifikasi telah dikirim ke <span class="underline">{{ form.email }}</span>.
+          </p>
         </div>
 
-        <!-- Scrollable form area -->
-        <div class="flex-1 overflow-y-auto px-5 py-8 sm:p-14 custom-scrollbar relative">
-          <!-- Barcode dekorasi (desktop) -->
-          <div class="absolute top-8 right-10 hidden sm:block">
-            <div class="barcode-element-black"></div>
+        <!-- STEP 0: Register Utama -->
+        <form v-if="currentStep === 0" @submit.prevent="handleRegister" class="space-y-4" novalidate>
+          <!-- Username Input -->
+          <div>
+            <label for="reg-username" class="block text-[11px] font-black uppercase tracking-wider text-black mb-1.5 font-['Plus_Jakarta_Sans',sans-serif]">
+              Username <span class="text-red-600">*</span>
+            </label>
+            <input
+              id="reg-username"
+              v-model="form.username"
+              type="text"
+              autocomplete="username"
+              required
+              minlength="3"
+              maxlength="50"
+              placeholder="username_kamu"
+              :disabled="loading"
+              class="auth-input px-3.5"
+            />
+            <p class="text-[10px] text-gray-500 mt-1 font-semibold">Min. 3 karakter, maks. 50 karakter.</p>
           </div>
 
-          <!-- Heading -->
-          <div class="mb-8">
-            <div class="flex items-center gap-3 mb-1">
-              <h2
-                class="text-2xl sm:text-3xl font-black text-black tracking-tight uppercase"
+          <!-- Email Input with inline validation -->
+          <div>
+            <label for="reg-email" class="block text-[11px] font-black uppercase tracking-wider text-black mb-1.5 font-['Plus_Jakarta_Sans',sans-serif]">
+              Email Korespondensi <span class="text-red-600">*</span>
+            </label>
+            <input
+              id="reg-email"
+              v-model="form.email"
+              type="email"
+              autocomplete="email"
+              required
+              placeholder="email@contoh.com"
+              :disabled="loading"
+              class="auth-input px-3.5"
+              :class="{ 'border-red-400 focus:border-red-500 focus:ring-red-500': emailError }"
+              @blur="validateEmail"
+            />
+            <p v-if="emailError" class="text-xs text-red-600 mt-1 font-semibold">{{ emailError }}</p>
+          </div>
+
+          <!-- Password Input with toggle + caps + live rules -->
+          <div>
+            <label for="reg-password" class="block text-[11px] font-black uppercase tracking-wider text-black mb-1.5 font-['Plus_Jakarta_Sans',sans-serif]">
+              Buat Password <span class="text-red-600">*</span>
+            </label>
+            <div class="relative">
+              <input
+                id="reg-password"
+                v-model="form.password"
+                :type="showPassword ? 'text' : 'password'"
+                autocomplete="new-password"
+                required
+                minlength="6"
+                placeholder="••••••••"
+                :disabled="loading"
+                class="auth-input px-3.5 pr-10"
+                @keyup="checkCapsLock"
+                @keydown="checkCapsLock"
+              />
+              <button
+                type="button"
+                class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-black p-1 transition-colors"
+                :aria-label="showPassword ? 'Sembunyikan password' : 'Tampilkan password'"
+                @click="showPassword = !showPassword"
               >
-                {{ currentStep === 0 ? "Buat Akun" : "Lengkapi Profil" }}
-              </h2>
-              <span
-                class="hidden lg:inline-block text-[10px] font-black bg-black text-white px-2 py-1 tracking-widest"
-              >
-                {{ currentStep + 1 }}/{{ steps.length }}
-              </span>
+                <UIcon :name="showPassword ? 'i-heroicons-eye-slash' : 'i-heroicons-eye'" class="w-4 h-4" />
+              </button>
             </div>
-            <p
-              class="text-gray-500 text-[9px] sm:text-[10px] uppercase tracking-[0.3em] sm:tracking-[0.4em] font-black"
-            >
-              {{ currentStep === 0 ? "Data Akun Utama" : "Info Pengiriman & Tipe Akun" }}
+            <!-- Live password rules -->
+            <ul v-if="form.password.length > 0" class="mt-2 space-y-1 text-[11px] font-medium">
+              <li class="flex items-center gap-1.5" :class="form.password.length >= 6 ? 'text-green-700' : 'text-gray-400'">
+                <UIcon :name="form.password.length >= 6 ? 'i-heroicons-check-circle-solid' : 'i-heroicons-x-circle'" class="w-3.5 h-3.5" />
+                Minimal 6 karakter
+              </li>
+              <li class="flex items-center gap-1.5" :class="hasNumber ? 'text-green-700' : 'text-gray-400'">
+                <UIcon :name="hasNumber ? 'i-heroicons-check-circle-solid' : 'i-heroicons-x-circle'" class="w-3.5 h-3.5" />
+                Mengandung angka
+              </li>
+            </ul>
+            <span v-if="isCapsLockOn" class="inline-flex items-center gap-1 mt-1.5 text-[10px] font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
+              <UIcon name="i-heroicons-exclamation-triangle" class="w-3 h-3" /> Caps Lock Aktif
+            </span>
+          </div>
+
+          <!-- Konfirmasi Password with toggle -->
+          <div>
+            <label for="reg-confirm" class="block text-[11px] font-black uppercase tracking-wider text-black mb-1.5 font-['Plus_Jakarta_Sans',sans-serif]">
+              Konfirmasi Password <span class="text-red-600">*</span>
+            </label>
+            <div class="relative">
+              <input
+                id="reg-confirm"
+                v-model="form.confirmPassword"
+                :type="showConfirmPassword ? 'text' : 'password'"
+                autocomplete="new-password"
+                required
+                placeholder="••••••••"
+                :disabled="loading"
+                class="auth-input px-3.5 pr-10"
+                @keyup="checkCapsLock"
+                @keydown="checkCapsLock"
+              />
+              <button
+                type="button"
+                class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-black p-1 transition-colors"
+                :aria-label="showConfirmPassword ? 'Sembunyikan password' : 'Tampilkan password'"
+                @click="showConfirmPassword = !showConfirmPassword"
+              >
+                <UIcon :name="showConfirmPassword ? 'i-heroicons-eye-slash' : 'i-heroicons-eye'" class="w-4 h-4" />
+              </button>
+            </div>
+            <p v-if="passwordMismatch" class="text-xs text-red-600 mt-1 font-bold">✗ Password tidak cocok!</p>
+            <p v-else-if="form.confirmPassword.length > 0 && !passwordMismatch" class="text-xs text-green-700 mt-1 font-semibold flex items-center gap-1">
+              <UIcon name="i-heroicons-check-circle-solid" class="w-3.5 h-3.5" /> Password cocok
             </p>
           </div>
 
-          <!-- ══════════════════════════════════════
-               STEP 0 — Register
-          ═══════════════════════════════════════ -->
-          <form
-            v-if="currentStep === 0"
-            @submit.prevent="handleRegister"
-            class="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5"
+          <!-- Submit Button -->
+          <button
+            type="submit"
+            :disabled="loading || passwordMismatch || !form.username || !form.email || !form.password || !!emailError"
+            class="auth-btn-primary w-full mt-2"
+            :aria-busy="loading"
           >
-            <!-- Error banner -->
-            <div
-              v-if="errorMsg"
-              class="md:col-span-2 bg-red-50 border border-red-200 p-4 rounded-lg sm:rounded-none"
-            >
-              <p class="text-red-700 text-xs font-black uppercase tracking-wider">
-                ⚠ {{ errorMsg }}
-              </p>
-            </div>
+            <UIcon
+              v-if="loading"
+              name="i-heroicons-arrow-path"
+              class="w-4 h-4 animate-spin mr-2 inline"
+              aria-hidden="true"
+            />
+            <span>{{ loading ? "Memproses..." : "Daftar & Lanjutkan" }}</span>
+            <UIcon
+              v-if="!loading"
+              name="i-heroicons-arrow-right"
+              class="w-4 h-4 ml-1.5 inline"
+              aria-hidden="true"
+            />
+          </button>
+        </form>
 
-            <!-- Username -->
-            <div class="group md:col-span-2">
-              <label class="custom-label"
-                >Username <span class="text-red-600">*</span></label
-              >
+        <!-- STEP 1: Profil & Lokasi -->
+        <form v-if="currentStep === 1" @submit.prevent="handleProfileUpdate" class="space-y-4" novalidate>
+          <div>
+            <label for="profile-usertype" class="block text-[11px] font-black uppercase tracking-wider text-black mb-1.5 font-['Plus_Jakarta_Sans',sans-serif]">
+              Tipe Akun
+            </label>
+            <select id="profile-usertype" v-model="profile.user_type" class="auth-input px-3.5">
+              <option value="biasa">Personal (Perorangan)</option>
+              <option value="corporate">Corporate (Perusahaan / Instansi / Proyek)</option>
+            </select>
+          </div>
+
+          <div>
+            <label for="profile-wa" class="block text-[11px] font-black uppercase tracking-wider text-black mb-1.5 font-['Plus_Jakarta_Sans',sans-serif]">
+              Nomor WhatsApp (Aktif)
+            </label>
+            <div class="relative">
+              <span class="absolute left-3.5 top-1/2 -translate-y-1/2 text-black font-black text-xs">+62</span>
               <input
-                type="text"
-                placeholder="username_kamu"
-                class="custom-input"
-                v-model="form.username"
-                minlength="3"
-                maxlength="50"
-                required
-                autocomplete="username"
-              />
-              <p class="text-gray-400 text-[10px] mt-1.5 font-semibold">
-                Min. 3 karakter, maks. 50 karakter.
-              </p>
-            </div>
-
-            <!-- Email -->
-            <div class="group md:col-span-2">
-              <label class="custom-label"
-                >Email Korespondensi <span class="text-red-600">*</span></label
-              >
-              <input
-                type="email"
-                placeholder="email@contoh.com"
-                class="custom-input"
-                v-model="form.email"
-                required
-                autocomplete="email"
+                id="profile-wa"
+                v-model="profile.nomertlp"
+                type="tel"
+                placeholder="812xxxxx"
+                maxlength="15"
+                class="auth-input pl-12 pr-3.5"
+                @input="formatPhone"
               />
             </div>
+          </div>
 
-            <!-- Password -->
-            <div class="group">
-              <label class="custom-label"
-                >Buat Password <span class="text-red-600">*</span></label
-              >
-              <input
-                type="password"
-                placeholder="••••••••"
-                class="custom-input"
-                v-model="form.password"
-                minlength="6"
-                required
-                autocomplete="new-password"
-              />
-              <p class="text-gray-400 text-[10px] mt-1.5 font-semibold">
-                Min. 6 karakter.
-              </p>
-            </div>
+          <div>
+            <label for="profile-prov" class="block text-[11px] font-black uppercase tracking-wider text-black mb-1.5 font-['Plus_Jakarta_Sans',sans-serif]">Provinsi</label>
+            <select id="profile-prov" v-model="profile.provinsi" class="auth-input px-3.5" @change="onProvinceChange">
+              <option value="" disabled selected>Pilih Provinsi</option>
+              <option v-for="prov in provinces" :key="prov.id" :value="prov.name">{{ prov.name }}</option>
+            </select>
+          </div>
 
-            <!-- Konfirmasi Password -->
-            <div class="group">
-              <label class="custom-label"
-                >Konfirmasi Password <span class="text-red-600">*</span></label
-              >
-              <input
-                type="password"
-                placeholder="••••••••"
-                class="custom-input"
-                v-model="form.confirmPassword"
-                required
-                autocomplete="new-password"
-              />
-              <p
-                v-if="passwordMismatch"
-                class="text-red-600 text-[10px] mt-2 font-black uppercase tracking-widest"
-              >
-                ✗ Password tidak cocok!
-              </p>
-            </div>
+          <div>
+            <label for="profile-kab" class="block text-[11px] font-black uppercase tracking-wider text-black mb-1.5 font-['Plus_Jakarta_Sans',sans-serif]">Kota / Kabupaten</label>
+            <select id="profile-kab" v-model="profile.kabupaten" class="auth-input px-3.5" :disabled="!selectedProvinceId" @change="onRegencyChange">
+              <option value="" disabled selected>Pilih Kabupaten</option>
+              <option v-for="reg in regencies" :key="reg.id" :value="reg.name">{{ reg.name }}</option>
+            </select>
+          </div>
 
-            <!-- Submit -->
-            <div class="md:col-span-2 mt-4 sm:mt-6">
-              <button
-                type="submit"
-                class="w-full bg-black text-white py-4 sm:py-4 rounded-xl sm:rounded-none text-xs font-black uppercase tracking-widest hover:bg-zinc-800 transition-colors flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98]"
-                :disabled="
-                  loading ||
-                  passwordMismatch ||
-                  !form.username ||
-                  !form.email ||
-                  !form.password
-                "
-              >
-                <Icon
-                  v-if="loading"
-                  name="lucide:loader-2"
-                  class="w-5 h-5 animate-spin"
-                />
-                <template v-else>
-                  Daftar & Lanjutkan
-                  <Icon name="lucide:arrow-right" class="w-4 h-4" />
-                </template>
-              </button>
-            </div>
+          <div>
+            <label for="profile-kec" class="block text-[11px] font-black uppercase tracking-wider text-black mb-1.5 font-['Plus_Jakarta_Sans',sans-serif]">Kecamatan</label>
+            <select id="profile-kec" v-model="profile.kecamatan" class="auth-input px-3.5" :disabled="!selectedRegencyId">
+              <option value="" disabled selected>Pilih Kecamatan</option>
+              <option v-for="dist in districts" :key="dist.id" :value="dist.name">{{ dist.name }}</option>
+            </select>
+          </div>
 
-            <!-- Info box -->
-            <div
-              class="md:col-span-2 bg-gray-50 border border-gray-200 p-4 text-center rounded-lg sm:rounded-none"
-            >
-              <p
-                class="text-gray-500 text-[10px] font-bold uppercase tracking-wider leading-relaxed"
-              >
-                Setelah daftar, Anda akan melengkapi info pengiriman & tipe akun.<br
-                  class="hidden sm:block"
-                />
-                Cek email untuk verifikasi sebelum login.
-              </p>
-            </div>
-          </form>
+          <div>
+            <label for="profile-alamat" class="block text-[11px] font-black uppercase tracking-wider text-black mb-1.5 font-['Plus_Jakarta_Sans',sans-serif]">Alamat Lengkap (Jalan / No. Rumah)</label>
+            <textarea id="profile-alamat" v-model="profile.alamat" placeholder="Contoh: Jl. Sudirman No. 123, Blok A..." class="auth-input !h-auto min-h-[80px] py-2.5 px-3.5 resize-none" />
+          </div>
 
-          <!-- ══════════════════════════════════════
-               STEP 1 — Profil & Lokasi
-          ═══════════════════════════════════════ -->
-          <form
-            v-if="currentStep === 1"
-            @submit.prevent="handleProfileUpdate"
-            class="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5"
-          >
-            <!-- Error banner -->
-            <div
-              v-if="errorMsg"
-              class="md:col-span-2 bg-red-50 border border-red-200 p-4 rounded-lg sm:rounded-none"
-            >
-              <p class="text-red-700 text-xs font-black uppercase tracking-wider">
-                ⚠ {{ errorMsg }}
-              </p>
-            </div>
+          <div class="flex gap-2.5 pt-2">
+            <button type="button" class="flex-1 border border-gray-300 text-black h-[42px] rounded-md text-xs font-black uppercase tracking-wider hover:bg-gray-100 transition-colors font-['Plus_Jakarta_Sans',sans-serif]" @click="skipToLogin">Lewati</button>
+            <button type="submit" :disabled="loadingProfile" class="flex-1 auth-btn-primary" :aria-busy="loadingProfile">
+              <UIcon v-if="loadingProfile" name="i-heroicons-arrow-path" class="w-4 h-4 animate-spin mr-1.5" />
+              <span>{{ loadingProfile ? "Menyimpan..." : "Simpan & Lanjut" }}</span>
+            </button>
+          </div>
+        </form>
+      </template>
 
-            <!-- Sukses banner -->
-            <div
-              class="md:col-span-2 bg-green-50 border border-green-300 p-4 rounded-lg sm:rounded-none"
-            >
-              <p
-                class="text-green-800 text-[11px] font-black uppercase tracking-wider leading-relaxed"
-              >
-                ✓ Akun berhasil dibuat! Link verifikasi dikirim ke
-                <span class="text-green-900 border-b border-green-900 pb-0.5">{{
-                  form.email
-                }}</span
-                >. <br class="hidden sm:block" />Lengkapi profil Anda di bawah ini
-                (opsional).
-              </p>
-            </div>
-
-            <!-- Tipe Akun -->
-            <div class="md:col-span-2 group">
-              <label class="custom-label">Tipe Akun</label>
-              <select class="custom-select" v-model="profile.user_type">
-                <option value="biasa">Personal (Perorangan)</option>
-                <option value="corporate">
-                  Corporate (Perusahaan / Instansi / Proyek)
-                </option>
-              </select>
-            </div>
-
-            <!-- Nomor WA -->
-            <div class="group md:col-span-2">
-              <label class="custom-label">Nomor WhatsApp (Aktif)</label>
-              <div class="relative">
-                <span
-                  class="absolute left-4 top-1/2 -translate-y-1/2 text-black font-black text-sm"
-                  >+62</span
-                >
-                <input
-                  type="tel"
-                  placeholder="812xxxxx"
-                  class="custom-input pl-14"
-                  v-model="profile.nomertlp"
-                  @input="formatPhone"
-                  maxlength="15"
-                />
-              </div>
-            </div>
-
-            <!-- Divider Lokasi -->
-            <div class="md:col-span-2 mt-2 mb-1">
-              <div class="flex items-center gap-4">
-                <span
-                  class="text-[10px] font-black text-black uppercase tracking-[0.2em] sm:tracking-[0.3em] whitespace-nowrap"
-                  >Titik Lokasi Pengiriman</span
-                >
-                <div class="w-full h-[1px] bg-gray-200"></div>
-              </div>
-            </div>
-
-            <!-- Provinsi -->
-            <div class="group">
-              <label class="custom-label">Provinsi</label>
-              <select
-                class="custom-select"
-                v-model="profile.provinsi"
-                @change="onProvinceChange"
-              >
-                <option value="" disabled selected>Pilih Provinsi</option>
-                <option v-for="prov in provinces" :key="prov.id" :value="prov.name">
-                  {{ prov.name }}
-                </option>
-              </select>
-            </div>
-
-            <!-- Kota / Kabupaten -->
-            <div class="group">
-              <label class="custom-label">Kota / Kabupaten</label>
-              <select
-                class="custom-select"
-                v-model="profile.kabupaten"
-                @change="onRegencyChange"
-                :disabled="!selectedProvinceId"
-              >
-                <option value="" disabled selected>Pilih Kabupaten</option>
-                <option v-for="reg in regencies" :key="reg.id" :value="reg.name">
-                  {{ reg.name }}
-                </option>
-              </select>
-            </div>
-
-            <!-- Kecamatan -->
-            <div class="group md:col-span-2">
-              <label class="custom-label">Kecamatan</label>
-              <select
-                class="custom-select"
-                v-model="profile.kecamatan"
-                :disabled="!selectedRegencyId"
-              >
-                <option value="" disabled selected>Pilih Kecamatan</option>
-                <option v-for="dist in districts" :key="dist.id" :value="dist.name">
-                  {{ dist.name }}
-                </option>
-              </select>
-            </div>
-
-            <!-- Alamat -->
-            <div class="group md:col-span-2">
-              <label class="custom-label"
-                >Alamat Lengkap (Detail Jalan / No. Rumah)</label
-              >
-              <textarea
-                placeholder="Contoh: Jl. Sudirman No. 123, Blok A..."
-                class="custom-input min-h-[100px] py-4 resize-none"
-                v-model="profile.alamat"
-              ></textarea>
-            </div>
-
-            <!-- Actions -->
-            <div class="md:col-span-2 mt-4 flex flex-col-reverse sm:flex-row gap-3">
-              <button
-                type="button"
-                class="flex-1 border border-gray-300 text-black py-4 rounded-xl sm:rounded-none text-xs font-black uppercase tracking-widest hover:bg-gray-50 transition-colors active:scale-[0.98]"
-                @click="skipToLogin"
-              >
-                Lewati & Login
-              </button>
-              <button
-                type="submit"
-                class="flex-1 bg-black text-white py-4 rounded-xl sm:rounded-none text-xs font-black uppercase tracking-widest hover:bg-zinc-800 transition-colors flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98]"
-                :disabled="loadingProfile"
-              >
-                <Icon
-                  v-if="loadingProfile"
-                  name="lucide:loader-2"
-                  class="w-5 h-5 animate-spin"
-                />
-                <template v-else>
-                  Simpan & Login
-                  <Icon name="lucide:arrow-right" class="w-4 h-4" />
-                </template>
-              </button>
-            </div>
-          </form>
-
-          <!-- Link login -->
-          <p
-            class="text-center text-gray-500 mt-10 text-[11px] font-bold uppercase tracking-wider pb-6 sm:pb-0"
-          >
-            Sudah memiliki akun?
-            <NuxtLink
-              to="/login"
-              class="text-black font-black hover:text-red-600 transition-colors ml-1 border-b border-black hover:border-red-600 pb-0.5 inline-block mt-1 sm:mt-0"
-            >
-              Login Sistem
-            </NuxtLink>
-          </p>
+      <!-- Footer -->
+      <template #footer-links>
+        <p class="text-xs font-bold text-gray-500 uppercase tracking-wider font-['Plus_Jakarta_Sans',sans-serif] mb-3">
+          Sudah memiliki akun?
+          <NuxtLink to="/login" class="text-black font-black hover:text-red-600 transition-colors ml-1 border-b border-black hover:border-red-600 pb-0.5">Login Sistem</NuxtLink>
+        </p>
+        <div class="pt-3 border-t border-gray-100 flex flex-wrap items-center justify-center gap-3 text-xs text-gray-500 font-medium">
+          <NuxtLink to="/help" class="hover:text-[#03AC0E] transition-colors flex items-center gap-1">
+            <UIcon name="i-heroicons-question-mark-circle" class="w-3.5 h-3.5" />
+            <span>Pusat Bantuan</span>
+          </NuxtLink>
+          <span>•</span>
+          <a href="https://wa.me/6282218828108?text=Halo%20PasarCCTV,%20saya%20butuh%20bantuan%20pendaftaran%20akun." target="_blank" rel="noopener" class="hover:text-[#03AC0E] transition-colors flex items-center gap-1">
+            <UIcon name="i-heroicons-chat-bubble-left-right" class="w-3.5 h-3.5" />
+            <span>Bantuan Daftar via WA</span>
+          </a>
         </div>
-      </div>
-    </div>
+      </template>
+    </AmazonAuthCard>
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
+import AmazonAuthCard from "~/components/auth/AmazonAuthCard.vue";
+import AmazonAlertError from "~/components/auth/AmazonAlertError.vue";
 import { ref, computed, onMounted } from "vue";
 import axios from "axios";
 
-// ─── SEO ──────────────────────────────────────────────────────────
 useHead({
-  title: "Daftar Akun - PasarCctv",
-  meta: [
-    {
-      name: "description",
-      content:
-        "Daftar akun PasarCctv untuk kemudahan belanja produk keamanan, pengadaan proyek, dan jasa instalasi.",
-    },
-  ],
+  title: "Daftar Akun — PasarCctv",
+  meta: [{ name: "description", content: "Daftar akun PasarCctv untuk kemudahan belanja produk keamanan, pengadaan proyek, dan jasa instalasi bergaransi resmi." }],
 });
 
-// ─── Runtime Config ───────────────────────────────────────────────
 const config = useRuntimeConfig();
-const BASE_URL = config.public.apiBase || "http://127.0.0.1:8000";
+const BASE_URL = (config.public.apiBase as string) || "http://127.0.0.1:8000";
 
-// ─── State Wizard ─────────────────────────────────────────────────
-const steps = ["Data Akun", "Profil & Lokasi"];
 const currentStep = ref(0);
-
-// ─── Step 1: Register ─────────────────────────────────────────────
-const form = ref({
-  username: "",
-  email: "",
-  password: "",
-  confirmPassword: "",
-});
-
-// ─── Step 2: Profile ──────────────────────────────────────────────
-const profile = ref({
-  user_type: "biasa",
-  nomertlp: "",
-  alamat: "",
-  provinsi: "",
-  kabupaten: "",
-  kecamatan: "",
-});
-
-// ─── Auth State ───────────────────────────────────────────────────
+const form = ref({ username: "", email: "", password: "", confirmPassword: "" });
+const profile = ref({ user_type: "biasa", nomertlp: "", alamat: "", provinsi: "", kabupaten: "", kecamatan: "" });
 const accessToken = ref("");
-
-// ─── UI State ─────────────────────────────────────────────────────
 const loading = ref(false);
 const loadingProfile = ref(false);
 const errorMsg = ref("");
+const showPassword = ref(false);
+const showConfirmPassword = ref(false);
+const isCapsLockOn = ref(false);
+const emailError = ref("");
 
-// ─── Wilayah State ────────────────────────────────────────────────
-const provinces = ref([]);
-const regencies = ref([]);
-const districts = ref([]);
+const checkCapsLock = (e: KeyboardEvent) => {
+  isCapsLockOn.value = e.getModifierState("CapsLock");
+};
+
+const validateEmail = () => {
+  const val = form.value.email.trim();
+  if (!val) { emailError.value = ""; return; }
+  const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  emailError.value = re.test(val) ? "" : "Format email tidak valid.";
+};
+
+const hasNumber = computed(() => /\d/.test(form.value.password));
+
+interface WilayahItem { id: string; name: string; }
+const provinces = ref<WilayahItem[]>([]);
+const regencies = ref<WilayahItem[]>([]);
+const districts = ref<WilayahItem[]>([]);
 const selectedProvinceId = ref("");
 const selectedRegencyId = ref("");
 
-// ─── Computed ─────────────────────────────────────────────────────
-const passwordMismatch = computed(
-  () =>
-    form.value.password !== form.value.confirmPassword &&
-    form.value.confirmPassword.length > 0
-);
+const passwordMismatch = computed(() => form.value.password !== form.value.confirmPassword && form.value.confirmPassword.length > 0);
 
-// ─── Phone Formatter ──────────────────────────────────────────────
 const formatPhone = () => {
   let val = profile.value.nomertlp.replace(/\D/g, "");
   if (val.startsWith("62")) val = val.substring(2);
@@ -504,214 +319,69 @@ const formatPhone = () => {
   profile.value.nomertlp = val;
 };
 
-// ─── Wilayah API (Emsifa) ─────────────────────────────────────────
 const fetchProvinces = async () => {
   try {
-    const res = await axios.get(
-      "https://www.emsifa.com/api-wilayah-indonesia/api/provinces.json"
-    );
+    const res = await axios.get<WilayahItem[]>("https://www.emsifa.com/api-wilayah-indonesia/api/provinces.json");
     provinces.value = res.data;
-  } catch (err) {
-    console.error("Gagal mengambil provinsi", err);
-  }
+  } catch (err) { console.error("Gagal mengambil data provinsi", err); }
 };
 
 const onProvinceChange = async () => {
-  profile.value.kabupaten = "";
-  profile.value.kecamatan = "";
-  regencies.value = [];
-  districts.value = [];
-  selectedProvinceId.value = "";
-  selectedRegencyId.value = "";
-
+  profile.value.kabupaten = ""; profile.value.kecamatan = ""; regencies.value = []; districts.value = []; selectedProvinceId.value = ""; selectedRegencyId.value = "";
   const prov = provinces.value.find((p) => p.name === profile.value.provinsi);
-  if (!prov) return;
-  selectedProvinceId.value = prov.id;
-
-  try {
-    const res = await axios.get(
-      `https://www.emsifa.com/api-wilayah-indonesia/api/regencies/${prov.id}.json`
-    );
-    regencies.value = res.data;
-  } catch (err) {
-    console.error("Gagal mengambil kabupaten", err);
-  }
+  if (!prov) return; selectedProvinceId.value = prov.id;
+  try { const res = await axios.get<WilayahItem[]>(`https://www.emsifa.com/api-wilayah-indonesia/api/regencies/${prov.id}.json`); regencies.value = res.data; } catch (err) { console.error("Gagal mengambil data kabupaten", err); }
 };
 
 const onRegencyChange = async () => {
-  profile.value.kecamatan = "";
-  districts.value = [];
-  selectedRegencyId.value = "";
-
+  profile.value.kecamatan = ""; districts.value = []; selectedRegencyId.value = "";
   const reg = regencies.value.find((r) => r.name === profile.value.kabupaten);
-  if (!reg) return;
-  selectedRegencyId.value = reg.id;
-
-  try {
-    const res = await axios.get(
-      `https://www.emsifa.com/api-wilayah-indonesia/api/districts/${reg.id}.json`
-    );
-    districts.value = res.data;
-  } catch (err) {
-    console.error("Gagal mengambil kecamatan", err);
-  }
+  if (!reg) return; selectedRegencyId.value = reg.id;
+  try { const res = await axios.get<WilayahItem[]>(`https://www.emsifa.com/api-wilayah-indonesia/api/districts/${reg.id}.json`); districts.value = res.data; } catch (err) { console.error("Gagal mengambil data kecamatan", err); }
 };
 
-onMounted(() => fetchProvinces());
+onMounted(() => { fetchProvinces(); });
 
-// ─── STEP 1: Register → POST /auth/user/auth/register ─────────────
 const handleRegister = async () => {
+  validateEmail();
+  if (emailError.value) return;
   errorMsg.value = "";
   if (passwordMismatch.value) return;
-
   loading.value = true;
   try {
-    await axios.post(`${BASE_URL}/auth/user/auth/register`, {
-      username: form.value.username,
-      email: form.value.email,
-      password: form.value.password,
-    });
-
-    // Auto-login setelah register berhasil
-    const loginRes = await axios.post(`${BASE_URL}/auth/user/auth/login`, {
-      email: form.value.email,
-      password: form.value.password,
-    });
+    await axios.post(`${BASE_URL}/auth/user/auth/register`, { username: form.value.username, email: form.value.email, password: form.value.password });
+    const loginRes = await axios.post(`${BASE_URL}/auth/user/auth/login`, { email: form.value.email, password: form.value.password });
     accessToken.value = loginRes.data.access_token;
-
     currentStep.value = 1;
     window.scrollTo({ top: 0, behavior: "smooth" });
-  } catch (err) {
+  } catch (err: any) {
     const detail = err.response?.data?.detail;
-    if (Array.isArray(detail)) {
-      errorMsg.value = detail.map((d) => d.msg).join(", ");
-    } else if (typeof detail === "string") {
-      errorMsg.value = detail;
-    } else {
-      errorMsg.value = "Registrasi gagal. Coba lagi.";
-    }
-  } finally {
-    loading.value = false;
-  }
+    if (Array.isArray(detail)) errorMsg.value = detail.map((d: any) => d.msg).join(", ");
+    else if (typeof detail === "string") errorMsg.value = detail;
+    else errorMsg.value = "Pendaftaran akun gagal. Silakan periksa data Anda.";
+  } finally { loading.value = false; }
 };
 
-// ─── STEP 2: Update Profil → PATCH /auth/user/users/me ────────────
 const handleProfileUpdate = async () => {
-  errorMsg.value = "";
-  loadingProfile.value = true;
-
-  // Hanya kirim field yang terisi
-  const payload = {};
+  errorMsg.value = ""; loadingProfile.value = true;
+  const payload: Record<string, string> = {};
   if (profile.value.nomertlp) payload.nomertlp = profile.value.nomertlp;
   if (profile.value.alamat) payload.alamat = profile.value.alamat;
   if (profile.value.provinsi) payload.provinsi = profile.value.provinsi;
   if (profile.value.kabupaten) payload.kabupaten = profile.value.kabupaten;
   if (profile.value.kecamatan) payload.kecamatan = profile.value.kecamatan;
-
   try {
-    if (Object.keys(payload).length > 0) {
-      await axios.patch(`${BASE_URL}/auth/user/users/me`, payload, {
-        headers: { Authorization: `Bearer ${accessToken.value}` },
-      });
-    }
+    if (Object.keys(payload).length > 0) await axios.patch(`${BASE_URL}/auth/user/users/me`, payload, { headers: { Authorization: `Bearer ${accessToken.value}` } });
     navigateTo("/login?registered=1");
-  } catch (err) {
+  } catch (err: any) {
     const detail = err.response?.data?.detail;
-    errorMsg.value = typeof detail === "string" ? detail : "Gagal menyimpan profil.";
-  } finally {
-    loadingProfile.value = false;
-  }
+    errorMsg.value = typeof detail === "string" ? detail : "Gagal memperbarui profil.";
+  } finally { loadingProfile.value = false; }
 };
 
-// ─── Skip langsung ke Login ───────────────────────────────────────
 const skipToLogin = () => navigateTo("/login?registered=1");
 </script>
 
 <style scoped>
-.custom-label {
-  font-size: 10px;
-  font-weight: 900;
-  text-transform: uppercase;
-  letter-spacing: 0.15em;
-  color: #000000;
-  margin-bottom: 8px;
-  display: block;
-}
-
-.custom-input,
-.custom-select {
-  width: 100%;
-  padding: 14px 16px;
-  background-color: #f8fafc;
-  border: 1px solid #e5e7eb;
-  border-radius: 12px;
-  font-size: 13px;
-  font-weight: 600;
-  color: #000000;
-  transition: all 0.2s ease;
-}
-
-@media (min-width: 640px) {
-  .custom-input,
-  .custom-select {
-    border-radius: 0;
-  }
-}
-
-.custom-input:focus,
-.custom-select:focus {
-  background-color: #ffffff;
-  border-color: #000000;
-  outline: none;
-  box-shadow: 0 0 0 1px #000000;
-}
-
-.custom-select {
-  appearance: none;
-  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%23000000' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
-  background-position: right 12px center;
-  background-repeat: no-repeat;
-  background-size: 1rem;
-}
-
-.barcode-element-white {
-  height: 6px;
-  width: 80px;
-  background: linear-gradient(90deg, #fff 10px, transparent 10px),
-    repeating-linear-gradient(
-      90deg,
-      transparent 0,
-      transparent 12px,
-      #fff 12px,
-      #fff 14px
-    );
-  background-repeat: no-repeat, repeat;
-}
-
-.barcode-element-black {
-  height: 8px;
-  width: 60px;
-  background: linear-gradient(90deg, #000 8px, transparent 8px),
-    repeating-linear-gradient(
-      90deg,
-      transparent 0,
-      transparent 10px,
-      #000 10px,
-      #000 12px
-    );
-  background-repeat: no-repeat, repeat;
-}
-
-.custom-scrollbar::-webkit-scrollbar {
-  width: 4px;
-}
-.custom-scrollbar::-webkit-scrollbar-track {
-  background: transparent;
-}
-.custom-scrollbar::-webkit-scrollbar-thumb {
-  background: #e5e7eb;
-}
-.custom-scrollbar:hover::-webkit-scrollbar-thumb {
-  background: #000000;
-}
+/* Scoped styles now use global design tokens from main.css via .auth-input and .auth-btn-primary classes */
 </style>

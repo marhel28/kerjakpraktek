@@ -1132,7 +1132,7 @@ const onDragEnd = () => {
 
 // ── Lifecycle ──────────────────────────────────────────────────────
 onMounted(() => {
-  if (isAuthenticated.value) store.startPassivePolling()
+  if (isAuthenticated.value) store.initAfterLogin()
 })
 
 onUnmounted(() => {

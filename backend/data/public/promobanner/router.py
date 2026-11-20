@@ -77,6 +77,30 @@ async def list_promos(
 
 
 @promo_router.get(
+    "/promos/flash-sale/active",
+    tags=["Promo"],
+    summary="Data Flash Sale aktif untuk Homepage (Auto/Manual pick + Redis cache)",
+)
+async def get_active_flashsale(
+    session: AsyncSession = Depends(get_session),
+):
+    """
+    Endpoint utama flash sale untuk homepage PasarCCTV.
+    Mendukung mode auto-pick produk atau manual pick admin.
+    Di-cache di Redis (TTL 60s).
+    """
+    try:
+        from .flashsale_service import FlashSaleService
+        data = await FlashSaleService.get_active_flashsale(session)
+        if not data:
+            return {"status": "empty", "items": [], "remaining_seconds": 0}
+        return data
+    except Exception as e:
+        logger.error(f"Error getting active flashsale: {e}", exc_info=True)
+        return {"status": "empty", "items": [], "remaining_seconds": 0}
+
+
+@promo_router.get(
     "/promos/flash-sale",
     response_model=PromoListResponse,
     tags=["Promo"],
@@ -101,7 +125,7 @@ async def list_flash_sales(
             Promo.valid_until >= now,
             Promo.deleted_at.is_(None),
         )
-        .order_by(Promo.priority.desc(), Promo.valid_until.asc())  # yang mau habis duluan
+        .order_by(Promo.priority.desc(), Promo.valid_until.asc())
     )
     result = await session.exec(stmt)
     all_items = result.all()
@@ -647,7 +671,39 @@ async def admin_update_promo(
     _: User = Depends(get_admin),
 ):
     promo = await promo_svc.update_promo(session, promo_uuid, data)
+    from .flashsale_service import FlashSaleService
+    await FlashSaleService.invalidate_cache()
     return await promo_svc.build_promo_response(session, promo)
+
+
+@promo_router.post(
+    "/admin/promos/{promo_uuid}/flashsale-mode",
+    tags=["Admin Promo"],
+    summary="Konfigurasi mode Flash Sale (Auto/Manual Pick)",
+)
+async def admin_set_flashsale_mode(
+    promo_uuid: UUID,
+    mode: str = Query("manual", description="manual | auto"),
+    strategy: Optional[str] = Query(None, description="discount | sold | stock_clearance"),
+    session: AsyncSession = Depends(get_session),
+    _: User = Depends(get_admin),
+):
+    promo = await promo_svc.get_by_uuid(session, promo_uuid)
+    promo.flash_sale_mode = mode
+    promo.auto_strategy = strategy
+    session.add(promo)
+    await session.commit()
+    await session.refresh(promo)
+
+    from .flashsale_service import FlashSaleService
+    await FlashSaleService.invalidate_cache()
+
+    return {
+        "status": "success",
+        "promo_uuid": str(promo.uuid),
+        "flash_sale_mode": promo.flash_sale_mode,
+        "auto_strategy": promo.auto_strategy,
+    }
 
 
 @promo_router.post(

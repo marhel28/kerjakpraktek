@@ -470,7 +470,7 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="min-h-screen bg-[#F4F5F7] font-sans pb-32 lg:pb-12 selection:bg-green-600 selection:text-white">
+  <div class="min-h-screen bg-[#F7F8F9] font-sans pb-32 lg:pb-12 selection:bg-[#03AC0E] selection:text-white">
 
     <!-- ── Loading config ──────────────────────────────────────── -->
     <div v-if="configLoading" class="flex items-center justify-center min-h-screen">

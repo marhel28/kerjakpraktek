@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, watch } from "vue";
+import { ref, computed, watch, onMounted, onUnmounted } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useWishlistStore } from "~/stores/wishlist";
 import { useCheckoutStore } from "~/stores/checkout";
@@ -18,34 +18,31 @@ const compareStore = useCompareStore();
 const uuid = route.params.id as string;
 
 // ─── Parallel fetch ───────────────────────────────────────────────
-// ✅ FIX: Hapus getCachedData — cachedEventHandler di server sudah handle caching.
-//         getCachedData menyebabkan Nuxt menulis payload file ke disk
-//         → ENOENT error di Windows karena path terlalu panjang.
-// ✅ FIX: Key diperpendek agar konsisten dengan server cache key.
 const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(uuid);
 
 const [{ data: apiResponse, pending, error }, { data: recResponse }] = await Promise.all([
-  useFetch("/api/peritems", {
+  useFetch<any>("/api/peritems", {
     query: isUuid ? { uuid } : { slug: uuid },
     key: `p_${uuid.slice(0, 8)}`,
   }),
-  useFetch("/api/recommendations", {
+  useFetch<any>("/api/recommendations", {
     query: isUuid ? { uuid } : { slug: uuid },
     key: `r_${uuid.slice(0, 8)}`,
     lazy: true,
   }),
 ]);
 
-// ─── Fetch Addons (Wait for product data to get real UUID) ────────
-const { data: addonResponse } = await useFetch(() => {
+// ─── Fetch Addons ────────────────────────────────────────────────
+const addonUrl = computed(() => {
   const realUuid = apiResponse.value?.data?.uuid;
-  if (!realUuid) return null;
-  return `/api/addons/bundle/${realUuid}`;
-}, {
+  return realUuid ? `/api/addons/bundle/${realUuid}` : '/api/addons/bundle/placeholder';
+});
+
+const { data: addonResponse } = await useFetch<any>(addonUrl, {
   query: { category_slug: computed(() => apiResponse.value?.data?.category) },
   key: computed(() => `addons_${apiResponse.value?.data?.uuid || uuid.slice(0, 8)}`),
   immediate: !!apiResponse.value?.data?.uuid,
-  watch: [apiResponse]
+  watch: [apiResponse],
 });
 
 // ─── 404 guard ───────────────────────────────────────────────────
@@ -64,17 +61,17 @@ const product = computed(() => {
   return {
     id: d.uuid,
     slug: d.slug,
-    brand: d.brand || "NO BRAND",
+    brand: d.brand || "OFFICIAL",
     title: d.title,
     price: d.price,
     originalPrice: d.original_price || d.price,
     discountPercentage: d.discount_percentage || 0,
     sold: d.terjual || 0,
     stock: d.stok || 0,
-    category: d.category || "uncategorized",
+    category: d.category || "cctv",
     subcategory: d.subcategory || "",
-    type: d.type || "General",
-    images: d.images?.length ? d.images : ["/images/no-image.webp"],
+    type: d.type || "Kamera CCTV",
+    images: d.images?.length ? d.images : ["/cctv.jpg"],
     description: d.description || "Belum ada deskripsi untuk produk ini.",
     specs: d.specs || {},
     weight: Number(d.weight ?? 0),
@@ -87,23 +84,20 @@ const recommendations = computed(() =>
 );
 
 // ─── SEO ─────────────────────────────────────────────────────────
-const siteUrl = useRuntimeConfig().public.siteUrl ?? "https://yourdomain.com";
-const siteName = "Toko CCTV";
+const siteUrl = useRuntimeConfig().public.siteUrl ?? "https://pasarcctv.com";
+const siteName = "PasarCCTV Cimahi Bandung";
 
 const seoTitle = computed(() => {
   if (!product.value) return siteName;
   const p = product.value;
-  return `${p.brand} ${p.title} - ${p.category.replace(/-/g, " ")} | ${siteName}`;
+  return `${p.brand} ${p.title} - Garansi Resmi | ${siteName}`;
 });
 
 const seoDescription = computed(() => {
   if (!product.value) return "";
   const p = product.value;
   const harga = formatPrice(p.price);
-  const desc = `Beli ${p.brand} ${p.title} harga ${harga}. ${p.description
-    .slice(0, 100)
-    .replace(/\n/g, " ")}... Stok tersedia, pengiriman cepat.`;
-  return desc.slice(0, 160);
+  return `Beli ${p.brand} ${p.title} harga ${harga}. Stok resmi ready di Bandung & Cimahi. Garansi resmi 1-2 tahun. Layanan teknisi profesional.`;
 });
 
 const canonicalUrl = computed(() => `${siteUrl}/product/${product.value?.slug || uuid}`);
@@ -112,162 +106,27 @@ useSeoMeta({
   title: seoTitle,
   description: seoDescription,
   robots: "index, follow",
-  ogType: "product",
   ogTitle: seoTitle,
   ogDescription: seoDescription,
   ogImage: () => product.value?.images[0] || "",
-  ogImageWidth: "800",
-  ogImageHeight: "800",
-  ogImageAlt: () => `Foto ${product.value?.title || ""}`,
   ogUrl: canonicalUrl,
   ogSiteName: siteName,
   ogLocale: "id_ID",
-  twitterCard: "summary_large_image",
-  twitterTitle: seoTitle,
-  twitterDescription: seoDescription,
-  twitterImage: () => product.value?.images[0] || "",
-  twitterImageAlt: () => `Foto ${product.value?.title || ""}`,
-  ogPriceAmount: () => String(product.value?.price || ""),
-  ogPriceCurrency: "IDR",
 });
 
-useHead({
-  link: [
-    { rel: "canonical", href: canonicalUrl },
-    {
-      rel: "preload",
-      as: "image",
-      href: () => product.value?.images[0] || "",
-      fetchpriority: "high",
-    },
-  ],
-});
-
-const jsonLd = computed(() => {
-  if (!product.value) return null;
-  const p = product.value;
-  return {
-    "@context": "https://schema.org",
-    "@type": "Product",
-    name: `${p.brand} ${p.title}`,
-    description: p.description.slice(0, 500),
-    image: p.images,
-    sku: p.id,
-    mpn: p.id,
-    brand: { "@type": "Brand", name: p.brand },
-    category: p.category.replace(/-/g, " "),
-    offers: {
-      "@type": "Offer",
-      url: canonicalUrl.value,
-      priceCurrency: "IDR",
-      price: p.price,
-      priceValidUntil: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
-        .toISOString()
-        .split("T")[0],
-      availability:
-        p.stock > 0 ? "https://schema.org/InStock" : "https://schema.org/OutOfStock",
-      seller: { "@type": "Organization", name: siteName },
-      ...(p.discountPercentage > 0 && {
-        priceSpecification: {
-          "@type": "UnitPriceSpecification",
-          price: p.originalPrice,
-          priceCurrency: "IDR",
-        },
-      }),
-    },
-    aggregateRating: {
-      "@type": "AggregateRating",
-      ratingValue: "5",
-      reviewCount: String(Math.max(p.sold, 1)),
-      bestRating: "5",
-      worstRating: "1",
-    },
-    additionalProperty: Object.entries(p.specs).map(([name, value]) => ({
-      "@type": "PropertyValue",
-      name: name.replace(/_/g, " "),
-      value,
-    })),
-  };
-});
-
-useHead({
-  script: computed(() =>
-    jsonLd.value
-      ? [
-          {
-            type: "application/ld+json",
-            innerHTML: JSON.stringify(jsonLd.value),
-            key: `jsonld-product-${uuid}`,
-          },
-        ]
-      : []
-  ),
-});
-
-const breadcrumbLd = computed(() => {
-  if (!product.value) return null;
-  const p = product.value;
-  const items: any[] = [
-    { "@type": "ListItem", position: 1, name: "Beranda", item: siteUrl },
-    {
-      "@type": "ListItem",
-      position: 2,
-      name: p.category.replace(/-/g, " "),
-      item: `${siteUrl}/category/${p.category}`,
-    },
-  ];
-  if (p.subcategory) {
-    items.push({
-      "@type": "ListItem",
-      position: 3,
-      name: p.subcategory.replace(/-/g, " "),
-      item: `${siteUrl}/category/${p.subcategory}`,
-    });
-  }
-  items.push({
-    "@type": "ListItem",
-    position: items.length + 1,
-    name: `${p.brand} ${p.title}`,
-    item: canonicalUrl.value,
-  });
-  return {
-    "@context": "https://schema.org",
-    "@type": "BreadcrumbList",
-    itemListElement: items,
-  };
-});
-
-useHead({
-  script: computed(() =>
-    breadcrumbLd.value
-      ? [
-          {
-            type: "application/ld+json",
-            innerHTML: JSON.stringify(breadcrumbLd.value),
-            key: `jsonld-breadcrumb-${uuid}`,
-          },
-        ]
-      : []
-  ),
-});
-
-// ─── Gambar & Zoom ───────────────────────────────────────────────
-const activeImage = ref("");
-watch(
-  product,
-  (p) => {
-    if (p?.images[0]) activeImage.value = p.images[0];
-  },
-  { immediate: true }
-);
-
-// ─── Redirect UUID to Slug ───────────────────────────────────────
+// ─── Canonical URL Sync ──────────────────────────────────────────
 watch(apiResponse, (newVal) => {
   if (import.meta.client && newVal?.data?.slug && newVal.data.slug !== route.params.id) {
-    // Gunakan history.replaceState untuk ganti URL tanpa reload/push history baru
-    window.history.replaceState({}, '', `/product/${newVal.data.slug}`);
+    window.history.replaceState({}, "", `/product/${newVal.data.slug}`);
   }
 }, { immediate: true });
+
+// ─── Galeri & Thumbnail ──────────────────────────────────────────
+const activeImageIndex = ref(0);
+const activeImage = computed(() => {
+  if (!product.value?.images?.length) return "/cctv.jpg";
+  return product.value.images[activeImageIndex.value] || product.value.images[0];
+});
 
 const isZoomed = ref(false);
 const zoomStyle = ref({ transformOrigin: "center center", transform: "scale(1)" });
@@ -276,28 +135,25 @@ const handleMouseMove = (e: MouseEvent) => {
   if (!isZoomed.value) return;
   const el = e.currentTarget as HTMLElement;
   const { left, top, width, height } = el.getBoundingClientRect();
+  const x = Math.max(0, Math.min(100, ((e.clientX - left) / width) * 100));
+  const y = Math.max(0, Math.min(100, ((e.clientY - top) / height) * 100));
   zoomStyle.value = {
-    transformOrigin: `${((e.clientX - left) / width) * 100}% ${
-      ((e.clientY - top) / height) * 100
-    }%`,
-    transform: "scale(2.5)",
+    transformOrigin: `${x}% ${y}%`,
+    transform: "scale(1.75)",
   };
 };
+
 const handleMouseEnter = () => (isZoomed.value = true);
 const handleMouseLeave = () => {
   isZoomed.value = false;
   zoomStyle.value = { transformOrigin: "center center", transform: "scale(1)" };
 };
 
-// ─── Harga & Varian ──────────────────────────────────────────────
+// ─── Quantity & Addons ───────────────────────────────────────────
 const quantity = ref(1);
-const isPaket = computed(() => product.value?.category === "paket-cctv");
 const selectedAddons = ref<Record<string, { uuid: string; quantity: number; price: number; name: string; weight: number }>>({});
 
-const unitPrice = computed(
-  () => (product.value?.price ?? 0)
-);
-
+const unitPrice = computed(() => product.value?.price ?? 0);
 const addonTotalPrice = computed(() => {
   return Object.values(selectedAddons.value).reduce((acc, curr) => acc + (curr.price * curr.quantity), 0);
 });
@@ -305,7 +161,7 @@ const addonTotalPrice = computed(() => {
 const totalWeight = computed(() => {
   const baseWeight = (product.value?.weight ?? 0) * quantity.value;
   const addonWeight = Object.values(selectedAddons.value).reduce(
-    (acc, curr) => acc + (curr.weight * curr.quantity), 
+    (acc, curr) => acc + (curr.weight * curr.quantity),
     0
   );
   return baseWeight + addonWeight;
@@ -317,15 +173,60 @@ function formatPrice(value: number) {
   return new Intl.NumberFormat("id-ID", {
     style: "currency",
     currency: "IDR",
-    minimumFractionDigits: 0,
-  })
-    .format(value || 0)
-    .replace("Rp", "Rp ");
+    maximumFractionDigits: 0,
+  }).format(value || 0);
 }
 
+function formatWeight(value?: number) {
+  if (!value || value <= 0) return "-";
+  if (value >= 1000) {
+    const kg = value / 1000;
+    return `${kg % 1 === 0 ? kg.toFixed(0) : kg.toFixed(1)} kg`;
+  }
+  return `${value} gram`;
+}
 
+// ─── Cart & Direct Buy ───────────────────────────────────────────
+const cartItem = computed(() => {
+  if (!product.value) return null;
+  const p = product.value;
+  return {
+    id: p.id,
+    title: p.title,
+    price: unitPrice.value,
+    image: p.images[0],
+    quantity: quantity.value,
+    weight: totalWeight.value,
+    options: {
+      addons: Object.values(selectedAddons.value),
+    },
+    stock_uuid: p.stockUuid,
+  };
+});
 
-// ─── Wishlist ────────────────────────────────────────────────────
+function beliLangsung() {
+  if (!product.value || product.value.stock === 0) return;
+  const item = cartItem.value;
+  if (!item) return;
+  checkout.setCheckoutData([item], 0, "");
+  router.push("/payment");
+}
+
+function openChat() {
+  if (!product.value) return;
+  const p = product.value;
+  pesanStore.setPendingContext({
+    uuid: p.id,
+    title: p.title,
+    url: canonicalUrl.value,
+    image: p.images[0],
+    price: unitPrice.value,
+    brand: p.brand,
+  });
+  router.push("/contact");
+}
+
+// ─── Wishlist & Compare ──────────────────────────────────────────
 const isWishlisted = computed(() =>
   product.value ? wishlist.isInWishlist(product.value.id) : false
 );
@@ -345,7 +246,6 @@ function toggleWishlist() {
   });
 }
 
-// ─── Compare ─────────────────────────────────────────────────────
 const isCompare = computed(() =>
   product.value ? compareStore.isInCompare(product.value.id) : false
 );
@@ -366,438 +266,336 @@ function toggleCompare() {
   });
 }
 
-function formatWeight(value?: number) {
-  if (!value || value <= 0) return "-";
-  if (value >= 1000) {
-    const kg = value / 1000;
-    return `${kg % 1 === 0 ? kg.toFixed(0) : kg.toFixed(1)} kg`;
-  }
-  return `${value} g`;
-}
-
-// ─── Share ───────────────────────────────────────────────────────
-async function handleShare() {
-  const p = product.value;
-  if (!p) return;
-  const shareData = {
-    title: `${p.brand} ${p.title}`,
-    text: `Cek produk ini: ${p.brand} ${p.title} - ${formatPrice(p.price)}`,
-    url: canonicalUrl.value,
-  };
-  if (navigator.share) await navigator.share(shareData);
-  else {
-    await navigator.clipboard.writeText(canonicalUrl.value);
-    alert("Link disalin ke clipboard!");
-  }
-}
-
-// ─── Cart ────────────────────────────────────────────────────────
-const cartItem = computed(() => {
-  if (!product.value) return null;
-  const p = product.value;
-  return {
-    id: p.id,
-    title: p.title,
-    price: unitPrice.value,
-    image: p.images[0],
-    quantity: quantity.value,
-    weight: totalWeight.value,
-    options: { 
-      addons: Object.values(selectedAddons.value)
-    },
-    stock_uuid: p.stockUuid,
-  };
-});
-
-function beliLangsung() {
-  if (!product.value || product.value.stock === 0) return;
-  const item = cartItem.value;
-  if (!item) return;
-  checkout.setCheckoutData([item], 0, "");
-  router.push("/payment");
-}
-
-// ─── Chat ────────────────────────────────────────────────────────
-function openChat() {
-  if (!product.value) return;
-  const p = product.value;
-
-  pesanStore.setPendingContext({
-    uuid: p.id,
-    title: p.title,
-    url: canonicalUrl.value,
-    image: p.images[0],
-    price: unitPrice.value,
-    brand: p.brand,
-  });
-
-  router.push("/");
-}
+const activeTab = ref<"deskripsi" | "spesifikasi" | "garansi">("spesifikasi");
 </script>
 
 <template>
-  <main class="bg-gray-50 min-h-screen pb-10 font-jakarta overflow-x-hidden">
-    <!-- Loading -->
-    <div v-if="pending" class="flex justify-center items-center h-[60vh]">
-      <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-green-500" />
+  <main class="bg-[#F8F9FA] min-h-screen pb-24 lg:pb-16 font-['Plus_Jakarta_Sans',sans-serif] text-gray-900">
+    <!-- Loading Screen -->
+    <div v-if="pending" class="flex justify-center items-center h-[70vh]">
+      <div class="flex flex-col items-center gap-3">
+        <div class="w-10 h-10 border-3 border-gray-200 border-t-[#03AC0E] rounded-full animate-spin" />
+        <p class="text-xs font-semibold text-gray-500">Memuat rincian produk...</p>
+      </div>
     </div>
 
-    <!-- Error / not found -->
-    <div
-      v-else-if="error || !product"
-      class="flex flex-col justify-center items-center h-[60vh] text-center"
-    >
-      <UIcon name="i-heroicons-archive-box-x-mark" class="w-20 h-20 text-gray-300 mb-4" />
-      <h1 class="text-2xl font-bold text-gray-800">Produk Tidak Ditemukan</h1>
-      <p class="text-gray-500 mt-2">Mungkin URL salah atau produk sudah dihapus.</p>
-      <NuxtLink
-        to="/"
-        class="mt-6 px-6 py-2.5 bg-black text-white font-bold rounded-xl hover:bg-gray-800 transition-colors"
-      >
-        Kembali ke Beranda
-      </NuxtLink>
-    </div>
-
-    <div v-else class="max-w-[1200px] mx-auto px-4 pt-6">
-      <!-- ── Breadcrumb ────────────────────────────────────────── -->
-      <nav
-        aria-label="Breadcrumb"
-        class="flex flex-wrap items-center gap-2 text-[13px] text-gray-500 mb-6"
-      >
-        <ol
-          class="flex flex-wrap items-center gap-2 list-none p-0 m-0"
-          itemscope
-          itemtype="https://schema.org/BreadcrumbList"
+    <!-- Error Screen -->
+    <div v-else-if="error || !product" class="max-w-[800px] mx-auto py-20 px-4 text-center">
+      <div class="bg-white border border-gray-200 rounded-2xl p-10 shadow-xs">
+        <UIcon name="i-heroicons-exclamation-triangle" class="w-16 h-16 text-gray-400 mx-auto mb-4" />
+        <h1 class="text-xl font-bold text-gray-900 mb-2">Produk Tidak Ditemukan</h1>
+        <p class="text-xs sm:text-sm text-gray-500 mb-6">
+          Kamera atau paket CCTV yang Anda cari mungkin sedang restock atau tautan telah diperbarui.
+        </p>
+        <NuxtLink
+          to="/search"
+          class="inline-flex items-center gap-2 bg-[#03AC0E] hover:bg-[#028b0b] text-white font-bold text-xs px-5 py-2.5 rounded-lg transition-colors"
         >
-          <li itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
-            <NuxtLink
-              to="/"
-              itemprop="item"
-              class="hover:text-green-600 font-semibold transition-colors"
-            >
-              <span itemprop="name">Beranda</span>
-            </NuxtLink>
-            <meta itemprop="position" content="1" />
-          </li>
-          <li aria-hidden="true">
-            <UIcon name="i-heroicons-chevron-right" class="w-3.5 h-3.5" />
-          </li>
-          <li itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
-            <NuxtLink
-              :to="`/category/${product.category}`"
-              itemprop="item"
-              class="hover:text-green-600 font-semibold transition-colors capitalize"
-            >
-              <span itemprop="name">{{ product.category.replace(/-/g, " ") }}</span>
-            </NuxtLink>
-            <meta itemprop="position" content="2" />
-          </li>
-          <template v-if="product.subcategory">
-            <li aria-hidden="true">
-              <UIcon name="i-heroicons-chevron-right" class="w-3.5 h-3.5" />
-            </li>
-            <li
-              itemprop="itemListElement"
-              itemscope
-              itemtype="https://schema.org/ListItem"
-            >
-              <NuxtLink
-                :to="`/category/${product.subcategory}`"
-                itemprop="item"
-                class="hover:text-green-600 font-semibold transition-colors capitalize"
-              >
-                <span itemprop="name">{{ product.subcategory.replace(/-/g, " ") }}</span>
-              </NuxtLink>
-              <meta itemprop="position" content="3" />
-            </li>
-          </template>
-          <li aria-hidden="true">
-            <UIcon name="i-heroicons-chevron-right" class="w-3.5 h-3.5" />
-          </li>
-          <li>
-            <span
-              class="text-gray-900 font-bold truncate max-w-[220px] block"
-              aria-current="page"
-            >
-              {{ product.title }}
-            </span>
-          </li>
-        </ol>
+          <UIcon name="i-heroicons-magnifying-glass" class="w-4 h-4" />
+          Telusuri Katalog CCTV
+        </NuxtLink>
+      </div>
+    </div>
+
+    <!-- Main Content -->
+    <div v-else class="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8 pt-4 sm:pt-6">
+      <!-- Breadcrumb Bar Amazon/Tokopedia Style -->
+      <nav aria-label="Breadcrumb" class="flex items-center gap-1.5 text-xs text-gray-500 mb-4 overflow-x-auto whitespace-nowrap pb-1">
+        <NuxtLink to="/" class="hover:text-gray-900 transition-colors">Beranda</NuxtLink>
+        <span class="text-gray-300">/</span>
+        <NuxtLink :to="`/category/${product.category}`" class="hover:text-gray-900 capitalize transition-colors">
+          {{ product.category.replace(/-/g, ' ') }}
+        </NuxtLink>
+        <template v-if="product.subcategory">
+          <span class="text-gray-300">/</span>
+          <NuxtLink :to="`/category/${product.subcategory}`" class="hover:text-gray-900 capitalize transition-colors">
+            {{ product.subcategory.replace(/-/g, ' ') }}
+          </NuxtLink>
+        </template>
+        <span class="text-gray-300">/</span>
+        <span class="text-gray-900 font-semibold truncate max-w-[280px] sm:max-w-md">{{ product.title }}</span>
       </nav>
 
-      <!-- ── Konten utama ──────────────────────────────────────── -->
-      <div
-        class="flex flex-col lg:flex-row gap-8 items-start bg-white p-6 rounded-3xl shadow-sm border border-gray-100"
-        itemscope
-        itemtype="https://schema.org/Product"
-      >
-        <!-- Galeri gambar -->
-        <div class="w-full lg:w-[380px] shrink-0 sticky top-24">
-          <div
-            class="rounded-2xl border border-gray-200 overflow-hidden mb-4 relative aspect-square bg-[#f9fafb] cursor-zoom-in group"
-            @mousemove="handleMouseMove"
-            @mouseenter="handleMouseEnter"
-            @mouseleave="handleMouseLeave"
-          >
-            <NuxtImg
-              :src="activeImage"
-              :alt="`Foto ${product.brand} ${product.title}`"
-              class="w-full h-full object-contain p-4 transition-transform duration-200 ease-out will-change-transform"
-              :style="zoomStyle"
-              width="600"
-              height="600"
-              format="webp"
-              sizes="(max-width: 768px) 100vw, 600px"
-              quality="85"
-              loading="eager"
-              fetchpriority="high"
-              itemprop="image"
-            />
+      <!-- 3-Column PDP Grid (Amazon Style: Gallery Left, Info Middle, BuyBox Right) -->
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 items-start">
+        <!-- 1. LEFT: Product Gallery (Desktop: Thumbnails + Viewport) -->
+        <div class="lg:col-span-5 bg-white border border-gray-200 rounded-2xl p-4 sm:p-6 shadow-2xs sticky top-20">
+          <div class="flex flex-col-reverse sm:flex-row gap-3">
+            <!-- Vertical Thumbnails (Amazon standard) -->
             <div
-              class="absolute bottom-3 right-3 bg-black/60 text-white text-[11px] font-bold px-2.5 py-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none flex items-center gap-1.5"
+              v-if="product.images.length > 1"
+              class="flex sm:flex-col gap-2 overflow-x-auto sm:overflow-y-auto max-h-[460px] pb-1 sm:pb-0 shrink-0 select-none"
             >
-              <UIcon name="i-heroicons-magnifying-glass-plus" class="w-4 h-4" /> Zoom
+              <button
+                v-for="(img, idx) in product.images"
+                :key="idx"
+                type="button"
+                :aria-label="`Pilih gambar ${idx + 1}`"
+                class="w-14 h-14 rounded-lg border-2 p-1 bg-white flex items-center justify-center transition-all shrink-0 overflow-hidden"
+                :class="activeImageIndex === idx ? 'border-[#03AC0E] ring-2 ring-[#03AC0E]/20' : 'border-gray-200 hover:border-gray-400'"
+                @mouseenter="activeImageIndex = idx"
+                @click="activeImageIndex = idx"
+              >
+                <img :src="img" :alt="`Thumbnail ${idx + 1}`" class="w-full h-full object-contain" />
+              </button>
+            </div>
+
+            <!-- Main Viewport with Smooth Precision Zoom -->
+            <div
+              class="flex-1 aspect-square bg-[#FAFAFA] rounded-xl border border-gray-200 overflow-hidden relative cursor-crosshair group flex items-center justify-center"
+              @mousemove="handleMouseMove"
+              @mouseenter="handleMouseEnter"
+              @mouseleave="handleMouseLeave"
+            >
+              <img
+                :src="activeImage"
+                :alt="product.title"
+                class="w-full h-full object-contain p-4 transition-transform duration-150 ease-out pointer-events-none"
+                :style="zoomStyle"
+              />
+
+              <!-- Discount / Status Badges -->
+              <div class="absolute top-3 left-3 flex flex-col gap-1.5 pointer-events-none">
+                <span
+                  v-if="product.discountPercentage > 0"
+                  class="bg-[#CC0C39] text-white text-[11px] font-bold px-2 py-0.5 rounded shadow-2xs font-mono"
+                >
+                  -{{ product.discountPercentage }}%
+                </span>
+                <span class="bg-gray-900 text-white text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wider">
+                  Original 100%
+                </span>
+              </div>
+
+              <!-- Zoom prompt hint -->
+              <span class="absolute bottom-3 right-3 bg-black/60 text-white text-[10px] font-semibold px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none flex items-center gap-1">
+                <UIcon name="i-heroicons-magnifying-glass-plus" class="w-3.5 h-3.5" />
+                Hover untuk perbesar
+              </span>
             </div>
           </div>
 
-          <div
-            class="flex gap-3 overflow-x-auto pb-2 custom-scrollbar"
-            role="list"
-            aria-label="Galeri produk"
-          >
-            <button
-              v-for="(img, idx) in product.images"
-              :key="idx"
-              :aria-label="`Lihat gambar ${idx + 1}`"
-              :aria-pressed="activeImage === img"
-              role="listitem"
-              class="w-16 h-16 shrink-0 rounded-xl border-2 overflow-hidden bg-[#f9fafb] transition-all p-1.5"
-              :class="
-                activeImage === img
-                  ? 'border-green-500'
-                  : 'border-transparent hover:border-gray-300'
-              "
-              @click="activeImage = img"
-            >
-              <NuxtImg
-                :src="img"
-                :alt="`${product.title} gambar ${idx + 1}`"
-                class="w-full h-full object-contain rounded-md"
-                width="64"
-                height="64"
-                format="webp"
-                quality="70"
-                loading="lazy"
-              />
-            </button>
+          <!-- Trust Bar Under Gallery -->
+          <div class="grid grid-cols-3 gap-2 mt-5 pt-4 border-t border-gray-100 text-center text-[11px] text-gray-600">
+            <div class="p-2 rounded-lg bg-gray-50 border border-gray-100">
+              <UIcon name="i-heroicons-shield-check" class="w-4 h-4 text-[#03AC0E] mx-auto mb-1" />
+              <span class="font-bold block text-gray-900">Garansi 2 Thn</span>
+              <span>Resmi Distributor</span>
+            </div>
+            <div class="p-2 rounded-lg bg-gray-50 border border-gray-100">
+              <UIcon name="i-heroicons-wrench-screwdriver" class="w-4 h-4 text-blue-600 mx-auto mb-1" />
+              <span class="font-bold block text-gray-900">Siap Pasang</span>
+              <span>Teknisi Bandung</span>
+            </div>
+            <div class="p-2 rounded-lg bg-gray-50 border border-gray-100">
+              <UIcon name="i-heroicons-truck" class="w-4 h-4 text-amber-600 mx-auto mb-1" />
+              <span class="font-bold block text-gray-900">Packing Aman</span>
+              <span>Bubble Wrap Tebal</span>
+            </div>
           </div>
         </div>
 
-        <!-- Info produk -->
-        <div class="flex-1 min-w-0">
-          <p
-            class="sr-only"
-            itemprop="brand"
-            itemscope
-            itemtype="https://schema.org/Brand"
-          >
-            <span itemprop="name">{{ product.brand }}</span>
-          </p>
-          <meta itemprop="sku" :content="product.id" />
-          <meta itemprop="mpn" :content="product.id" />
+        <!-- 2. MIDDLE: Core Product Specs, Price, & Bundling (Amazon/Tokopedia Center Layout) -->
+        <div class="lg:col-span-4 space-y-6">
+          <div class="bg-white border border-gray-200 rounded-2xl p-5 sm:p-6 shadow-2xs space-y-4">
+            <!-- Brand, Type, & Badges with Interactive Navigation Links -->
+            <div class="flex flex-wrap items-center justify-between gap-2">
+              <div class="flex flex-wrap items-center gap-2">
+                <!-- Link Brand -->
+                <NuxtLink
+                  :to="`/brands/${encodeURIComponent(product.brand.toLowerCase())}`"
+                  class="inline-flex items-center gap-1 bg-emerald-50 hover:bg-emerald-100 text-[#03AC0E] border border-emerald-200 text-xs font-bold px-2.5 py-1 rounded-md uppercase tracking-wider transition-colors group cursor-pointer"
+                  :title="`Kunjungi Official Store ${product.brand}`"
+                >
+                  <UIcon name="i-heroicons-check-badge" class="w-4 h-4 text-[#03AC0E]" />
+                  <span>{{ product.brand }} Official</span>
+                  <UIcon name="i-heroicons-arrow-top-right-on-square" class="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" />
+                </NuxtLink>
 
-          <h1
-            class="text-[26px] font-black text-gray-900 leading-snug mb-3"
-            itemprop="name"
-          >
-            {{ product.brand }} {{ product.title }}
-          </h1>
-
-          <div
-            class="flex flex-wrap items-center gap-4 text-sm mb-5 border-b border-gray-100 pb-5"
-          >
-            <span
-              class="bg-gray-100 text-gray-800 px-2.5 py-1 rounded-md text-xs font-black uppercase tracking-wider"
-            >
-              {{ product.brand }}
-            </span>
-            <div
-              class="flex items-center gap-1 text-yellow-400"
-              itemprop="aggregateRating"
-              itemscope
-              itemtype="https://schema.org/AggregateRating"
-            >
-              <UIcon name="i-heroicons-star-solid" class="w-4 h-4" aria-hidden="true" />
-              <span class="font-bold text-gray-700" itemprop="ratingValue">5.0</span>
-              <meta itemprop="reviewCount" :content="String(Math.max(product.sold, 1))" />
-              <meta itemprop="bestRating" content="5" />
-            </div>
-            <div class="w-1 h-1 bg-gray-300 rounded-full" aria-hidden="true" />
-            <span class="text-gray-500">
-              Terjual
-              <span class="text-gray-900 font-bold">{{ product.sold }}</span>
-            </span>
-          </div>
-
-          <!-- Harga -->
-          <div
-            class="mb-8"
-            itemprop="offers"
-            itemscope
-            itemtype="https://schema.org/Offer"
-          >
-            <link itemprop="url" :href="canonicalUrl" />
-            <meta itemprop="priceCurrency" content="IDR" />
-            <meta itemprop="price" :content="String(unitPrice)" />
-            <link
-              itemprop="availability"
-              :href="
-                product.stock > 0
-                  ? 'https://schema.org/InStock'
-                  : 'https://schema.org/OutOfStock'
-              "
-            />
-            <div
-              v-if="product.discountPercentage > 0"
-              class="flex items-center gap-2.5 mb-1.5"
-            >
-              <span
-                class="bg-red-100 text-red-600 text-xs font-black px-2 py-0.5 rounded-md"
-              >
-                Diskon {{ product.discountPercentage }}%
-              </span>
-              <span class="text-sm font-semibold text-gray-400 line-through">
-                {{ formatPrice(product.originalPrice) }}
-              </span>
-            </div>
-            <p
-              class="text-4xl font-black tracking-tight"
-              :class="product.discountPercentage > 0 ? 'text-red-600' : 'text-gray-900'"
-            >
-              {{ formatPrice(unitPrice) }}
-            </p>
-          </div>
-
-
-
-          <!-- ── Dynamic Addons ────────────────────────────────── -->
-          <div v-if="addonResponse?.data?.length" class="mb-10 border-t border-gray-100 pt-6">
-            <!-- Section Header -->
-            <div class="flex items-center justify-between mb-4">
-              <div class="flex items-center gap-2.5">
-                <span class="w-1 h-5 rounded-full bg-[#03AC0E] shrink-0" aria-hidden="true" />
-                <div>
-                  <h2 class="text-[15px] font-black text-gray-900 leading-none">Layanan Tambahan</h2>
-                  <p class="text-[11px] text-gray-400 font-medium mt-0.5">
-                    Pilih layanan sesuai kebutuhan Anda
-                  </p>
-                </div>
+                <!-- Link Jenis / Type Produk -->
+                <NuxtLink
+                  :to="`/search?type=${encodeURIComponent(product.type)}`"
+                  class="inline-flex items-center gap-1 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold px-2.5 py-1 rounded-md capitalize transition-colors"
+                  :title="`Lihat semua kategori ${product.type}`"
+                >
+                  <UIcon name="i-heroicons-tag" class="w-3.5 h-3.5 text-gray-500" />
+                  <span>{{ product.type }}</span>
+                </NuxtLink>
               </div>
-              <span class="text-[10px] font-bold text-gray-400 bg-gray-50 border border-gray-100 px-2 py-1 rounded-lg">
-                {{ addonResponse.data.length }} paket
-              </span>
+
+              <span class="text-xs text-gray-400 font-mono">SKU: {{ product.id.slice(0, 8) }}</span>
             </div>
 
-            <AddonPicker
-              v-model="selectedAddons"
-              :bundle="addonResponse.data"
-              variant="chips"
-            />
+            <!-- Title -->
+            <h1 class="text-lg sm:text-xl font-extrabold text-gray-900 leading-snug">
+              {{ product.title }}
+            </h1>
+
+            <!-- Rating & Sold Stats -->
+            <div class="flex items-center gap-3 text-xs text-gray-500 pb-3 border-b border-gray-100">
+              <div class="flex items-center gap-1 text-amber-500 font-bold">
+                <UIcon name="i-heroicons-star-solid" class="w-4 h-4" />
+                <span>4.9</span>
+              </div>
+              <span class="text-gray-300">•</span>
+              <span>Terjual <strong class="text-gray-900">{{ product.sold }}</strong> unit</span>
+              <span class="text-gray-300">•</span>
+              <span class="text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded font-semibold">Stok Ready ({{ product.stock }})</span>
+            </div>
+
+            <!-- Price Structure (Amazon Style Price Box) -->
+            <div class="p-3.5 bg-gray-50 rounded-xl border border-gray-150 space-y-1">
+              <div v-if="product.discountPercentage > 0" class="flex items-center gap-2">
+                <span class="text-xs text-gray-400 line-through font-mono">
+                  {{ formatPrice(product.originalPrice) }}
+                </span>
+                <span class="text-xs font-bold text-[#CC0C39] bg-[#FFEAEA] px-2 py-0.5 rounded font-mono">
+                  Hemat {{ product.discountPercentage }}%
+                </span>
+              </div>
+              <div class="text-2xl sm:text-3xl font-black text-[#CC0C39] font-mono tracking-tight">
+                {{ formatPrice(unitPrice) }}
+              </div>
+              <p class="text-[11px] text-gray-500 pt-1">
+                Harga termasuk PPN. Belum termasuk ongkos pasang di luar paket bundling.
+              </p>
+            </div>
+
+            <!-- Addon Picker / Bundling Services -->
+            <div v-if="addonResponse?.data?.length" class="pt-2">
+              <div class="flex items-center justify-between mb-3">
+                <label class="text-xs font-bold text-gray-900 flex items-center gap-1.5">
+                  <span class="w-1.5 h-4 bg-[#03AC0E] rounded-full" />
+                  Paket Tambahan & Instalasi
+                </label>
+                <span class="text-[11px] text-gray-400 font-medium">Opsional</span>
+              </div>
+              <AddonPicker
+                v-model="selectedAddons"
+                :bundle="addonResponse.data"
+                variant="chips"
+              />
+            </div>
           </div>
 
-          <!-- Spesifikasi & Deskripsi -->
-          <div>
-            <h2
-              class="pb-2 border-b-2 border-green-500 text-gray-900 font-bold text-sm tracking-wide inline-block mb-5"
-            >
-              Spesifikasi &amp; Deskripsi
-            </h2>
-            <div class="text-sm text-gray-700 leading-relaxed">
-              <div
-                v-if="product.specs && Object.keys(product.specs).length > 0"
-                class="mb-6 border border-gray-100 rounded-xl overflow-hidden"
+          <!-- Tab Nav (Spesifikasi, Deskripsi, Garansi) -->
+          <div class="bg-white border border-gray-200 rounded-2xl shadow-2xs overflow-hidden">
+            <div class="flex border-b border-gray-200 bg-gray-50/70 text-xs font-bold">
+              <button
+                type="button"
+                class="flex-1 py-3 px-4 text-center transition-colors border-b-2"
+                :class="activeTab === 'spesifikasi' ? 'border-[#03AC0E] text-[#03AC0E] bg-white' : 'border-transparent text-gray-600 hover:text-gray-900'"
+                @click="activeTab = 'spesifikasi'"
               >
-                <table class="w-full text-left text-sm">
-                  <caption class="sr-only">
-                    Spesifikasi
-                    {{
-                      product.brand
-                    }}
-                    {{
-                      product.title
-                    }}
-                  </caption>
+                Spesifikasi Teknis
+              </button>
+              <button
+                type="button"
+                class="flex-1 py-3 px-4 text-center transition-colors border-b-2"
+                :class="activeTab === 'deskripsi' ? 'border-[#03AC0E] text-[#03AC0E] bg-white' : 'border-transparent text-gray-600 hover:text-gray-900'"
+                @click="activeTab = 'deskripsi'"
+              >
+                Deskripsi
+              </button>
+              <button
+                type="button"
+                class="flex-1 py-3 px-4 text-center transition-colors border-b-2"
+                :class="activeTab === 'garansi' ? 'border-[#03AC0E] text-[#03AC0E] bg-white' : 'border-transparent text-gray-600 hover:text-gray-900'"
+                @click="activeTab = 'garansi'"
+              >
+                Garansi & Layanan
+              </button>
+            </div>
+
+            <div class="p-5">
+              <!-- Tab 1: Spesifikasi Teknis Table (Clean Tokopedia Zebra) -->
+              <div v-if="activeTab === 'spesifikasi'" class="space-y-3">
+                <table class="w-full text-xs border border-gray-150 rounded-lg overflow-hidden">
                   <tbody>
-                    <tr class="border-b border-gray-100 bg-gray-50/50">
-                      <th
-                        scope="row"
-                        class="py-2.5 px-4 text-gray-500 font-semibold w-1/3"
-                      >
-                        Kategori
-                      </th>
-                      <td class="py-2.5 px-4 font-bold text-gray-900 capitalize">
-                        {{ product.category.replace(/-/g, " ") }}
+                    <tr class="border-b border-gray-150 bg-gray-50/70">
+                      <th class="py-2.5 px-3.5 text-gray-500 font-medium w-1/3 text-left">Brand</th>
+                      <td class="py-2.5 px-3.5 font-bold text-[#03AC0E] hover:underline text-left">
+                        <NuxtLink :to="`/brands/${encodeURIComponent(product.brand.toLowerCase())}`">
+                          {{ product.brand }}
+                        </NuxtLink>
                       </td>
                     </tr>
-                    <tr v-if="product.weight" class="border-b border-gray-100">
-                      <th
-                        scope="row"
-                        class="py-2.5 px-4 text-gray-500 font-semibold w-1/3"
-                      >
-                        Berat
-                      </th>
-                      <td class="py-2.5 px-4 font-bold text-gray-900">
-                        {{ formatWeight(product.weight) }}
+                    <tr class="border-b border-gray-150 bg-white">
+                      <th class="py-2.5 px-3.5 text-gray-500 font-medium text-left">Kategori</th>
+                      <td class="py-2.5 px-3.5 font-bold text-[#03AC0E] hover:underline capitalize text-left">
+                        <NuxtLink :to="`/category/${product.category}`">
+                          {{ product.category.replace(/-/g, ' ') }}
+                        </NuxtLink>
                       </td>
+                    </tr>
+                    <tr class="border-b border-gray-150 bg-gray-50/70">
+                      <th class="py-2.5 px-3.5 text-gray-500 font-medium text-left">Tipe / Jenis</th>
+                      <td class="py-2.5 px-3.5 font-bold text-[#03AC0E] hover:underline capitalize text-left">
+                        <NuxtLink :to="`/search?type=${encodeURIComponent(product.type)}`">
+                          {{ product.type }}
+                        </NuxtLink>
+                      </td>
+                    </tr>
+                    <tr class="border-b border-gray-150 bg-gray-50/70">
+                      <th class="py-2.5 px-3.5 text-gray-500 font-medium text-left">Berat Pengiriman</th>
+                      <td class="py-2.5 px-3.5 font-bold text-gray-900 text-left">{{ formatWeight(product.weight) }}</td>
                     </tr>
                     <tr
-                      v-for="(val, key) in product.specs"
+                      v-for="(val, key, i) in product.specs"
                       :key="key"
-                      class="border-b border-gray-100 last:border-0 hover:bg-gray-50/50 transition-colors"
-                      itemprop="additionalProperty"
-                      itemscope
-                      itemtype="https://schema.org/PropertyValue"
+                      class="border-b border-gray-150 last:border-0"
+                      :class="i % 2 === 0 ? 'bg-white' : 'bg-gray-50/70'"
                     >
-                      <th
-                        scope="row"
-                        class="py-2.5 px-4 text-gray-500 font-semibold w-1/3 capitalize font-normal"
-                        itemprop="name"
-                      >
-                        {{ String(key).replace(/_/g, " ") }}
+                      <th class="py-2.5 px-3.5 text-gray-500 font-medium capitalize text-left">
+                        {{ String(key).replace(/_/g, ' ') }}
                       </th>
-                      <td
-                        class="py-2.5 px-4 font-bold text-gray-900 capitalize"
-                        itemprop="value"
-                      >
-                        {{ val }}
-                      </td>
+                      <td class="py-2.5 px-3.5 font-bold text-gray-900 text-left">{{ val }}</td>
                     </tr>
                   </tbody>
                 </table>
               </div>
-              <div
-                class="whitespace-pre-line text-gray-600 text-[15px]"
-                itemprop="description"
-              >
+
+              <!-- Tab 2: Deskripsi -->
+              <div v-else-if="activeTab === 'deskripsi'" class="text-xs sm:text-sm text-gray-700 leading-relaxed whitespace-pre-line">
                 {{ product.description }}
+              </div>
+
+              <!-- Tab 3: Garansi -->
+              <div v-else-if="activeTab === 'garansi'" class="space-y-3 text-xs text-gray-700">
+                <div class="flex items-start gap-3 p-3 bg-emerald-50 rounded-xl border border-emerald-100">
+                  <UIcon name="i-heroicons-shield-check" class="w-5 h-5 text-[#03AC0E] shrink-0 mt-0.5" />
+                  <div>
+                    <h4 class="font-bold text-gray-900">Garansi Toko & Pabrikan</h4>
+                    <p class="text-gray-600 mt-0.5">Penggantian unit baru bila cacat produksi dalam 7 hari pertama, dilanjutkan garansi service 12-24 bulan.</p>
+                  </div>
+                </div>
+                <div class="flex items-start gap-3 p-3 bg-blue-50 rounded-xl border border-blue-100">
+                  <UIcon name="i-heroicons-map-pin" class="w-5 h-5 text-blue-600 shrink-0 mt-0.5" />
+                  <div>
+                    <h4 class="font-bold text-gray-900">Jangkauan Teknisi Lokal</h4>
+                    <p class="text-gray-600 mt-0.5">Melayani kunjungan survey, instalasi, dan maintenance untuk Kota Bandung, Cimahi, dan sekitarnya.</p>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
         </div>
 
-        <!-- ── Sidebar keranjang ─────────────────────────────────── -->
-        <div class="w-full lg:w-[320px] shrink-0">
-          <div
-            class="sticky top-24 border border-gray-200 rounded-2xl p-5 shadow-sm bg-white"
-          >
-            <h2 class="font-bold text-gray-900 mb-4 text-base">Atur Jumlah</h2>
+        <!-- 3. RIGHT: Amazon Sticky Buy Box (Desktop Only) -->
+        <div class="hidden lg:block lg:col-span-3 sticky top-20 space-y-4">
+          <div class="bg-white border-2 border-gray-200 rounded-2xl p-5 shadow-xs space-y-4">
+            <h3 class="text-sm font-bold text-gray-900 border-b border-gray-100 pb-2.5">
+              Atur Pembelian
+            </h3>
 
-            <div class="flex items-center gap-3 mb-5">
-              <div class="flex items-center border-2 border-gray-200 rounded-xl p-1">
+            <!-- Quantity Counter -->
+            <div class="flex items-center justify-between gap-2">
+              <span class="text-xs font-semibold text-gray-600">Jumlah</span>
+              <div class="flex items-center border border-gray-300 rounded-lg overflow-hidden bg-gray-50">
                 <button
+                  type="button"
                   :disabled="quantity <= 1"
-                  aria-label="Kurangi jumlah"
-                  class="w-8 h-8 flex items-center justify-center font-black text-gray-600 hover:bg-gray-100 rounded-lg disabled:opacity-30"
+                  class="w-8 h-8 flex items-center justify-center font-bold text-gray-700 hover:bg-gray-200 disabled:opacity-30 disabled:cursor-not-allowed"
                   @click="quantity > 1 && quantity--"
                 >
                   −
@@ -807,134 +605,131 @@ function openChat() {
                   type="number"
                   :min="1"
                   :max="product.stock"
-                  aria-label="Jumlah produk"
-                  class="w-12 text-center text-sm font-bold outline-none border-none focus:ring-0"
+                  class="w-10 text-center text-xs font-bold bg-white outline-none border-none py-1"
                 />
                 <button
+                  type="button"
                   :disabled="quantity >= product.stock"
-                  aria-label="Tambah jumlah"
-                  class="w-8 h-8 flex items-center justify-center font-black text-green-600 hover:bg-green-50 rounded-lg disabled:opacity-30"
+                  class="w-8 h-8 flex items-center justify-center font-bold text-gray-700 hover:bg-gray-200 disabled:opacity-30 disabled:cursor-not-allowed"
                   @click="quantity < product.stock && quantity++"
                 >
                   +
                 </button>
               </div>
-              <p class="text-[13px] text-gray-500 font-medium">
-                Stok:
-                <span v-if="product.stock > 0" class="font-black text-gray-900">
-                  {{ product.stock }}
-                </span>
-                <span
-                  v-else
-                  class="font-black text-red-600 bg-red-50 px-2 py-0.5 rounded"
-                >
-                  Habis
-                </span>
-              </p>
             </div>
 
-            <div
-              class="flex justify-between items-center mb-6 pt-4 border-t border-gray-100"
-            >
-              <span class="text-gray-500 text-sm font-bold">Subtotal</span>
-              <span class="text-xl font-black text-gray-900">
+            <!-- Subtotal Box -->
+            <div class="pt-3 border-t border-gray-100 flex items-baseline justify-between">
+              <span class="text-xs text-gray-500 font-medium">Total Harga</span>
+              <span class="text-lg font-black text-gray-900 font-mono">
                 {{ formatPrice(totalPrice) }}
               </span>
             </div>
 
-            <div class="space-y-3 mb-6">
+            <!-- Action Buttons (Tokopedia Green #03AC0E + Tokopedia Secondary) -->
+            <div class="space-y-2.5 pt-1">
+              <!-- Tombol + Keranjang (Menggunakan Komponen Standar AddChartButton) -->
               <AddChartButton
                 v-if="cartItem"
                 :product="cartItem"
-                class="w-full"
+                class="w-full !bg-[#03AC0E] hover:!bg-[#028b0b] !text-white !border-[#03AC0E]"
                 :disabled="product.stock === 0"
               />
+
+              <!-- Tombol Beli Langsung (Outline Hijau Tebal Tokopedia) -->
               <button
+                type="button"
                 :disabled="product.stock === 0"
-                class="w-full border border-black text-white bg-black font-bold py-3 rounded-xl hover:bg-gray-800 transition-all text-sm disabled:bg-gray-200 disabled:text-gray-400 disabled:border-gray-200 disabled:cursor-not-allowed"
+                class="w-full bg-white hover:bg-emerald-50 active:bg-emerald-100 border-2 border-[#03AC0E] text-[#03AC0E] font-extrabold py-2.5 px-4 rounded-xl text-xs sm:text-sm uppercase tracking-wider transition-all shadow-2xs disabled:border-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                 @click="beliLangsung"
               >
+                <UIcon name="i-heroicons-bolt" class="w-4 h-4 text-[#03AC0E]" />
                 Beli Langsung
               </button>
             </div>
 
-            <div
-              class="flex justify-around pt-4 text-xs font-bold text-gray-500 border-t border-gray-100"
-            >
+            <!-- Quick Features -->
+            <div class="pt-3 border-t border-gray-100 flex justify-between text-xs font-bold text-gray-600">
               <button
-                class="flex flex-col items-center gap-1.5 hover:text-green-600 transition-colors group"
-                aria-label="Chat dengan penjual tentang produk ini"
+                type="button"
+                class="flex items-center gap-1 hover:text-[#03AC0E] transition-colors"
                 @click="openChat"
               >
-                <div class="relative">
-                  <UIcon
-                    name="i-heroicons-chat-bubble-left-ellipsis"
-                    class="w-5 h-5"
-                    aria-hidden="true"
-                  />
-                  <span
-                    v-if="pesanStore.unreadCount > 0"
-                    class="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full border border-white"
-                  />
-                </div>
+                <UIcon name="i-heroicons-chat-bubble-left-ellipsis" class="w-4 h-4" />
                 Chat
               </button>
-
               <button
-                class="flex flex-col items-center gap-1.5 transition-colors"
+                type="button"
+                class="flex items-center gap-1 transition-colors"
                 :class="isWishlisted ? 'text-red-600' : 'hover:text-red-600'"
-                :aria-label="isWishlisted ? 'Hapus dari wishlist' : 'Tambah ke wishlist'"
                 @click="toggleWishlist"
               >
-                <UIcon
-                  :name="isWishlisted ? 'i-heroicons-heart-solid' : 'i-heroicons-heart'"
-                  class="w-5 h-5"
-                  aria-hidden="true"
-                />
-                Wishlist
+                <UIcon :name="isWishlisted ? 'i-heroicons-heart-solid' : 'i-heroicons-heart'" class="w-4 h-4" />
+                Favorit
               </button>
-
               <button
-                class="flex flex-col items-center gap-1.5 hover:text-blue-600 transition-colors"
-                aria-label="Bagikan produk"
-                @click="handleShare"
-              >
-                <UIcon name="i-heroicons-share" class="w-5 h-5" aria-hidden="true" />
-                Share
-              </button>
-
-              <button
-                class="flex flex-col items-center gap-1.5 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                :class="isCompare ? 'text-green-600' : 'hover:text-green-600'"
-                :aria-label="isCompare ? 'Hapus dari perbandingan' : 'Bandingkan produk'"
-                :disabled="compareStore.isFull && !isCompare"
+                type="button"
+                class="flex items-center gap-1 transition-colors"
+                :class="isCompare ? 'text-[#03AC0E]' : 'hover:text-[#03AC0E]'"
                 @click="toggleCompare"
               >
-                <UIcon
-                  name="i-heroicons-arrows-right-left"
-                  class="w-5 h-5"
-                  aria-hidden="true"
-                />
-                Compare
+                <UIcon name="i-heroicons-arrows-right-left" class="w-4 h-4" />
+                Bandingkan
               </button>
             </div>
           </div>
         </div>
       </div>
 
-      <!-- Rekomendasi -->
-      <section class="mt-12" aria-label="Produk serupa">
+      <!-- Rekomendasi Produk -->
+      <section class="mt-12" aria-label="Rekomendasi Terkait">
         <ProductRecommendation :items="recommendations" />
       </section>
     </div>
+
+    <!-- 4. MOBILE: Floating Bottom Action Bar (Tokopedia Style) -->
+    <aside aria-label="Menu Pesan Cepat" class="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-gray-200 p-3 px-4 shadow-lg flex items-center justify-between gap-3">
+      <div class="flex items-center gap-3">
+        <button
+          type="button"
+          aria-label="Konsultasi Produk"
+          class="w-10 h-10 border border-gray-300 rounded-xl flex items-center justify-center text-gray-600 active:bg-gray-100"
+          @click="openChat"
+        >
+          <UIcon name="i-heroicons-chat-bubble-left-ellipsis" class="w-5 h-5" />
+        </button>
+        <button
+          type="button"
+          aria-label="Simpan ke Favorit"
+          class="w-10 h-10 border border-gray-300 rounded-xl flex items-center justify-center text-gray-600 active:bg-gray-100"
+          :class="isWishlisted ? 'text-red-600 border-red-200 bg-red-50' : ''"
+          @click="toggleWishlist"
+        >
+          <UIcon :name="isWishlisted ? 'i-heroicons-heart-solid' : 'i-heroicons-heart'" class="w-5 h-5" />
+        </button>
+      </div>
+
+      <div class="flex-1 flex items-center gap-2 max-w-[280px]">
+        <AddChartButton
+          v-if="cartItem"
+          :product="cartItem"
+          class="flex-1 !bg-[#03AC0E] hover:!bg-[#028b0b] !text-white !border-[#03AC0E] !py-2"
+          :disabled="product?.stock === 0"
+        />
+        <button
+          type="button"
+          :disabled="product?.stock === 0"
+          class="flex-1 bg-white border-2 border-[#03AC0E] text-[#03AC0E] font-black py-2 px-2.5 rounded-xl text-xs uppercase tracking-wider active:bg-emerald-50 disabled:border-gray-200 disabled:text-gray-400"
+          @click="beliLangsung"
+        >
+          Beli
+        </button>
+      </div>
+    </aside>
   </main>
 </template>
 
 <style scoped>
-.font-jakarta {
-  font-family: "Plus Jakarta Sans", sans-serif;
-}
-
 input::-webkit-outer-spin-button,
 input::-webkit-inner-spin-button {
   -webkit-appearance: none;
@@ -943,16 +738,5 @@ input::-webkit-inner-spin-button {
 input[type="number"] {
   appearance: textfield;
   -moz-appearance: textfield;
-}
-
-.custom-scrollbar::-webkit-scrollbar {
-  height: 6px;
-}
-.custom-scrollbar::-webkit-scrollbar-track {
-  background: transparent;
-}
-.custom-scrollbar::-webkit-scrollbar-thumb {
-  background-color: #e5e7eb;
-  border-radius: 10px;
 }
 </style>

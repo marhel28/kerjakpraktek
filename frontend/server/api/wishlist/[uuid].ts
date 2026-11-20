@@ -5,6 +5,9 @@ import {
   createError,
 } from "h3"
 
+// Shared cache dengan index.ts
+const cache = (globalThis as any).__wishlistCache ??= new Map<string, { data: any; expire: number }>()
+
 export default defineEventHandler(async (event) => {
   const method = event.node.req.method
   const config = useRuntimeConfig()
@@ -45,6 +48,9 @@ export default defineEventHandler(async (event) => {
           timeout: 10000,
         }
       )
+
+      // Invalidate wishlist GET cache agar item tidak muncul lagi
+      cache.delete(`wishlist:${token}`)
 
       return result
     } catch (error: any) {

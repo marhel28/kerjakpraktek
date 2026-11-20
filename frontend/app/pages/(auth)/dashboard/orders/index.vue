@@ -3,6 +3,7 @@ import { ref, watch, onMounted } from "vue";
 
 definePageMeta({ layout: "auth" });
 const config = useRuntimeConfig();
+const toast = useToast();
 const API_BASE = `${config.public.apiBase}/transaksi`;
 const getToken = () => useCookie("token").value;
 
@@ -68,21 +69,8 @@ const formatDate = (dateString: string) => {
   return new Intl.DateTimeFormat("id-ID", { day: "2-digit", month: "short", year: "numeric" }).format(new Date(dateString));
 };
 
-const getStatusConfig = (trx: any) => {
-  const tStatus = (trx.transaction_status || "").toLowerCase();
-  const sStatus = (trx.shipment?.delivery_status || "").toLowerCase();
-  const hasWaybill = !!trx.shipment?.waybill_number;
-
-  if (["expire", "cancel", "deny"].includes(tStatus)) return { text: "Dibatalkan", color: "bg-red-50 text-red-600 border-red-100" };
-  if (["pending", "pending_payment"].includes(tStatus)) return { text: "Menunggu Pembayaran", color: "bg-amber-50 text-amber-600 border-amber-100" };
-  
-  if (["settlement", "success", "capture"].includes(tStatus)) {
-    if (["delivered", "completed"].includes(sStatus)) return { text: "Selesai", color: "bg-emerald-50 text-emerald-600 border-emerald-100" };
-    if (sStatus === "shipped" || hasWaybill) return { text: "Dikirim", color: "bg-blue-50 text-blue-600 border-blue-100" };
-    return { text: "Diproses", color: "bg-green-50 text-green-600 border-green-100" };
-  }
-  return { text: trx.transaction_status || "Proses", color: "bg-gray-50 text-gray-500 border-gray-100" };
-};
+import { useOrderStatus } from "~/composables/useOrderStatus";
+const { getOrderStatus } = useOrderStatus();
 
 const confirmModal = ref({
   show: false,
@@ -118,10 +106,10 @@ const executeConfirmDelivery = async () => {
         orderId: orderId,
       };
     } else {
-      alert(response.message || "Gagal mengonfirmasi penerimaan barang.");
+      toast.add({ title: "Gagal Konfirmasi", description: response.message || "Gagal mengonfirmasi penerimaan barang.", color: "error" });
     }
   } catch (err: any) {
-    alert(err?.data?.detail || "Gagal mengonfirmasi penerimaan barang.");
+    toast.add({ title: "Gagal Konfirmasi", description: err?.data?.detail || "Gagal mengonfirmasi penerimaan barang.", color: "error" });
   } finally {
     confirmModal.value.loading = false;
   }
@@ -144,7 +132,7 @@ onMounted(() => {
       <button @click="$router.push('/dashboard')" class="p-1 -ml-1 text-gray-400 hover:text-gray-900 transition-colors">
         <UIcon name="i-heroicons-arrow-left" class="w-5 h-5" />
       </button>
-      <h1 class="text-base font-black text-gray-900 uppercase tracking-wider">Pesanan Saya</h1>
+      <h1 class="text-base font-bold text-gray-900">Pesanan Saya</h1>
     </div>
 
     <!-- DESKTOP HEADER (Tokopedia Style) -->
@@ -180,10 +168,14 @@ onMounted(() => {
           <div v-for="i in 3" :key="i" class="h-40 bg-gray-50 rounded-xl animate-pulse"></div>
         </div>
 
-        <div v-else-if="!transactions.length" class="py-24 text-center border-2 border-dashed border-gray-100 rounded-xl">
-          <UIcon name="i-heroicons-shopping-cart" class="w-12 h-12 text-gray-200 mx-auto mb-4" />
-          <p class="text-sm font-bold text-gray-400">Belum ada transaksi.</p>
-        </div>
+        <DashboardEmptyState
+          v-else-if="!transactions.length"
+          icon="i-heroicons-shopping-bag"
+          title="Belum Ada Transaksi"
+          description="Riwayat belanja perangkat keamanan Anda akan tampil di sini."
+          cta-label="Mulai Belanja"
+          cta-to="/search"
+        />
 
         <div v-else class="space-y-4">
           <div v-for="trx in transactions" :key="trx.uuid" 
@@ -194,11 +186,11 @@ onMounted(() => {
               <div class="flex flex-wrap items-center gap-2 sm:gap-4">
                 <div class="flex items-center gap-2">
                   <UIcon name="i-heroicons-shopping-bag" class="w-4 h-4 text-[#03AC0E]" />
-                  <span class="text-[11px] font-black text-gray-900 uppercase tracking-tight">Belanja</span>
+                  <span class="text-[11px] font-bold text-gray-900">Belanja</span>
                 </div>
-                <span class="text-[11px] text-gray-400 font-bold uppercase">{{ formatDate(trx.created_at) }}</span>
-                <div :class="getStatusConfig(trx).color" class="px-2 py-0.5 rounded-lg text-[10px] font-black border uppercase tracking-wider">
-                  {{ getStatusConfig(trx).text }}
+                <span class="text-[11px] text-gray-500 font-medium">{{ formatDate(trx.created_at) }}</span>
+                <div :class="getOrderStatus(trx.transaction_status, trx.shipment?.delivery_status, !!trx.shipment?.waybill_number).badge" class="px-2 py-0.5 rounded-lg text-[10px] font-bold border uppercase tracking-wider">
+                  {{ getOrderStatus(trx.transaction_status, trx.shipment?.delivery_status, !!trx.shipment?.waybill_number).label }}
                 </div>
                 <span class="text-[11px] font-mono font-bold text-gray-300">#{{ trx.order_id }}</span>
               </div>
@@ -227,8 +219,8 @@ onMounted(() => {
               <!-- Price Info -->
               <div class="sm:text-right sm:border-l sm:border-gray-50 sm:pl-8 flex flex-row sm:flex-col items-center sm:items-end justify-between sm:justify-center gap-2">
                 <div>
-                  <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-0.5">Total Belanja</p>
-                  <p class="text-base font-black text-gray-900 tracking-tight">{{ formatRupiah(trx.gross_amount) }}</p>
+                  <p class="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-0.5">Total Belanja</p>
+                  <p class="text-base font-bold text-gray-900 tracking-tight">{{ formatRupiah(trx.gross_amount) }}</p>
                 </div>
               </div>
             </div>
@@ -239,7 +231,7 @@ onMounted(() => {
                 Lihat Detail
               </NuxtLink>
               
-              <button v-if="getStatusConfig(trx).text === 'Dikirim' && trx.trx_type !== 'jasa'"
+              <button v-if="getOrderStatus(trx.transaction_status, trx.shipment?.delivery_status, !!trx.shipment?.waybill_number).label === 'Dikirim' && trx.trx_type !== 'jasa'"
                 @click="confirmDelivery(trx.order_id)" :disabled="confirmModal.loading"
                 class="px-6 py-2 bg-[#03AC0E] text-white text-xs font-black rounded-xl hover:bg-[#028a0b] transition-all active:scale-95 disabled:opacity-50 shadow-sm flex items-center gap-1.5"
               >
@@ -248,7 +240,7 @@ onMounted(() => {
                 Barang Sudah Sampai
               </button>
               
-              <button v-if="(trx.transaction_status === 'settlement' || trx.transaction_status === 'success') && getStatusConfig(trx).text !== 'Dikirim'" 
+              <button v-if="(trx.transaction_status === 'settlement' || trx.transaction_status === 'success') && getOrderStatus(trx.transaction_status, trx.shipment?.delivery_status, !!trx.shipment?.waybill_number).label !== 'Dikirim'" 
                 @click="navigateTo(`/product/${trx.items?.[0]?.stock_uuid}`)"
                 class="px-6 py-2 border-2 border-[#03AC0E] text-[#03AC0E] text-xs font-black rounded-xl hover:bg-[#03AC0E] hover:text-white transition-all active:scale-95 shadow-sm"
               >
@@ -267,78 +259,18 @@ onMounted(() => {
       </main>
     </div>
 
-    <!-- ── MODAL KONFIRMASI (CONFIRM DELIVERY) ── -->
-    <Teleport to="body">
-      <Transition name="modal-scale">
-        <div v-if="confirmModal.show" class="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <!-- Backdrop -->
-          <div class="absolute inset-0 bg-gray-900/60 backdrop-blur-sm" @click="confirmModal.show = false"></div>
-          
-          <!-- Card -->
-          <div class="relative bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden p-6 flex flex-col items-center text-center z-10 border border-gray-100">
-            <!-- Icon -->
-            <div class="w-16 h-16 rounded-full bg-emerald-50 flex items-center justify-center text-[#03AC0E] mb-4 ring-8 ring-emerald-50/50">
-              <UIcon name="i-heroicons-question-mark-circle" class="w-10 h-10" />
-            </div>
-            
-            <h3 class="text-base font-black text-gray-900 mb-2">Konfirmasi Barang Sampai</h3>
-            <p class="text-xs text-gray-500 font-bold uppercase tracking-wider mb-6 leading-relaxed">
-              Apakah Anda yakin barang pesanan dengan ID<br/>
-              <span class="font-mono text-gray-900 font-black tracking-tight text-xs bg-gray-100 px-2 py-1 rounded">{{ confirmModal.orderId }}</span><br/>
-              sudah sampai dan diterima dengan baik?
-            </p>
-            
-            <div class="flex gap-3 w-full">
-              <button 
-                @click="confirmModal.show = false" 
-                class="flex-1 py-3 text-xs font-bold text-gray-500 bg-gray-50 border border-gray-200 rounded-xl hover:bg-gray-100 hover:text-gray-700 transition-all uppercase tracking-widest"
-              >
-                Batal
-              </button>
-              <button 
-                @click="executeConfirmDelivery" 
-                :disabled="confirmModal.loading"
-                class="flex-1 py-3 text-xs font-black text-white bg-[#03AC0E] rounded-xl hover:bg-[#028a0b] transition-all flex items-center justify-center gap-2 shadow-lg shadow-[#03AC0E]/20 disabled:opacity-50 uppercase tracking-widest"
-              >
-                <UIcon v-if="confirmModal.loading" name="i-heroicons-arrow-path" class="w-4 h-4 animate-spin" />
-                <span v-else>Ya, Sampai</span>
-              </button>
-            </div>
-          </div>
-        </div>
-      </Transition>
-    </Teleport>
-
-    <!-- ── MODAL SUKSES (ORDER COMPLETED) ── -->
-    <Teleport to="body">
-      <Transition name="modal-scale">
-        <div v-if="successModal.show" class="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <!-- Backdrop -->
-          <div class="absolute inset-0 bg-gray-900/60 backdrop-blur-sm" @click="closeSuccessModal"></div>
-          
-          <!-- Card -->
-          <div class="relative bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden p-6 flex flex-col items-center text-center z-10 border border-gray-100 animate-bounce-short">
-            <!-- Animated Success Checkmark -->
-            <div class="w-20 h-20 rounded-full bg-emerald-100 flex items-center justify-center text-[#03AC0E] mb-6 ring-8 ring-emerald-50">
-              <UIcon name="i-heroicons-check-circle" class="w-12 h-12 animate-pulse" />
-            </div>
-            
-            <h3 class="text-lg font-black text-gray-900 mb-2">Pesanan Selesai! 🎉</h3>
-            <p class="text-xs text-gray-500 font-semibold mb-6 leading-relaxed">
-              Terima kasih telah berbelanja di PasarCctv. Semoga produk kami dapat memenuhi kebutuhan keamanan Anda.
-            </p>
-            
-            <button 
-              @click="closeSuccessModal" 
-              class="w-full py-3 text-xs font-black text-white bg-gray-900 rounded-xl hover:bg-black transition-all uppercase tracking-widest shadow-lg shadow-gray-900/20"
-            >
-              Selesai
-            </button>
-          </div>
-        </div>
-      </Transition>
-    </Teleport>
-
+    <!-- ── MODAL KONFIRMASI & SUKSES ── -->
+    <DashboardConfirmDeliveryModal
+      :show="confirmModal.show"
+      :order-id="confirmModal.orderId"
+      :loading="confirmModal.loading"
+      @confirm="executeConfirmDelivery"
+      @close="confirmModal.show = false"
+    />
+    <DashboardSuccessDeliveryModal
+      :show="successModal.show"
+      @close="closeSuccessModal"
+    />
   </div>
 </template>
 

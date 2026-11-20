@@ -256,36 +256,29 @@ export const useNotificationStore = defineStore('notifications', () => {
     }
   }
 
-  // ─── Initialize ──────────────────────────────────────
+// ─── Initialize ──────────────────────────────────────
 
   const init = async () => {
-    // Cegah double init
+    // Cegah double init - SILENT guard
     if (isInitialized) {
-      console.log('⚠️ [Store] Already initialized, skipping')
       return
     }
-    
-    console.log('🚀 [Store] Initializing...')
-    
+
     // Pastikan session Supabase client aktif sebelum fetch
     const { data: sessionData } = await supabase.auth.getSession()
     if (!sessionData.session) {
-      console.log('🔄 [Store] Supabase client session not found, restoring...')
       await setSupabaseSession()
       await nextTick()
     }
-    
+
     const userId = getUserId()
     if (!userId) {
-      console.log('⏳ [Store] Waiting for authentication...')
       return
     }
-    
+
     isInitialized = true
     await fetchNotifications()
     subscribeToRealtime()
-    
-    console.log('✅ [Store] Initialized successfully')
   }
 
   const cleanup = () => {

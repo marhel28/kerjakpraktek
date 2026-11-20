@@ -4,13 +4,13 @@ import { ref, computed, onMounted } from "vue";
 definePageMeta({ layout: "auth" });
 
 // ─── Midtrans Snap ────────────────────────────────────────
+const config = useRuntimeConfig();
 useHead({
-  script: [{ src: "https://app.sandbox.midtrans.com/snap/snap.js", "data-client-key": "SB-Mid-client-pn3mYe4w4xeY6F0w", async: true }],
+  script: [{ src: "https://app.sandbox.midtrans.com/snap/snap.js", "data-client-key": config.public.midtransClientKey, async: true }],
 });
 
 const route = useRoute();
 const orderId = route.params.id as string;
-const config = useRuntimeConfig();
 const API_BASE = `${config.public.apiBase}/transaksi`;
 const getToken = () => useCookie("token").value;
 
@@ -48,7 +48,7 @@ const downloadInvoice = async () => {
     link.remove();
     window.URL.revokeObjectURL(url);
   } catch (err) {
-    alert("Gagal mengunduh invoice. Silakan coba lagi.");
+    useToast().add({ title: "Gagal Mengunduh", description: "Gagal mengunduh invoice. Silakan coba lagi.", color: "error" });
   } finally {
     isDownloadingInvoice.value = false;
   }
@@ -102,10 +102,10 @@ const executeConfirmDelivery = async () => {
         orderId: orderId,
       };
     } else {
-      alert(response.message || "Gagal mengonfirmasi penerimaan barang.");
+      useToast().add({ title: "Gagal Konfirmasi", description: response.message || "Gagal mengonfirmasi penerimaan barang.", color: "error" });
     }
   } catch (err: any) {
-    alert(err?.data?.detail || "Gagal mengonfirmasi penerimaan barang.");
+    useToast().add({ title: "Gagal Konfirmasi", description: err?.data?.detail || "Gagal mengonfirmasi penerimaan barang.", color: "error" });
   } finally {
     confirmModal.value.loading = false;
   }
@@ -177,7 +177,7 @@ const payOrder = async () => {
     if (res?.success && res?.data?.snap_token) openSnap(res.data.snap_token);
     else if (res?.snap_token) openSnap(res.snap_token);
   } catch (err: any) {
-    alert(err?.data?.detail || "Gagal memuat pembayaran.");
+    useToast().add({ title: "Gagal Pembayaran", description: err?.data?.detail || "Gagal memuat pembayaran.", color: "error" });
   } finally { isRepaying.value = false; }
 };
 
@@ -201,7 +201,7 @@ const openSnap = (token: string) => {
         fetchOrderDetail();
       },
       onError: () => {
-        alert("Pembayaran gagal.");
+        useToast().add({ title: "Pembayaran Gagal", description: "Pembayaran gagal atau dibatalkan.", color: "error" });
       },
       onClose: () => {
         isPaymentEmbedded.value = false;
@@ -210,12 +210,10 @@ const openSnap = (token: string) => {
   }, 100);
 };
 
+const { getOrderStatus } = useOrderStatus();
+
 const getStatusBadge = () => {
-  const status = order.value?.transaction_status?.toLowerCase();
-  if (['pending', 'pending_payment'].includes(status)) return 'bg-amber-50 text-amber-600 border-amber-100';
-  if (['settlement', 'success', 'capture'].includes(status)) return 'bg-emerald-50 text-emerald-600 border-emerald-100';
-  if (['cancel', 'expire', 'deny'].includes(status)) return 'bg-red-50 text-red-600 border-red-100';
-  return 'bg-gray-50 text-gray-500 border-gray-100';
+  return getOrderStatus(order.value?.transaction_status, order.value?.shipment?.delivery_status, !!order.value?.shipment?.waybill_number).badge;
 };
 </script>
 
@@ -241,7 +239,7 @@ const getStatusBadge = () => {
           {{ isDownloadingInvoice ? 'Generating...' : 'Cetak Invoice' }}
         </button>
         <div class="w-px h-4 bg-gray-200" v-if="order && ['settlement', 'success', 'capture'].includes(order.transaction_status?.toLowerCase())"></div>
-        <a v-if="order" :href="`https://wa.me/6282218828108?text=Bantuan Pesanan ${order.order_id}`" target="_blank" class="flex items-center gap-2 text-[#03AC0E] font-bold text-sm hover:underline">
+        <a v-if="order" :href="`https://wa.me/${config.public.waNumber}?text=Bantuan Pesanan ${order.order_id}`" target="_blank" class="flex items-center gap-2 text-[#03AC0E] font-bold text-sm hover:underline">
           <UIcon name="i-heroicons-chat-bubble-left-right" class="w-4 h-4" />
           Tanya Kami
         </a>
@@ -260,8 +258,8 @@ const getStatusBadge = () => {
       <div class="w-20 h-20 bg-gray-50 rounded-xl flex items-center justify-center text-gray-200 mx-auto mb-6">
         <UIcon name="i-heroicons-shopping-cart" class="w-10 h-10" />
       </div>
-      <h3 class="text-xl font-black text-gray-900 mb-2">Pesanan Tidak Ada</h3>
-      <p class="text-xs text-gray-400 font-bold uppercase tracking-widest leading-relaxed mb-8">
+      <h3 class="text-xl font-bold text-gray-900 mb-2">Pesanan Tidak Ada</h3>
+      <p class="text-sm text-gray-500 font-medium leading-relaxed mb-8">
         Kami tidak menemukan data pesanan dengan ID ini. Pastikan Anda masuk dengan akun yang benar.
       </p>
       <NuxtLink to="/dashboard/orders" class="inline-flex items-center gap-2 px-8 py-3 bg-gray-900 text-white text-xs font-black rounded-xl hover:bg-black transition-all">
@@ -275,12 +273,12 @@ const getStatusBadge = () => {
       <div class="bg-white border border-gray-100 rounded-xl p-6 sm:p-8 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div class="space-y-2">
           <div class="flex items-center gap-3 flex-wrap">
-            <h2 class="text-xl font-black text-gray-900 font-mono tracking-tight">{{ order.order_id }}</h2>
-            <div :class="getStatusBadge()" class="px-3 py-1 rounded-xl text-[10px] font-black uppercase tracking-wider border">
-              {{ order.transaction_status }}
+            <h2 class="text-xl font-bold text-gray-900 font-mono tracking-tight">{{ order.order_id }}</h2>
+            <div :class="getStatusBadge()" class="px-3 py-1 rounded-xl text-[10px] font-bold uppercase tracking-wider border">
+              {{ getOrderStatus(order.transaction_status, order.shipment?.delivery_status, !!order.shipment?.waybill_number).label }}
             </div>
           </div>
-          <p class="text-xs text-gray-400 font-bold uppercase tracking-widest flex items-center gap-2">
+          <p class="text-xs text-gray-500 font-medium flex items-center gap-2">
             <UIcon name="i-heroicons-calendar" class="w-4 h-4" />
             Dipesan pada {{ formatDate(order.created_at) }}
           </p>
@@ -304,7 +302,7 @@ const getStatusBadge = () => {
             Barang Sudah Sampai
           </button>
           
-          <a :href="`https://wa.me/6282218828108?text=Halo Admin, saya ingin bertanya tentang pesanan ${order.order_id}`" 
+          <a :href="`https://wa.me/${config.public.waNumber}?text=Halo Admin, saya ingin bertanya tentang pesanan ${order.order_id}`" 
              target="_blank"
              class="p-3 bg-white border border-gray-200 text-gray-400 hover:text-[#03AC0E] hover:border-[#03AC0E] rounded-xl transition-all shadow-sm"
           >
@@ -314,29 +312,24 @@ const getStatusBadge = () => {
       </div>
 
       <!-- 2. STEPPER -->
-      <section v-if="stepIndex >= 0" class="bg-white border border-gray-100 rounded-xl p-6 sm:p-8 overflow-x-auto no-scrollbar shadow-sm">
-        <div class="min-w-[600px] flex justify-between relative py-4">
-          <div class="absolute top-1/2 -translate-y-1/2 left-[5%] right-[5%] h-0.5 bg-gray-50"></div>
-          
-          <template v-if="order.trx_type === 'jasa'">
-            <div v-for="(step, i) in JASA_STEPS" :key="step.id" class="relative z-10 flex flex-col items-center gap-3 w-1/5">
-              <div :class="i <= stepIndex ? 'bg-[#03AC0E] text-white ring-4 ring-[#03AC0E]/10' : 'bg-white text-gray-200 border-gray-100 border'" class="w-12 h-12 rounded-full flex items-center justify-center transition-all shadow-sm">
-                <UIcon :name="step.icon" class="w-6 h-6" />
-              </div>
-              <span :class="i <= stepIndex ? 'text-gray-900 font-black' : 'text-gray-400 font-bold'" class="text-[10px] uppercase tracking-[0.1em] text-center px-2">{{ step.label }}</span>
+      <section v-if="stepIndex >= 0" class="bg-white border border-gray-100 rounded-xl p-6 sm:p-8 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-4">
+        <template v-if="order.trx_type === 'jasa'">
+          <div v-for="(step, i) in JASA_STEPS" :key="step.id" class="flex flex-col items-center gap-3 w-1/5 sm:w-auto flex-shrink-0">
+            <div :class="i <= stepIndex ? 'bg-[#03AC0E] text-white ring-4 ring-[#03AC0E]/10' : 'bg-white text-gray-200 border-gray-100 border'" class="w-12 h-12 rounded-full flex items-center justify-center transition-all shadow-sm">
+              <UIcon :name="step.icon" class="w-6 h-6" />
             </div>
-          </template>
+            <span :class="i <= stepIndex ? 'text-gray-900 font-bold' : 'text-gray-500 font-medium'" class="text-[10px] uppercase tracking-wider text-center px-2 sm:whitespace-nowrap">{{ step.label }}</span>
+          </div>
+        </template>
 
-          <template v-else>
-            <div v-for="(step, i) in steps" :key="step.id" class="relative z-10 flex flex-col items-center gap-3 w-1/4">
-              <div :class="i <= stepIndex ? 'bg-[#03AC0E] text-white ring-4 ring-[#03AC0E]/10' : 'bg-white text-gray-200 border-gray-100 border'" class="w-12 h-12 rounded-full flex items-center justify-center transition-all shadow-sm">
-                <UIcon :name="step.icon" class="w-6 h-6" />
-              </div>
-              <span :class="i <= stepIndex ? 'text-gray-900 font-black' : 'text-gray-400 font-bold'" class="text-[10px] uppercase tracking-[0.1em] text-center px-2">{{ step.label }}</span>
+        <template v-else>
+          <div v-for="(step, i) in steps" :key="step.id" class="flex flex-col items-center gap-3 w-1/4 sm:w-auto flex-shrink-0">
+            <div :class="i <= stepIndex ? 'bg-[#03AC0E] text-white ring-4 ring-[#03AC0E]/10' : 'bg-white text-gray-200 border-gray-100 border'" class="w-12 h-12 rounded-full flex items-center justify-center transition-all shadow-sm">
+              <UIcon :name="step.icon" class="w-6 h-6" />
             </div>
-          </template>
-
-        </div>
+            <span :class="i <= stepIndex ? 'text-gray-900 font-bold' : 'text-gray-500 font-medium'" class="text-[10px] uppercase tracking-wider text-center px-2 sm:whitespace-nowrap">{{ step.label }}</span>
+          </div>
+        </template>
       </section>
 
       <!-- EMBEDDED PAYMENT WIDGET -->
@@ -362,26 +355,26 @@ const getStatusBadge = () => {
               <UIcon name="i-heroicons-credit-card" class="w-6 h-6" />
             </div>
             <div>
-              <h3 class="text-xs font-black text-gray-900 uppercase tracking-widest">Pembayaran</h3>
-              <p class="text-[10px] text-gray-400 font-bold uppercase tracking-tight">{{ order.payment_type || 'Metode Otomatis' }}</p>
+              <h3 class="text-xs font-bold text-gray-900 tracking-tight">Pembayaran</h3>
+              <p class="text-[10px] text-gray-500 font-medium tracking-tight">{{ order.payment_type || 'Metode Otomatis' }}</p>
             </div>
           </div>
           <div class="space-y-4">
             <div class="flex justify-between items-center">
-              <span class="text-[11px] text-gray-400 font-bold uppercase">Status</span>
-              <span :class="getStatusBadge()" class="px-2 py-0.5 rounded-lg text-[9px] font-black uppercase border">{{ order.transaction_status }}</span>
+              <span class="text-[11px] text-gray-500 font-medium">Status</span>
+              <span :class="getOrderStatus(order.transaction_status, order.shipment?.delivery_status, !!order.shipment?.waybill_number).badge" class="px-2 py-0.5 rounded-lg text-[9px] font-bold uppercase border">{{ getOrderStatus(order.transaction_status, order.shipment?.delivery_status, !!order.shipment?.waybill_number).label }}</span>
             </div>
             <div v-if="order.va_numbers?.[0]" class="flex justify-between items-center">
-              <span class="text-[11px] text-gray-400 font-bold uppercase">VA {{ order.va_numbers[0].bank }}</span>
-              <span class="text-xs font-mono font-black text-gray-900">{{ order.va_numbers[0].va_number }}</span>
+              <span class="text-[11px] text-gray-500 font-medium">VA {{ order.va_numbers[0].bank }}</span>
+              <span class="text-xs font-bold text-gray-900">{{ order.va_numbers[0].va_number }}</span>
             </div>
             <div v-if="order.payment_code" class="flex justify-between items-center">
-              <span class="text-[11px] text-gray-400 font-bold uppercase">Kode Bayar</span>
-              <span class="text-xs font-mono font-black text-gray-900">{{ order.payment_code }}</span>
+              <span class="text-[11px] text-gray-500 font-medium">Kode Bayar</span>
+              <span class="text-xs font-bold text-gray-900">{{ order.payment_code }}</span>
             </div>
             <div class="flex justify-between items-center pt-3 border-t border-gray-50">
-              <span class="text-[11px] text-gray-400 font-bold uppercase">Waktu Bayar</span>
-              <span class="text-[11px] font-black text-gray-700">{{ order.settlement_time ? formatDate(order.settlement_time) : '-' }}</span>
+              <span class="text-[11px] text-gray-500 font-medium">Waktu Bayar</span>
+              <span class="text-[11px] font-medium text-gray-700">{{ order.settlement_time ? formatDate(order.settlement_time) : '-' }}</span>
             </div>
           </div>
         </div>
@@ -393,22 +386,22 @@ const getStatusBadge = () => {
               <UIcon name="i-heroicons-truck" class="w-6 h-6" />
             </div>
             <div>
-              <h3 class="text-xs font-black text-gray-900 uppercase tracking-widest">Pengiriman</h3>
-              <p class="text-[10px] text-gray-400 font-bold uppercase tracking-tight">{{ order.shipment?.courier_name || 'Reguler' }}</p>
+              <h3 class="text-xs font-bold text-gray-900 tracking-tight">Pengiriman</h3>
+              <p class="text-[10px] text-gray-500 font-medium tracking-tight">{{ order.shipment?.courier_name || 'Reguler' }}</p>
             </div>
           </div>
           <div class="space-y-4">
             <div class="flex justify-between items-center">
-              <span class="text-[11px] text-gray-400 font-bold uppercase">Layanan</span>
-              <span class="text-[11px] font-black text-gray-900 uppercase">{{ order.shipment?.courier_service || '-' }}</span>
+              <span class="text-[11px] text-gray-500 font-medium">Layanan</span>
+              <span class="text-[11px] font-medium text-gray-900">{{ order.shipment?.courier_service || '-' }}</span>
             </div>
             <div class="flex justify-between items-center">
-              <span class="text-[11px] text-gray-400 font-bold uppercase">No. Resi</span>
-              <span class="text-[11px] font-mono font-black text-[#03AC0E] uppercase">{{ order.shipment?.waybill_number || 'Proses' }}</span>
+              <span class="text-[11px] text-gray-500 font-medium">No. Resi</span>
+              <span class="text-[11px] font-bold text-[#03AC0E]">{{ order.shipment?.waybill_number || 'Proses' }}</span>
             </div>
             <div class="pt-3 border-t border-gray-50">
-              <span class="text-[11px] text-gray-400 font-bold uppercase block mb-1">Alamat</span>
-              <p class="text-[11px] font-black text-gray-900 leading-tight mb-0.5">{{ order.shipment?.recipient_name }}</p>
+              <span class="text-[11px] text-gray-500 font-medium block mb-1">Alamat</span>
+              <p class="text-[11px] font-medium text-gray-900 leading-tight mb-0.5">{{ order.shipment?.recipient_name }}</p>
               <p class="text-[10px] text-gray-500 leading-relaxed line-clamp-2">{{ order.shipment?.shipping_address }}</p>
             </div>
             <div v-if="stepIndex === 2" class="pt-3 border-t border-gray-50">
@@ -431,36 +424,36 @@ const getStatusBadge = () => {
               <UIcon name="i-heroicons-wrench-screwdriver" class="w-6 h-6" />
             </div>
             <div>
-              <h3 class="text-xs font-black text-gray-900 uppercase tracking-widest">Informasi Kunjungan</h3>
-              <p class="text-[10px] text-gray-400 font-bold uppercase tracking-tight">{{ CATEGORY_LABELS[order.booking.category] || order.booking.category }}</p>
+              <h3 class="text-xs font-bold text-gray-900 tracking-tight">Informasi Kunjungan</h3>
+              <p class="text-[10px] text-gray-500 font-medium tracking-tight">{{ CATEGORY_LABELS[order.booking.category] || order.booking.category }}</p>
             </div>
           </div>
           <div class="space-y-4">
             <div class="flex justify-between items-center">
-              <span class="text-[11px] text-gray-400 font-bold uppercase">Jadwal</span>
-              <span class="text-[11px] font-black text-gray-900 uppercase">{{ formatDate(order.booking.scheduled_date) }}</span>
+              <span class="text-[11px] text-gray-500 font-medium">Jadwal</span>
+              <span class="text-[11px] font-medium text-gray-900">{{ formatDate(order.booking.scheduled_date) }}</span>
             </div>
             <div class="flex justify-between items-center">
-              <span class="text-[11px] text-gray-400 font-bold uppercase">Waktu</span>
-              <span class="text-[11px] font-black text-[#03AC0E] uppercase">{{ order.booking.time_slot }}</span>
+              <span class="text-[11px] text-gray-500 font-medium">Waktu</span>
+              <span class="text-[11px] font-medium text-[#03AC0E]">{{ order.booking.time_slot }}</span>
             </div>
             <div class="pt-3 border-t border-gray-50">
-              <span class="text-[11px] text-gray-400 font-bold uppercase block mb-1">PIC & Lokasi</span>
-              <p class="text-[11px] font-black text-gray-900 leading-tight mb-0.5">{{ order.booking.contact_name }} ({{ order.booking.contact_phone }})</p>
+              <span class="text-[11px] text-gray-500 font-medium block mb-1">PIC & Lokasi</span>
+              <p class="text-[11px] font-medium text-gray-900 leading-tight mb-0.5">{{ order.booking.contact_name }} ({{ order.booking.contact_phone }})</p>
               <p class="text-[10px] text-gray-500 leading-relaxed line-clamp-2">{{ order.booking.address }}, {{ order.booking.city }}</p>
             </div>
           </div>
         </div>
 
-        <!-- Technician & Verification (New) -->
+        <!-- Technician & Verification -->
         <div v-if="order.trx_type === 'jasa' && order.booking?.technician" class="bg-white border border-gray-100 rounded-xl p-6 shadow-sm">
           <div class="flex items-center gap-3 mb-6">
             <div class="w-10 h-10 bg-blue-50 rounded-xl flex items-center justify-center text-blue-600">
               <UIcon name="i-heroicons-identification" class="w-6 h-6" />
             </div>
             <div>
-              <h3 class="text-xs font-black text-gray-900 uppercase tracking-widest">Teknisi Bertugas</h3>
-              <p class="text-[10px] text-gray-400 font-bold uppercase tracking-tight">Padjajaran Tim</p>
+              <h3 class="text-xs font-bold text-gray-900 tracking-tight">Teknisi Bertugas</h3>
+              <p class="text-[10px] text-gray-500 font-medium tracking-tight">Tim PasarCCTV</p>
             </div>
           </div>
           <div class="flex items-center gap-4 mb-6">
@@ -471,24 +464,21 @@ const getStatusBadge = () => {
               </div>
             </div>
             <div class="min-w-0">
-              <p class="text-sm font-black text-gray-900 truncate">{{ order.booking.technician.name }}</p>
-              <p class="text-[10px] font-mono font-bold text-gray-400 uppercase tracking-widest">{{ order.booking.technician.id_employee }}</p>
-              <a :href="`https://wa.me/${order.booking.technician.phone?.replace('+', '')}`" target="_blank" class="mt-1 flex items-center gap-1 text-[10px] font-black text-[#03AC0E] uppercase hover:underline">
+              <p class="text-sm font-bold text-gray-900 truncate">{{ order.booking.technician.name }}</p>
+              <p class="text-[10px] font-bold text-gray-500">{{ order.booking.technician.id_employee }}</p>
+              <a :href="`https://wa.me/${order.booking.technician.phone?.replace('+', '')}`" target="_blank" class="mt-1 flex items-center gap-1 text-[10px] font-bold text-[#03AC0E] hover:underline">
                 <UIcon name="i-heroicons-phone" class="w-3 h-3" />
                 Hubungi WA
               </a>
             </div>
           </div>
           <div class="pt-4 border-t border-gray-100 flex flex-col items-center">
-            <div class="bg-gray-50 p-3 rounded-xl border border-gray-100 mb-2">
-              <img 
-                :src="`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${order.booking.technician.id_employee}+${order.order_id}`" 
-                alt="Verification QR"
-                class="w-24 h-24 mix-blend-multiply"
-              />
+            <div class="bg-gray-50 p-4 rounded-xl border border-gray-100 mb-2 text-center">
+              <p class="text-sm text-gray-700 font-bold tracking-wider">{{ order.booking.technician.id_employee }}</p>
+              <p class="text-xs text-gray-500 mt-1">{{ order.order_id }}</p>
             </div>
-            <p class="text-[9px] text-center text-gray-400 font-bold uppercase tracking-[0.15em] leading-relaxed">
-              Scan untuk Verifikasi Teknisi<br/>Padjajaran CCTV Cimahi
+            <p class="text-[9px] text-center text-gray-500 font-semibold uppercase tracking-wider leading-relaxed">
+              ID Verifikasi Teknisi<br/>PasarCCTV Cimahi
             </p>
           </div>
         </div>
@@ -500,30 +490,30 @@ const getStatusBadge = () => {
               <UIcon name="i-heroicons-receipt-percent" class="w-6 h-6" />
             </div>
             <div>
-              <h3 class="text-xs font-black text-gray-900 uppercase tracking-widest">Ringkasan</h3>
-              <p class="text-[10px] text-gray-400 font-bold uppercase tracking-tight">Final Kalkulasi</p>
+              <h3 class="text-xs font-bold text-gray-900 tracking-tight">Ringkasan</h3>
+              <p class="text-[10px] text-gray-500 font-medium tracking-tight">Final Kalkulasi</p>
             </div>
           </div>
           <div class="space-y-3">
-            <div class="flex justify-between text-[11px] font-bold">
-              <span class="text-gray-400 uppercase">Subtotal</span>
+            <div class="flex justify-between text-[11px] font-medium">
+              <span class="text-gray-500">Subtotal</span>
               <span class="text-gray-900">{{ formatRupiah(order.items_subtotal) }}</span>
             </div>
-            <div v-if="order.total_discount > 0" class="flex justify-between text-[11px] font-bold">
-              <span class="text-emerald-600 uppercase">Promo</span>
+            <div v-if="order.total_discount > 0" class="flex justify-between text-[11px] font-medium">
+              <span class="text-emerald-600">Promo</span>
               <span class="text-emerald-600">- {{ formatRupiah(order.total_discount) }}</span>
             </div>
-            <div class="flex justify-between text-[11px] font-bold">
-              <span class="text-gray-400 uppercase">Ongkir</span>
+            <div class="flex justify-between text-[11px] font-medium">
+              <span class="text-gray-500">Ongkir</span>
               <span class="text-gray-900">{{ formatRupiah(order.shipping_cost) }}</span>
             </div>
-            <div v-if="order.service_cost > 0" class="flex justify-between text-[11px] font-bold">
-              <span class="text-gray-400 uppercase">Layanan</span>
+            <div v-if="order.service_cost > 0" class="flex justify-between text-[11px] font-medium">
+              <span class="text-gray-500">Layanan</span>
               <span class="text-gray-900">{{ formatRupiah(order.service_cost) }}</span>
             </div>
             <div class="pt-4 mt-2 border-t border-gray-100 flex justify-between items-center">
-              <span class="text-xs font-black text-gray-900 uppercase tracking-widest">Total</span>
-              <span class="text-xl font-black text-[#03AC0E] tracking-tighter">{{ formatRupiah(order.gross_amount) }}</span>
+              <span class="text-xs font-bold text-gray-900">Total</span>
+              <span class="text-xl font-bold text-[#03AC0E] tracking-tight">{{ formatRupiah(order.gross_amount) }}</span>
             </div>
           </div>
         </div>
@@ -535,39 +525,39 @@ const getStatusBadge = () => {
               <UIcon name="i-heroicons-banknotes" class="w-6 h-6" />
             </div>
             <div>
-              <h3 class="text-xs font-black text-gray-900 uppercase tracking-widest">Riwayat Bayar</h3>
-              <p class="text-[10px] text-gray-400 font-bold uppercase tracking-tight">Status Pembayaran</p>
+              <h3 class="text-xs font-bold text-gray-900 tracking-tight">Riwayat Bayar</h3>
+              <p class="text-[10px] text-gray-500 font-medium tracking-tight">Status Pembayaran</p>
             </div>
           </div>
           <div class="space-y-4">
             <div v-for="pay in order.payments" :key="pay.type" class="p-3 bg-gray-50 rounded-lg border border-gray-100">
               <div class="flex justify-between items-start mb-1">
-                <span class="text-[10px] font-black text-gray-900 uppercase">{{ pay.type === 'dp' ? 'DP 50%' : 'Pelunasan' }}</span>
-                <span :class="pay.status === 'success' ? 'bg-emerald-100 text-emerald-600' : 'bg-amber-100 text-amber-600'" class="px-2 py-0.5 rounded text-[8px] font-black uppercase">
+                <span class="text-[10px] font-bold text-gray-900">{{ pay.type === 'dp' ? 'DP 50%' : 'Pelunasan' }}</span>
+                <span :class="pay.status === 'success' ? 'bg-emerald-100 text-emerald-600' : 'bg-amber-100 text-amber-600'" class="px-2 py-0.5 rounded text-[8px] font-bold uppercase">
                   {{ pay.status }}
                 </span>
               </div>
-              <p class="text-[11px] font-black text-gray-900">{{ formatRupiah(pay.amount) }}</p>
-              <p v-if="pay.paid_at" class="text-[9px] text-gray-400 font-bold mt-1 uppercase">{{ formatDate(pay.paid_at) }} • {{ pay.method || 'Midtrans' }}</p>
+              <p class="text-[11px] font-bold text-gray-900">{{ formatRupiah(pay.amount) }}</p>
+              <p v-if="pay.paid_at" class="text-[9px] text-gray-500 font-medium mt-1">{{ formatDate(pay.paid_at) }} • {{ pay.method || 'Midtrans' }}</p>
             </div>
           </div>
         </div>
       </div>
 
       <!-- 4. TIMELINE -->
-      <section v-if="order.timeline?.length" class="bg-white border border-gray-100 rounded-xl p-8 shadow-sm">
-        <h3 class="text-xs font-black text-gray-900 uppercase tracking-widest mb-8 flex items-center gap-2">
+      <section v-if="order.timeline?.length" class="bg-white border border-gray-100 rounded-xl p-6 sm:p-8 shadow-sm">
+        <h3 class="text-xs font-bold text-gray-900 tracking-tight mb-6 flex items-center gap-2">
           <UIcon name="i-heroicons-clock" class="w-5 h-5 text-[#03AC0E]" />
           Riwayat Aktivitas
         </h3>
-        <div class="relative pl-8 space-y-8">
+        <div class="relative pl-8 space-y-6">
           <div class="absolute left-[11px] top-2 bottom-2 w-0.5 bg-gray-100"></div>
           <div v-for="(log, i) in order.timeline" :key="i" class="relative">
             <div :class="log.status === 'done' ? 'bg-[#03AC0E]' : 'bg-gray-200'" class="absolute -left-8 top-1 w-2.5 h-2.5 rounded-full border-4 border-white ring-2 ring-gray-50 z-10"></div>
             <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
-              <p :class="log.status === 'done' ? 'text-gray-900 font-black' : 'text-gray-400 font-bold'" class="text-sm tracking-tight">{{ log.event }}</p>
-              <span v-if="log.timestamp" class="text-[10px] text-gray-400 font-bold uppercase">{{ formatDate(log.timestamp) }}</span>
-              <span v-else class="text-[10px] text-gray-300 font-bold uppercase italic tracking-widest">Menunggu</span>
+              <p :class="log.status === 'done' ? 'text-gray-900 font-bold' : 'text-gray-500 font-medium'" class="text-sm tracking-tight">{{ log.event }}</p>
+              <span v-if="log.timestamp" class="text-[10px] text-gray-500 font-medium">{{ formatDate(log.timestamp) }}</span>
+              <span v-else class="text-[10px] text-gray-400 font-medium italic">Menunggu</span>
             </div>
           </div>
         </div>
@@ -575,43 +565,43 @@ const getStatusBadge = () => {
 
       <!-- 4. ITEM LIST -->
       <section class="bg-white border border-gray-100 rounded-xl overflow-hidden shadow-sm">
-        <div class="px-8 py-6 border-b border-gray-50 bg-gray-50/30 flex items-center justify-between">
+        <div class="px-6 sm:px-8 py-5 border-b border-gray-50 bg-gray-50/30 flex items-center justify-between">
           <div class="flex items-center gap-3">
             <div class="w-8 h-8 bg-black rounded-xl flex items-center justify-center text-white">
               <UIcon name="i-heroicons-shopping-bag" class="w-5 h-5" />
             </div>
-            <h3 class="text-sm font-black text-gray-900 uppercase tracking-widest">Produk yang Dibeli</h3>
+            <h3 class="text-sm font-bold text-gray-900 tracking-tight">Produk yang Dibeli</h3>
           </div>
-          <span class="text-[10px] font-black text-gray-400 uppercase tracking-widest">{{ order.items?.length || 0 }} Item</span>
+          <span class="text-[10px] font-medium text-gray-500">{{ order.items?.length || 0 }} Item</span>
         </div>
         <div class="divide-y divide-gray-50">
-          <div v-for="(item, idx) in order.items" :key="idx" class="p-8 flex flex-col sm:flex-row items-start gap-8 hover:bg-gray-50/50 transition-all group">
+          <div v-for="(item, idx) in order.items" :key="idx" class="p-6 sm:p-8 flex flex-col sm:flex-row items-start gap-6 hover:bg-gray-50/50 transition-all group">
             <div class="w-24 h-24 bg-white rounded-xl overflow-hidden border border-gray-100 shrink-0 shadow-sm p-2">
               <NuxtImg v-if="item.cover_image_url" :src="item.cover_image_url" class="w-full h-full object-contain group-hover:scale-110 transition-transform duration-500" />
               <div v-else class="w-full h-full flex items-center justify-center"><UIcon name="i-heroicons-photo" class="w-10 h-10 text-gray-200" /></div>
             </div>
             <div class="flex-1 min-w-0 space-y-3">
               <div>
-                <h4 class="text-base font-black text-gray-900 tracking-tight mb-1">{{ item.item_name || item.stock_title || '-' }}</h4>
-                <div class="flex items-center gap-4 text-[11px] font-bold text-gray-400 uppercase tracking-widest">
+                <h4 class="text-base font-bold text-gray-900 tracking-tight mb-1">{{ item.item_name || item.stock_title || '-' }}</h4>
+                <div class="flex items-center gap-4 text-[11px] font-medium text-gray-500">
                   <span>{{ item.brand || 'No Brand' }}</span>
                   <span class="w-1 h-1 bg-gray-200 rounded-full"></span>
                   <span>{{ item.quantity }} Barang</span>
                   <span class="w-1 h-1 bg-gray-200 rounded-full"></span>
-                  <span class="text-gray-900">{{ formatRupiah(item.unit_price) }}</span>
+                  <span class="text-gray-900 font-bold">{{ formatRupiah(item.unit_price) }}</span>
                 </div>
               </div>
               
               <!-- Specs Chips -->
               <div v-if="item.specs && Object.keys(item.specs).length > 0" class="flex flex-wrap gap-2">
-                <span v-for="(val, key) in item.specs" :key="key" class="px-2 py-0.5 bg-gray-100 text-[9px] font-black text-gray-500 rounded uppercase tracking-widest border border-gray-200/50">
+                <span v-for="(val, key) in item.specs" :key="key" class="px-2 py-0.5 bg-gray-100 text-[9px] font-semibold text-gray-600 rounded">
                   {{ key.replace('_', ' ') }}: {{ val }}
                 </span>
               </div>
 
               <!-- Addons List -->
               <div v-if="item.addons?.length" class="bg-emerald-50/50 rounded-xl border border-emerald-100/50 p-4 space-y-2">
-                <p class="text-[9px] font-black text-emerald-700 uppercase tracking-[0.2em] mb-2 flex items-center gap-2">
+                <p class="text-[9px] font-bold text-emerald-700 uppercase tracking-widest mb-2 flex items-center gap-2">
                   <UIcon name="i-heroicons-sparkles" class="w-3.5 h-3.5" />
                   Layanan Tambahan
                 </p>
@@ -634,77 +624,15 @@ const getStatusBadge = () => {
 
     </div>
 
-    <!-- ── MODAL KONFIRMASI (CONFIRM DELIVERY) ── -->
-    <Teleport to="body">
-      <Transition name="modal-scale">
-        <div v-if="confirmModal.show" class="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <!-- Backdrop -->
-          <div class="absolute inset-0 bg-gray-900/60 backdrop-blur-sm" @click="confirmModal.show = false"></div>
-          
-          <!-- Card -->
-          <div class="relative bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden p-6 flex flex-col items-center text-center z-10 border border-gray-100">
-            <!-- Icon -->
-            <div class="w-16 h-16 rounded-full bg-emerald-50 flex items-center justify-center text-[#03AC0E] mb-4 ring-8 ring-emerald-50/50">
-              <UIcon name="i-heroicons-question-mark-circle" class="w-10 h-10" />
-            </div>
-            
-            <h3 class="text-base font-black text-gray-900 mb-2">Konfirmasi Barang Sampai</h3>
-            <p class="text-xs text-gray-500 font-bold uppercase tracking-wider mb-6 leading-relaxed">
-              Apakah Anda yakin barang pesanan dengan ID<br/>
-              <span class="font-mono text-gray-900 font-black tracking-tight text-xs bg-gray-100 px-2 py-1 rounded">{{ confirmModal.orderId }}</span><br/>
-              sudah sampai dan diterima dengan baik?
-            </p>
-            
-            <div class="flex gap-3 w-full">
-              <button 
-                @click="confirmModal.show = false" 
-                class="flex-1 py-3 text-xs font-bold text-gray-500 bg-gray-50 border border-gray-200 rounded-xl hover:bg-gray-100 hover:text-gray-700 transition-all uppercase tracking-widest"
-              >
-                Batal
-              </button>
-              <button 
-                @click="executeConfirmDelivery" 
-                :disabled="confirmModal.loading"
-                class="flex-1 py-3 text-xs font-black text-white bg-[#03AC0E] rounded-xl hover:bg-[#028a0b] transition-all flex items-center justify-center gap-2 shadow-lg shadow-[#03AC0E]/20 disabled:opacity-50 uppercase tracking-widest"
-              >
-                <UIcon v-if="confirmModal.loading" name="i-heroicons-arrow-path" class="w-4 h-4 animate-spin" />
-                <span v-else>Ya, Sampai</span>
-              </button>
-            </div>
-          </div>
-        </div>
-      </Transition>
-    </Teleport>
-
-    <!-- ── MODAL SUKSES (ORDER COMPLETED) ── -->
-    <Teleport to="body">
-      <Transition name="modal-scale">
-        <div v-if="successModal.show" class="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <!-- Backdrop -->
-          <div class="absolute inset-0 bg-gray-900/60 backdrop-blur-sm" @click="closeSuccessModal"></div>
-          
-          <!-- Card -->
-          <div class="relative bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden p-6 flex flex-col items-center text-center z-10 border border-gray-100 animate-bounce-short">
-            <!-- Animated Success Checkmark -->
-            <div class="w-20 h-20 rounded-full bg-emerald-100 flex items-center justify-center text-[#03AC0E] mb-6 ring-8 ring-emerald-50">
-              <UIcon name="i-heroicons-check-circle" class="w-12 h-12 animate-pulse" />
-            </div>
-            
-            <h3 class="text-lg font-black text-gray-900 mb-2">Pesanan Selesai! 🎉</h3>
-            <p class="text-xs text-gray-500 font-semibold mb-6 leading-relaxed">
-              Terima kasih telah berbelanja di PasarCctv. Semoga produk kami dapat memenuhi kebutuhan keamanan Anda.
-            </p>
-            
-            <button 
-              @click="closeSuccessModal" 
-              class="w-full py-3 text-xs font-black text-white bg-gray-900 rounded-xl hover:bg-black transition-all uppercase tracking-widest shadow-lg shadow-gray-900/20"
-            >
-              Selesai
-            </button>
-          </div>
-        </div>
-      </Transition>
-    </Teleport>
+    <!-- ── MODAL KONFIRMASI & SUKSES ── -->
+    <DashboardConfirmDeliveryModal
+      :show="confirmModal.show"
+      :order-id="confirmModal.orderId"
+      :loading="confirmModal.loading"
+      @confirm="executeConfirmDelivery"
+      @close="confirmModal.show = false"
+    />
+    <DashboardSuccessDeliveryModal :show="successModal.show" @close="closeSuccessModal" />
 
   </div>
 </template>

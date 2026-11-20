@@ -218,6 +218,12 @@ class ImageSectionService:
         order: int,
     ) -> dict:
         section_identifier = unquote(section_identifier)
+        clean_url = target_url.strip()
+        low_url = clean_url.lower()
+        if any(low_url.startswith(prefix) for prefix in ("javascript:", "data:", "vbscript:", "file:")):
+            raise HTTPException(status_code=400, detail="Skema target_url tidak diizinkan.")
+        if not (clean_url.startswith("/") or low_url.startswith("https://") or low_url.startswith("http://")):
+            raise HTTPException(status_code=400, detail="target_url harus berupa internal path (diawali /) atau URL https://")
 
         section = (
             await session.execute(
@@ -262,7 +268,7 @@ class ImageSectionService:
             new_item = ImageSectionItem(
                 section_uuid=section.uuid,
                 asset_uuid=asset.uuid,
-                target_url=target_url,
+                target_url=clean_url,
                 order=order,
             )
             session.add(new_item)
@@ -280,7 +286,7 @@ class ImageSectionService:
                     "uuid": str(new_item.uuid),
                     "image_url": cdn_url,
                     "alt_text": alt_text,
-                    "target_url": target_url,
+                    "target_url": clean_url,
                     "order": order,
                 },
             }

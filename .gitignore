@@ -37,3 +37,14 @@ __screenshots__/
 
 test-results/
 playwright-report/
+# CocoIndex Code (ccc)
+/.cocoindex_code/
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+venv/
+.env
+.env.*

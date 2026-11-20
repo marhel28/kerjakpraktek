@@ -723,6 +723,18 @@ class BookingService:
                     notif_type="order",
                 )
 
+            try:
+                from backend.data.transaksi.service import _send_notification_to_admins
+                await _send_notification_to_admins(
+                    session=session,
+                    title="Booking Baru! 📅",
+                    content=f"Booking {booking.booking_number} ({s1['category']}) Rp{int(booking.total_price):,} menunggu konfirmasi.",
+                    action_url=f"/bookings/{booking.booking_number}",
+                    notif_type="booking",
+                )
+            except Exception as e:
+                logger.error(f"Failed to send booking created notification to admin: {e}")
+
             return booking
 
         except HTTPException:
@@ -1445,6 +1457,18 @@ class PaymentService:
                 booking_number=booking.booking_number,
                 notif_type="order",
             )
+
+        try:
+            from backend.data.transaksi.service import _send_notification_to_admins
+            await _send_notification_to_admins(
+                session=session,
+                title=f"Pembayaran {type_label} Menunggu 💳",
+                content=f"Pembayaran {type_label} untuk {booking.booking_number} sebesar Rp{int(amount):,} menunggu pembayaran.",
+                action_url=f"/bookings/{booking.booking_number}",
+                notif_type="order",
+            )
+        except Exception as e:
+            logger.error(f"Failed to send service payment created notification to admin: {e}")
 
         return payment
 

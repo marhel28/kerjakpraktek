@@ -139,35 +139,35 @@ const resetAll = () => {
     <!-- Horizontal Category Chips -->
     <div class="flex items-center gap-2 overflow-x-auto hide-scrollbar pb-1 px-0.5">
       <!-- Filter FAB -->
-      <button
-        @click="openSheet"
-        class="shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-xl border text-[13px] font-bold transition-all"
-        :class="hasActiveFilter
-          ? 'bg-green-600 text-white border-green-600 shadow-sm shadow-green-200'
-          : 'bg-white text-gray-700 border-gray-200'"
-      >
-        <UIcon name="i-heroicons-funnel" class="w-4 h-4" />
-        Filter
-        <span v-if="selected.length" class="bg-white text-green-700 text-[10px] font-black w-4 h-4 rounded-full flex items-center justify-center leading-none">
-          {{ selected.length }}
-        </span>
-      </button>
-
-      <!-- Category chips -->
-      <template v-if="!pending">
         <button
-          v-for="cat in (categoryMenu as any[])"
-          :key="cat.id"
-          @click="toggleCategory(cat.id)"
-          class="shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-xl border text-[13px] font-bold whitespace-nowrap transition-all active:scale-95"
-          :class="selected.includes(cat.id)
-            ? 'bg-green-600 text-white border-green-600'
-            : 'bg-white text-gray-700 border-gray-200'"
+          @click="openSheet"
+          class="shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-xl border text-[13px] font-bold transition-all"
+          :class="hasActiveFilter
+            ? 'bg-[#03AC0E] text-white border-[#03AC0E] shadow-sm shadow-emerald-200'
+            : 'bg-white text-slate-700 border-slate-200 hover:border-slate-300'"
         >
-          <UIcon :name="getIcon(cat)" class="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
-          {{ cat.label }}
+          <UIcon name="i-heroicons-funnel" class="w-4 h-4" />
+          Filter
+          <span v-if="selected.length" class="bg-white text-[#03AC0E] text-[10px] font-black w-4 h-4 rounded-full flex items-center justify-center leading-none">
+            {{ selected.length }}
+          </span>
         </button>
-      </template>
+
+        <!-- Category chips -->
+        <template v-if="!pending">
+          <button
+            v-for="cat in (categoryMenu as any[])"
+            :key="cat.id"
+            @click="toggleCategory(cat.id)"
+            class="shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-xl border text-[13px] font-bold whitespace-nowrap transition-all active:scale-95"
+            :class="selected.includes(cat.id)
+              ? 'bg-[#03AC0E] text-white border-[#03AC0E]'
+              : 'bg-white text-slate-700 border-slate-200 hover:border-slate-300'"
+          >
+            <UIcon :name="getIcon(cat)" class="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+            {{ cat.label }}
+          </button>
+        </template>
       <!-- Skeleton chips -->
       <template v-else>
         <div v-for="i in 5" :key="i" class="shrink-0 h-9 w-24 bg-gray-100 rounded-xl animate-pulse" />
@@ -207,7 +207,7 @@ const resetAll = () => {
             <h2 class="text-[15px] font-extrabold text-gray-900">Filter Produk</h2>
             <div class="flex items-center gap-2">
               <button v-if="hasActiveFilter" @click="resetAll"
-                class="text-[13px] font-bold text-green-600 px-3 py-1.5 rounded-lg active:bg-green-50">
+                class="text-[13px] font-bold text-[#03AC0E] px-3 py-1.5 rounded-lg active:bg-[#E6F7E9]">
                 Reset
               </button>
               <button @click="closeSheet"
@@ -230,7 +230,7 @@ const resetAll = () => {
                   :value="search"
                   @input="e => emit('update:search', (e.target as HTMLInputElement).value)"
                   placeholder="Nama produk / brand..."
-                  class="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl text-[14px] font-medium text-gray-900 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent bg-gray-50"
+                  class="w-full pl-10 pr-4 py-3 border border-slate-200 rounded-xl text-[14px] font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#03AC0E]/30 focus:border-[#03AC0E] bg-slate-50"
                   autocomplete="off"
                 />
               </div>
@@ -239,7 +239,7 @@ const resetAll = () => {
                 <button v-for="term in displaySuggests" :key="term"
                   @click="emit('update:search', term)"
                   class="text-[12px] font-bold px-3 py-1.5 rounded-full border transition-colors"
-                  :class="search === term ? 'bg-green-50 border-green-300 text-green-700' : 'bg-white border-gray-200 text-gray-600'">
+                  :class="search === term ? 'bg-[#E6F7E9] border-[#C8E6CC] text-[#03AC0E]' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'">
                   {{ term }}
                 </button>
               </div>
@@ -247,37 +247,37 @@ const resetAll = () => {
 
             <!-- Categories -->
             <section>
-              <h3 class="text-[11px] font-black text-gray-400 uppercase tracking-widest mb-3">Kategori</h3>
+              <h3 class="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-3">Kategori</h3>
               <div class="grid grid-cols-2 gap-2">
                 <button
                   v-for="cat in (categoryMenu as any[])" :key="cat.id"
                   @click="toggleCategory(cat.id)"
                   class="flex items-center gap-2.5 p-3 rounded-xl border text-left transition-all active:scale-[0.97]"
                   :class="selected.includes(cat.id)
-                    ? 'border-green-500 bg-green-50 shadow-sm'
-                    : 'border-gray-200 bg-white'"
+                    ? 'border-[#03AC0E] bg-[#E6F7E9] shadow-xs'
+                    : 'border-slate-200 bg-white hover:border-slate-300'"
                 >
                   <div class="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 transition-colors"
-                    :class="selected.includes(cat.id) ? 'bg-green-600 text-white' : 'bg-gray-100 text-gray-500'">
+                    :class="selected.includes(cat.id) ? 'bg-[#03AC0E] text-white' : 'bg-slate-100 text-slate-500'">
                     <UIcon :name="getIcon(cat)" class="w-4 h-4" aria-hidden="true" />
                   </div>
                   <span class="text-[13px] font-bold leading-tight"
-                    :class="selected.includes(cat.id) ? 'text-green-700' : 'text-gray-800'">
+                    :class="selected.includes(cat.id) ? 'text-[#03AC0E]' : 'text-slate-800'">
                     {{ cat.label }}
                   </span>
                   <UIcon v-if="selected.includes(cat.id)" name="i-heroicons-check-circle-20-solid"
-                    class="w-4 h-4 text-green-600 ml-auto shrink-0" />
+                    class="w-4 h-4 text-[#03AC0E] ml-auto shrink-0" />
                 </button>
               </div>
             </section>
 
             <!-- Price -->
             <section>
-              <h3 class="text-[11px] font-black text-gray-400 uppercase tracking-widest mb-3">Rentang Harga</h3>
+              <h3 class="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-3">Rentang Harga</h3>
               <div class="grid grid-cols-2 gap-3 mb-4">
-                <div class="bg-gray-50 border border-gray-200 rounded-xl p-3 focus-within:border-green-500 focus-within:ring-1 focus-within:ring-green-500 transition-all">
-                  <label for="m-price-min" class="text-[9px] font-black text-gray-400 uppercase tracking-widest block mb-1">Min</label>
-                  <div class="flex items-center gap-1 font-bold text-gray-800">
+                <div class="bg-slate-50 border border-slate-200 rounded-xl p-3 focus-within:border-[#03AC0E] focus-within:ring-1 focus-within:ring-[#03AC0E] transition-all">
+                  <label for="m-price-min" class="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-1">Min</label>
+                  <div class="flex items-center gap-1 font-bold text-slate-800">
                     <span class="text-[13px]">Rp</span>
                     <input id="m-price-min" type="number" inputmode="numeric"
                       :value="price[0]"
@@ -285,9 +285,9 @@ const resetAll = () => {
                       class="bg-transparent w-full outline-none border-none focus:ring-0 text-[14px]" />
                   </div>
                 </div>
-                <div class="bg-gray-50 border border-gray-200 rounded-xl p-3 focus-within:border-green-500 focus-within:ring-1 focus-within:ring-green-500 transition-all">
-                  <label for="m-price-max" class="text-[9px] font-black text-gray-400 uppercase tracking-widest block mb-1">Max</label>
-                  <div class="flex items-center gap-1 font-bold text-gray-800">
+                <div class="bg-slate-50 border border-slate-200 rounded-xl p-3 focus-within:border-[#03AC0E] focus-within:ring-1 focus-within:ring-[#03AC0E] transition-all">
+                  <label for="m-price-max" class="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-1">Max</label>
+                  <div class="flex items-center gap-1 font-bold text-slate-800">
                     <span class="text-[13px]">Rp</span>
                     <input id="m-price-max" type="number" inputmode="numeric"
                       :value="price[1]"
@@ -299,8 +299,8 @@ const resetAll = () => {
               <input type="range" :value="price[1]"
                 @input="e => updatePrice(Number((e.target as HTMLInputElement).value), 'max')"
                 min="0" max="10000000" step="100000"
-                class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-green-600" />
-              <div class="flex justify-between text-[11px] font-bold text-gray-400 mt-1">
+                class="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-[#03AC0E]" />
+              <div class="flex justify-between text-[11px] font-bold text-slate-400 mt-1">
                 <span>Rp 0</span><span>Rp 10 Jt</span>
               </div>
             </section>
@@ -309,9 +309,9 @@ const resetAll = () => {
           </div>
 
           <!-- Sheet footer CTA -->
-          <div class="px-5 py-4 border-t border-gray-100 shrink-0 bg-white">
+          <div class="px-5 py-4 border-t border-slate-100 shrink-0 bg-white">
             <button @click="closeSheet"
-              class="w-full bg-green-600 hover:bg-green-700 text-white font-black py-3.5 rounded-xl text-[14px] transition-colors active:scale-[0.98]">
+              class="w-full bg-[#03AC0E] hover:bg-[#02930c] text-white font-black py-3.5 rounded-xl text-[14px] transition-colors active:scale-[0.98]">
               Tampilkan Produk
             </button>
           </div>
@@ -322,20 +322,20 @@ const resetAll = () => {
 
   <!-- ═══════════════ DESKTOP (≥ lg) ═══════════════ -->
   <aside
-    class="hidden lg:flex flex-col gap-6 bg-white p-5 rounded-2xl border border-gray-200 shadow-sm sticky top-24 w-full"
+    class="hidden lg:flex flex-col gap-0 bg-white w-full px-4 py-4 rounded-xl border border-slate-200 shadow-2xs"
     aria-label="Filter Marketplace"
   >
-    <header class="flex items-center justify-between border-b border-gray-100 pb-4">
-      <h2 class="font-extrabold text-gray-900 text-base tracking-tight">Filter Produk</h2>
+    <header class="flex items-center justify-between border-b border-slate-200 pb-3 mb-1">
+      <h2 class="font-bold text-slate-900 text-sm tracking-normal">Filter Produk</h2>
       <button v-if="hasActiveFilter" @click="resetAll"
-        class="text-xs font-bold text-green-600 hover:text-green-700 transition-colors py-1.5 px-3 -mr-3 rounded-lg hover:bg-green-50">
+        class="text-xs text-[#03AC0E] hover:text-[#02930c] hover:underline font-semibold transition-colors">
         Reset Semua
       </button>
     </header>
 
     <!-- Popular -->
     <button v-if="isPopularRoute" @click="toggleCategory('popular')"
-      class="w-full flex items-center justify-between p-4 rounded-xl border-2 transition-all overflow-hidden group"
+      class="w-full flex items-center justify-between p-4 rounded-xl border-2 transition-all overflow-hidden group my-3"
       :class="selected.includes('popular') ? 'border-orange-500 bg-orange-50' : 'border-gray-100 bg-white hover:border-orange-200'">
       <div class="flex items-center gap-3">
         <div class="p-2 rounded-lg transition-colors"
@@ -354,62 +354,59 @@ const resetAll = () => {
     </button>
 
     <!-- Search -->
-    <section class="space-y-3">
-      <h3 class="text-sm font-bold text-gray-800">Cari Cepat</h3>
+    <section class="py-3.5 space-y-3">
+      <h3 class="text-sm font-bold text-slate-900 pb-2 border-b border-slate-200 mb-3">Cari Cepat</h3>
       <div class="relative">
-        <UIcon name="i-heroicons-magnifying-glass" class="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+        <UIcon name="i-heroicons-magnifying-glass" class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
         <input type="search" :value="search"
           @input="e => emit('update:search', (e.target as HTMLInputElement).value)"
           placeholder="Ketik nama / brand..."
-          class="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent bg-white"
+          class="w-full pl-9 pr-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:border-[#03AC0E] focus:ring-2 focus:ring-[#03AC0E]/20 bg-white"
           autocomplete="off" />
       </div>
       <div class="flex flex-wrap gap-1.5">
         <button v-for="term in displaySuggests" :key="term"
           @click="emit('update:search', term)"
-          class="text-[11px] font-bold px-2.5 py-1 rounded-full border transition-colors"
-          :class="search === term ? 'bg-green-50 border-green-200 text-green-700' : 'bg-white border-gray-200 text-gray-600 hover:bg-green-50 hover:text-green-600'">
+          class="text-xs px-2.5 py-1 rounded-full border transition-colors"
+          :class="search === term ? 'bg-[#E6F7E9] border-[#C8E6CC] text-[#03AC0E] font-semibold' : 'border-slate-200 text-slate-600 hover:bg-slate-50'">
           {{ term }}
         </button>
       </div>
     </section>
 
     <!-- Categories -->
-    <section class="space-y-2">
-      <h3 class="text-sm font-bold text-gray-800">Kategori</h3>
+    <section class="py-3.5 space-y-2">
+      <h3 class="text-sm font-bold text-slate-900 pb-2 border-b border-slate-200 mb-3">Kategori</h3>
 
       <div v-if="pending" class="space-y-3">
-        <div v-for="i in 5" :key="i" class="h-8 bg-gray-100 rounded-lg animate-pulse" />
+        <div v-for="i in 5" :key="i" class="h-8 bg-slate-100 rounded-lg animate-pulse" />
       </div>
 
       <div v-else class="flex flex-col gap-0.5 max-h-[360px] overflow-y-auto overscroll-contain custom-scrollbar pr-1">
-        <div v-for="cat in (categoryMenu as any[])" :key="cat.id" class="flex flex-col border-b border-gray-50 last:border-0">
-          <div class="flex items-center justify-between py-1.5 group">
-            <label :for="`cat-${cat.id}`" class="flex items-center gap-2.5 cursor-pointer flex-1 py-1">
+        <div v-for="cat in (categoryMenu as any[])" :key="cat.id" class="flex flex-col">
+          <div class="flex items-center justify-between py-1 group">
+            <label :for="`cat-${cat.id}`" class="flex items-center gap-2 cursor-pointer flex-1 py-0.5 hover:text-[#03AC0E]">
               <UCheckbox :id="`cat-${cat.id}`" :model-value="selected.includes(cat.id)" color="green" @change="toggleCategory(cat.id)" />
-              <div class="w-7 h-7 rounded-lg flex items-center justify-center transition-colors shrink-0"
-                :class="selected.includes(cat.id) ? 'bg-green-100 text-green-600' : 'bg-gray-100 text-gray-400 group-hover:bg-green-50 group-hover:text-green-500'">
-                <UIcon :name="getIcon(cat)" class="w-3.5 h-3.5" aria-hidden="true" />
-              </div>
+              <UIcon :name="getIcon(cat)" class="w-4 h-4 text-slate-500 shrink-0" aria-hidden="true" />
               <span class="text-sm transition-colors"
-                :class="selected.includes(cat.id) ? 'font-bold text-green-600' : 'text-gray-700 group-hover:text-green-600'">
+                :class="selected.includes(cat.id) ? 'font-semibold text-slate-900' : 'text-slate-700 hover:text-[#03AC0E]'">
                 {{ cat.label }}
               </span>
             </label>
             <button v-if="cat.subs.length" @click.stop="toggleExpand(cat.id)"
-              class="p-1 hover:bg-gray-100 rounded-lg transition-colors"
+              class="p-1 hover:bg-slate-100 rounded transition-colors"
               :aria-expanded="expanded.includes(cat.id)">
-              <UIcon name="i-heroicons-chevron-down" class="w-4 h-4 text-gray-400 transition-transform duration-200"
+              <UIcon name="i-heroicons-chevron-down" class="w-4 h-4 text-slate-400 transition-transform duration-200"
                 :class="expanded.includes(cat.id) ? 'rotate-180' : ''" />
             </button>
           </div>
 
-          <div v-show="expanded.includes(cat.id) && cat.subs.length" class="ml-9 flex flex-col gap-0.5 mb-1 border-l-2 border-gray-100 pl-3">
+          <div v-show="expanded.includes(cat.id) && cat.subs.length" class="ml-6 flex flex-col">
             <label v-for="sub in cat.subs" :key="sub.id" :for="`subcat-${sub.id}`"
-              class="flex items-center gap-2 py-1.5 cursor-pointer group">
+              class="flex items-center gap-2 py-0.5 cursor-pointer group hover:text-[#03AC0E]">
               <UCheckbox :id="`subcat-${sub.id}`" :model-value="selected.includes(sub.id)" size="xs" color="green" @change="toggleCategory(sub.id)" />
-              <span class="text-[13px] transition-colors"
-                :class="selected.includes(sub.id) ? 'font-bold text-green-600' : 'text-gray-500 group-hover:text-green-600'">
+              <span class="text-xs transition-colors"
+                :class="selected.includes(sub.id) ? 'font-semibold text-slate-900' : 'text-slate-700 hover:text-[#03AC0E]'">
                 {{ sub.label }}
               </span>
             </label>
@@ -418,41 +415,49 @@ const resetAll = () => {
       </div>
     </section>
 
-    <hr class="border-gray-100" />
+    <hr class="border-slate-200" />
 
     <!-- Price -->
-    <section class="space-y-3">
-      <h3 class="text-sm font-bold text-gray-800">Rentang Harga</h3>
+    <section class="py-3.5 space-y-3">
+      <h3 class="text-sm font-bold text-slate-900 pb-2 border-b border-slate-200 mb-3">Rentang Harga</h3>
       <div class="grid grid-cols-2 gap-2">
-        <div class="bg-white border border-gray-200 rounded-lg p-2 focus-within:border-green-500 focus-within:ring-1 focus-within:ring-green-500 transition-all">
-          <label for="d-price-min" class="text-[9px] font-bold text-gray-400 uppercase block mb-0.5">Minimum</label>
-          <div class="flex items-center gap-1 font-bold text-gray-700 text-sm">
-            <span>Rp</span>
+        <div class="bg-white border border-slate-300 rounded-lg p-2 focus-within:border-[#03AC0E] focus-within:ring-2 focus-within:ring-[#03AC0E]/20 transition-all min-w-0">
+          <label for="d-price-min" class="text-[9px] font-bold text-slate-400 uppercase block mb-0.5">Minimum</label>
+          <div class="flex items-center gap-1 font-bold text-slate-700 text-xs sm:text-sm min-w-0">
+            <span class="text-slate-400 shrink-0 text-xs">Rp</span>
             <input id="d-price-min" type="number" inputmode="numeric" :value="price[0]"
               @change="e => updatePrice(Number((e.target as HTMLInputElement).value), 'min')"
-              class="bg-transparent w-full outline-none p-0 border-none focus:ring-0 text-sm" />
+              class="bg-transparent w-full min-w-0 outline-none p-0 border-none focus:ring-0 text-xs font-semibold text-slate-800" />
           </div>
         </div>
-        <div class="bg-white border border-gray-200 rounded-lg p-2 focus-within:border-green-500 focus-within:ring-1 focus-within:ring-green-500 transition-all">
-          <label for="d-price-max" class="text-[9px] font-bold text-gray-400 uppercase block mb-0.5">Maksimum</label>
-          <div class="flex items-center gap-1 font-bold text-gray-700 text-sm">
-            <span>Rp</span>
+        <div class="bg-white border border-slate-300 rounded-lg p-2 focus-within:border-[#03AC0E] focus-within:ring-2 focus-within:ring-[#03AC0E]/20 transition-all min-w-0">
+          <label for="d-price-max" class="text-[9px] font-bold text-slate-400 uppercase block mb-0.5">Maksimum</label>
+          <div class="flex items-center gap-1 font-bold text-slate-700 text-xs sm:text-sm min-w-0">
+            <span class="text-slate-400 shrink-0 text-xs">Rp</span>
             <input id="d-price-max" type="number" inputmode="numeric" :value="price[1]"
               @change="e => updatePrice(Number((e.target as HTMLInputElement).value), 'max')"
-              class="bg-transparent w-full outline-none p-0 border-none focus:ring-0 text-sm" />
+              class="bg-transparent w-full min-w-0 outline-none p-0 border-none focus:ring-0 text-xs font-semibold text-slate-800" />
           </div>
         </div>
       </div>
-      <input type="range" :value="price[1]"
-        @input="e => updatePrice(Number((e.target as HTMLInputElement).value), 'max')"
-        min="0" max="10000000" step="100000"
-        class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-green-600" />
+      <div>
+        <input type="range" :value="price[1]"
+          @input="e => updatePrice(Number((e.target as HTMLInputElement).value), 'max')"
+          min="0" max="10000000" step="100000"
+          class="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-[#03AC0E]" />
+        <div class="flex justify-between text-[10px] font-bold text-slate-400 mt-1.5">
+          <span>Rp 0</span>
+          <span>Rp 10 Jt+</span>
+        </div>
+      </div>
     </section>
   </aside>
 </template>
 
 <style scoped>
--webkit-tap-highlight-color: transparent;
+* {
+  -webkit-tap-highlight-color: transparent;
+}
 
 input::-webkit-outer-spin-button,
 input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }

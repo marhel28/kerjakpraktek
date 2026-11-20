@@ -1,3 +1,5 @@
-<template>
-  <h1>test produt times</h1>
-</template>
+<script setup lang="ts">
+// Fallback redirect ke halaman katalog produk atau beranda
+await navigateTo('/search', { redirectCode: 301 })
+</script>
+<template><div /></template>

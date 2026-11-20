@@ -33,9 +33,9 @@ const toggleCategory = (slug: string) => {
 const formatRupiah = (angka: number) =>
   new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", minimumFractionDigits: 0 }).format(angka || 0);
 
-const removeItem = async (uuid: string) => {
-  const success = await wishlist.removeFromWishlist(uuid);
-  if (success) toast.add({ title: "Berhasil", description: "Produk dihapus dari wishlist", color: "green" });
+const removeItem = async (item: any) => {
+  await wishlist.toggle({ id: item.stock?.uuid || item.uuid });
+  toast.add({ title: "Berhasil", description: "Produk dihapus dari wishlist", color: "green" });
 };
 
 const addToCart = async (stockItem: any) => {
@@ -63,7 +63,7 @@ const addToCart = async (stockItem: any) => {
       <button @click="$router.push('/dashboard')" class="p-1 -ml-1 text-gray-400 hover:text-gray-900 transition-colors">
         <UIcon name="i-heroicons-arrow-left" class="w-5 h-5" />
       </button>
-      <h1 class="text-base font-black text-gray-900 uppercase tracking-wider">Wishlist Saya</h1>
+      <h1 class="text-base font-bold text-gray-900">Wishlist Saya</h1>
     </div>
 
     <!-- DESKTOP HEADER (Tokopedia Style) -->
@@ -92,11 +92,15 @@ const addToCart = async (stockItem: any) => {
       </section>
 
       <!-- PRODUCT LIST -->
-      <main class="space-y-4">
-        <div v-if="filteredAndSortedWishlist.length === 0" class="py-24 text-center border-2 border-dashed border-gray-100 rounded-xl">
-          <p class="text-sm font-bold text-gray-400">Belum ada wishlist.</p>
-          <NuxtLink to="/" class="mt-4 inline-block text-sm font-bold text-[#03AC0E] hover:underline">Cari Produk Sekarang</NuxtLink>
-        </div>
+      <main class="space-y-4 p-4 sm:p-6">
+        <DashboardEmptyState
+          v-if="filteredAndSortedWishlist.length === 0"
+          icon="i-heroicons-heart"
+          title="Wishlist Kosong"
+          description="Simpan barang favorit dan kembali lagi nanti."
+          cta-label="Cari Produk"
+          cta-to="/search"
+        />
 
         <div v-else class="grid grid-cols-1 gap-4">
           <div v-for="item in filteredAndSortedWishlist" :key="item.wishlist_uuid" 
@@ -124,10 +128,10 @@ const addToCart = async (stockItem: any) => {
               <button @click="addToCart(item.stock)" class="flex-1 sm:flex-initial px-5 py-2.5 border border-[#03AC0E] text-[#03AC0E] hover:bg-emerald-50 text-xs font-bold rounded-lg transition-all shadow-sm text-center">
                 + Keranjang
               </button>
-              <button @click="navigateTo(`/p/${item.stock?.slug}`)" class="flex-1 sm:flex-initial px-8 py-2.5 bg-[#03AC0E] text-white text-xs font-bold rounded-lg hover:bg-[#028a0b] transition-all shadow-sm text-center">
+              <button @click="navigateTo(`/product/${item.stock?.slug || item.stock?.uuid}`)" class="flex-1 sm:flex-initial px-8 py-2.5 bg-[#03AC0E] text-white text-xs font-bold rounded-lg hover:bg-[#028a0b] transition-all shadow-sm text-center">
                 Beli
               </button>
-              <button @click="removeItem(item.stock?.uuid)" class="p-2.5 text-gray-400 hover:text-red-600 transition-colors border border-gray-200 sm:border-0 rounded-lg flex items-center justify-center">
+              <button @click="removeItem(item)" class="p-2.5 text-gray-400 hover:text-red-600 transition-colors border border-gray-200 sm:border-0 rounded-lg flex items-center justify-center">
                 <UIcon name="i-heroicons-trash" class="w-5 h-5" />
               </button>
             </div>

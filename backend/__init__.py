@@ -30,6 +30,7 @@ from backend.data.transaksi.dashbord.route import router as main_route_transaksi
 from backend.data.public.mainbottombanner.route import router as bottomBanner
 from backend.data.public.promobanner.router import promo_router as router_promo
 from backend.user.pesan.route import router as pesan_routes
+from backend.user.pesan.ws_route import router as ws_chat_router
 from backend.data.public.portofolio.route import router as porto_route
 from backend.data.public.about.route import router as router_about
 from backend.data.public.addon.route import router as addon_router
@@ -119,6 +120,7 @@ app.include_router(main_route_transaksi)
 app.include_router(bottomBanner)
 app.include_router(router_promo,tags=['promos'])
 app.include_router(pesan_routes)
+app.include_router(ws_chat_router)
 app.include_router(porto_route)
 app.include_router(router_about)
 app.include_router(addon_router)

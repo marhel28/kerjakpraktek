@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from "vue";
 import { useCompareStore } from "~/stores/compare";
+import { useCartStore } from "~/stores/cart";
 
 interface Props {
   uuid: string;
@@ -16,6 +17,8 @@ interface Props {
   type?: string;
   specs?: Record<string, any>;
   terjual?: number;
+  rating?: number;
+  warranty?: string;
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -30,12 +33,16 @@ const props = withDefaults(defineProps<Props>(), {
 });
 
 const compareStore = useCompareStore();
+const cartStore = useCartStore();
+const toast = useToast();
+
 const isCompare = computed(() => compareStore.isInCompare(props.uuid));
 
-const shortSpecs = computed(() => {
-  if (!props.specs || Object.keys(props.specs).length === 0) return [];
-  return Object.entries(props.specs).slice(0, 2);
-});
+// ponytail: product API has no rating/warranty fields yet; never synthesize trust claims.
+const warrantyLabel = computed(() => typeof props.warranty === "string" ? props.warranty.trim() : "");
+const ratingLabel = computed(() => typeof props.rating === "number" &&
+  Number.isFinite(props.rating) && props.rating >= 1 && props.rating <= 5
+  ? props.rating.toFixed(1) : "");
 
 const toggleCompare = () => {
   compareStore.toggle({
@@ -51,87 +58,107 @@ const toggleCompare = () => {
   });
 };
 
+const handleQuickAdd = () => {
+  cartStore.add({
+    id: props.uuid,
+    title: props.title,
+    price: props.price,
+    original_price: props.original_price,
+    discount_percentage: props.discount_percentage,
+    image: props.image,
+    brand: props.brand,
+    category: props.category,
+    specs: props.specs,
+    weight: 1,
+    quantity: 1,
+  });
+  toast.add({
+    title: "Berhasil Ditambahkan!",
+    description: `${props.title} masuk ke keranjang.`,
+    icon: "i-heroicons-check-circle",
+    color: "green",
+  });
+};
+
 const priceFormatter = new Intl.NumberFormat("id-ID", {
   style: "currency",
   currency: "IDR",
   minimumFractionDigits: 0,
 });
-const formatPrice = (value: number) =>
-  value ? priceFormatter.format(value).replace("Rp", "Rp ") : "Rp 0";
-
+const formatPrice = (value: number) => priceFormatter.format(value);
 const productUrl = computed(() => `/product/${props.slug || props.uuid}`);
-
 const soldLabel = computed(() => {
-  if (!props.terjual || props.terjual <= 0) return "";
+  if (!Number.isFinite(props.terjual) || props.terjual <= 0) return "";
   return props.terjual >= 1000
     ? `${(props.terjual / 1000).toFixed(1)}rb`
     : String(props.terjual);
 });
+const imageAlt = computed(() => `${props.brand} ${props.title}`);
 
-const imageAlt = computed(
-  () =>
-    `${props.brand} ${props.title}${
-      props.category !== "all" ? ` - ${props.category.replace(/-/g, " ")}` : ""
-    }`
-);
+// Smart Hardware Image Resolver untuk menampilkan foto produk CCTV yang sesuai spesifikasi
+const resolvedImage = computed(() => {
+  const t = (props.title || "").toLowerCase();
+  const c = (props.category || "").toLowerCase();
+  const sc = (props.subcategory || "").toLowerCase();
+  const tp = (props.type || "").toLowerCase();
+
+  if (c.includes("paket") || t.includes("paket") || tp.includes("paket")) {
+    return "/images/showcase/bundle.jpg";
+  }
+  if (c.includes("storage") || t.includes("hdd") || t.includes("harddisk") || t.includes("seagate") || t.includes("purple")) {
+    return "/images/showcase/harddrive.jpg";
+  }
+  if (c.includes("dvr") || t.includes("dvr") || t.includes("nvr") || t.includes("channel")) {
+    return "/images/showcase/dvr.jpg";
+  }
+  if (t.includes("colorvu") || t.includes("starlight") || t.includes("full color") || t.includes("audio mic")) {
+    return "/images/showcase/colorvu.jpg";
+  }
+  if (sc.includes("ptz") || sc.includes("wireless") || t.includes("ptz") || t.includes("wireless") || t.includes("wifi")) {
+    return "/images/showcase/ptz.jpg";
+  }
+  if (sc.includes("outdoor") || t.includes("outdoor") || t.includes("bullet") || t.includes("poe")) {
+    return "/images/showcase/bullet.jpg";
+  }
+  if (sc.includes("indoor") || t.includes("indoor") || t.includes("dome")) {
+    return "/images/showcase/dome.jpg";
+  }
+
+  return props.image || "/images/showcase/dome.jpg";
+});
+
+// Technical specs pills (Amazon Hardware Details)
+const keySpecs = computed(() => {
+  const list: string[] = [];
+  if (props.specs && typeof props.specs === 'object') {
+    if (props.specs.resolution) list.push(String(props.specs.resolution));
+    if (props.specs.poe === "yes") list.push("PoE");
+    if (props.specs.audio) list.push("Audio Mic");
+    if (props.specs.starlight) list.push("Starlight");
+    if (props.specs.night_vision) list.push("ColorVu");
+    if (props.specs.dvr) list.push(String(props.specs.dvr));
+    if (props.specs.hdd) list.push(String(props.specs.hdd));
+  }
+  return list.slice(0, 2);
+});
 </script>
 
 <template>
   <article
     itemscope
     itemtype="https://schema.org/Product"
-    class="group relative flex flex-col h-full"
+    class="product-card group relative flex flex-col h-full min-w-0 select-none bg-transparent border-0 shadow-none"
   >
-    <NuxtLink
-      :to="productUrl"
-      :title="`${brand} ${title}`"
-      class="flex flex-col h-full bg-white transition-all duration-200 rounded-xl sm:rounded-2xl border border-gray-100 hover:border-green-500/30 hover:shadow-[0_8px_24px_-8px_rgba(22,163,74,0.10)] hover:-translate-y-1 overflow-hidden"
-    >
-      <!-- ── Gambar ─────────────────────────────────────────────── -->
-      <div
-        class="relative aspect-square w-full overflow-hidden bg-gradient-to-b from-gray-50 to-[#f9fafb] min-h-[150px] sm:min-h-[200px]"
+    <!-- Media Container (Thumbnail) -->
+    <div class="relative aspect-[4/5] w-full rounded-lg bg-[#f7f8f8] overflow-hidden">
+      <NuxtLink
+        :to="productUrl"
+        :title="`${brand} ${title}`"
+        class="block w-full h-full focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-green-700"
       >
-        <!-- Badge diskon -->
-        <div
-          v-if="discount_percentage > 0"
-          class="absolute top-2 left-2 sm:top-3 sm:left-3 z-20"
-        >
-          <span
-            class="bg-gradient-to-r from-red-500 to-rose-600 text-white text-[9px] sm:text-[10px] font-black px-1.5 sm:px-2.5 py-0.5 sm:py-1 rounded-md sm:rounded-lg shadow-sm shadow-red-500/30 flex items-center gap-0.5 sm:gap-1"
-            :aria-label="`Diskon ${discount_percentage} persen`"
-          >
-            <UIcon
-              name="i-heroicons-arrow-trending-down"
-              class="w-2.5 h-2.5 sm:w-3 sm:h-3"
-              aria-hidden="true"
-            />
-            {{ discount_percentage }}%
-          </span>
-        </div>
-
-        <!-- Action buttons — hanya tampil di sm ke atas (hover tidak ada di mobile) -->
-        <div
-          class="hidden sm:flex absolute top-3 right-3 z-20 flex-col gap-2 transform translate-x-12 opacity-0 group-hover:translate-x-0 group-hover:opacity-100 transition-all duration-300 ease-out"
-          @click.prevent.stop
-        >
-          <AddButtonWishlist :product="{ id: uuid, image, title, price, brand }" />
-          <UButton
-            color="white"
-            variant="solid"
-            icon="i-heroicons-arrows-right-left"
-            :aria-label="isCompare ? 'Hapus dari perbandingan' : 'Bandingkan produk'"
-            :aria-pressed="isCompare"
-            class="rounded-full shadow-md bg-white/90 backdrop-blur-md transition-colors hover:bg-green-50"
-            :class="isCompare ? 'text-green-600 ring-2 ring-green-500' : 'text-gray-500'"
-            :disabled="compareStore.isFull && !isCompare"
-            @click.prevent.stop="toggleCompare"
-          />
-        </div>
-
         <NuxtImg
-          :src="image"
+          :src="resolvedImage"
           :alt="imageAlt"
-          :title="imageAlt"
           itemprop="image"
           width="400"
           height="400"
@@ -139,122 +166,106 @@ const imageAlt = computed(
           quality="80"
           loading="lazy"
           sizes="xs:50vw sm:50vw md:33vw lg:25vw xl:25vw"
-          class="h-full w-full object-contain p-3 sm:p-6 transition-transform duration-300 ease-out group-hover:scale-105"
+          class="w-full h-full object-contain p-4 group-hover:scale-105 transition-transform duration-300"
         />
+      </NuxtLink>
 
-        <div
-          class="absolute inset-0 bg-black/0 group-hover:bg-black/[0.03] transition-colors duration-300"
-          aria-hidden="true"
-        />
+      <!-- Wishlist & Compare in Top-Right -->
+      <div class="absolute top-2.5 right-2.5 flex flex-col gap-1.5 z-10">
+        <AddButtonWishlist data-action="wishlist" :product="{ id: uuid, image, title, price, brand }" />
+        <button
+          type="button"
+          data-action="compare"
+          :aria-label="isCompare ? 'Hapus dari perbandingan' : 'Bandingkan produk'"
+          :aria-pressed="isCompare"
+          :disabled="compareStore.isFull && !isCompare"
+          class="w-8 h-8 rounded-full bg-white/90 backdrop-blur-md shadow-xs flex items-center justify-center text-gray-600 hover:text-[#03AC0E] hover:bg-white active:scale-95 transition-all disabled:cursor-not-allowed disabled:opacity-50"
+          :class="{ 'bg-green-50 text-[#03AC0E] ring-1 ring-[#03AC0E]': isCompare }"
+          @click="toggleCompare"
+        >
+          <UIcon name="i-heroicons-arrows-right-left" class="w-4 h-4 shrink-0" aria-hidden="true" />
+        </button>
       </div>
 
-      <!-- ── Konten ─────────────────────────────────────────────── -->
-      <div class="flex flex-1 flex-col p-2.5 sm:p-4 pt-2 sm:pt-3">
-        <!-- Brand + kategori -->
-        <div class="mb-2 flex items-center gap-2 overflow-hidden min-h-[22px] sm:min-h-[24px] min-w-0">
-          <span
-            itemprop="brand"
-            class="shrink-0 text-[9px] sm:text-[10px] font-black uppercase tracking-wider text-green-700 bg-green-50 px-1.5 sm:px-2 py-0.5 rounded-md border border-green-200/60"
-          >
-            {{ brand }}
-          </span>
-          <span
-            v-if="subcategory || category"
-            class="hidden sm:block text-[9px] font-bold text-gray-400 uppercase tracking-widest truncate flex-1 border-l border-gray-100 pl-2 min-w-0"
-          >
-            {{ (subcategory || category).replace(/-/g, " ") }}
-          </span>
-        </div>
+      <!-- Quick Add Button (+) Tokopedia Green Style in Bottom-Right -->
+      <button
+        type="button"
+        aria-label="Tambah ke keranjang"
+        class="absolute bottom-2.5 right-2.5 w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-[#03AC0E] hover:bg-[#028C0B] active:scale-95 text-white shadow-xs flex items-center justify-center transition-all z-10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#03AC0E]"
+        @click.stop="handleQuickAdd"
+      >
+        <UIcon name="i-heroicons-plus" class="w-4 h-4 sm:w-5 sm:h-5 stroke-[2.5]" aria-hidden="true" />
+      </button>
+    </div>
 
-        <h3
-          itemprop="name"
-          class="text-[12px] sm:text-[13px] font-bold text-gray-800 line-clamp-2 leading-snug min-h-[32px] sm:min-h-[40px] group-hover:text-[#03AC0E] transition-colors"
-        >
+    <!-- Details Body -->
+    <div class="flex flex-1 flex-col pt-3">
+      <!-- Tag Promo / Deal (di bawah gambar) -->
+      <div v-if="discount_percentage > 0 && original_price > price" class="flex items-center gap-1.5 mb-1">
+        <span class="inline-flex items-center justify-center bg-[#FFF0F2] text-[#D62828] border border-[#FCD5D8] text-[10px] sm:text-[11px] font-bold px-1.5 py-0.5 rounded leading-none">
+          {{ discount_percentage }}%
+        </span>
+        <span class="text-[#D62828] text-[11px] font-semibold leading-none">
+          Hemat
+        </span>
+      </div>
+
+      <!-- Price Lockup Amazon Ergo + Tokopedia Boldness -->
+      <div class="flex items-baseline gap-1.5 flex-wrap" itemprop="offers" itemscope itemtype="https://schema.org/Offer">
+        <meta itemprop="priceCurrency" content="IDR" />
+        <meta itemprop="price" :content="String(price)" />
+        <p data-test="price-main" class="flex items-baseline text-gray-900 tracking-tight">
+          <span class="text-xs font-semibold mr-0.5 text-gray-800">Rp</span>
+          <span class="text-base sm:text-lg font-bold text-gray-900">{{ new Intl.NumberFormat("id-ID").format(price) }}</span>
+        </p>
+        <span v-if="original_price > price" class="text-[11px] text-gray-400 line-through truncate">
+          {{ formatPrice(original_price) }}
+        </span>
+      </div>
+
+      <!-- Judul Produk -->
+      <NuxtLink
+        :to="productUrl"
+        :title="`${brand} ${title}`"
+        class="focus-visible:outline-2 focus-visible:outline-[#03AC0E] mt-1 hover:text-[#03AC0E] transition-colors"
+      >
+        <h3 itemprop="name" class="text-xs sm:text-sm font-normal text-gray-800 line-clamp-2 leading-snug group-hover:text-[#03AC0E] hover:text-[#03AC0E] transition-colors">
           {{ title }}
         </h3>
+      </NuxtLink>
 
-        <!-- Specs singkat — disembunyikan di mobile agar tidak terlalu padat -->
-        <div class="hidden sm:block mt-2.5 space-y-1.5 flex-1 min-h-[48px]">
-          <div v-if="type" class="flex items-center gap-1.5 text-gray-400">
-            <UIcon
-              name="i-heroicons-tag"
-              class="w-3 h-3 flex-shrink-0"
-              aria-hidden="true"
-            />
-            <p class="text-[10px] truncate font-semibold uppercase tracking-tight">
-              {{ type }}
-            </p>
-          </div>
-
-          <div
-            v-for="[key, value] in shortSpecs"
-            :key="key"
-            class="flex items-center gap-1.5 text-gray-500"
-            itemprop="additionalProperty"
-            itemscope
-            itemtype="https://schema.org/PropertyValue"
-          >
-            <div class="w-1 h-1 rounded-full bg-gray-300" aria-hidden="true" />
-            <p class="text-[10px] truncate leading-none">
-              <span itemprop="name" class="font-bold text-gray-600 capitalize">
-                {{ key.replace(/_/g, " ") }}:
-              </span>
-              <span itemprop="value" class="capitalize"> {{ value }}</span>
-            </p>
-          </div>
-        </div>
-
-        <!-- Harga -->
-        <div
-          class="mt-2 sm:mt-4 flex flex-col justify-end"
-          itemprop="offers"
-          itemscope
-          itemtype="https://schema.org/Offer"
+      <!-- Key Technical Specs (Amazon Spec Tag) -->
+      <div v-if="keySpecs.length > 0" class="flex flex-wrap gap-1 mt-1">
+        <span
+          v-for="spec in keySpecs"
+          :key="spec"
+          class="text-[10px] font-semibold bg-gray-100 text-gray-700 px-1.5 py-0.5 rounded leading-none"
         >
-          <meta itemprop="priceCurrency" content="IDR" />
-          <meta itemprop="price" :content="String(price)" />
-          <link itemprop="availability" href="https://schema.org/InStock" />
-
-          <!-- Harga coret -->
-          <div class="h-[13px] sm:h-[14px] mb-0.5 flex items-center">
-            <span
-              v-if="original_price && original_price > price"
-              class="text-[10px] sm:text-[11px] font-medium text-gray-400 line-through decoration-gray-300"
-            >
-              {{ formatPrice(original_price) }}
-            </span>
-          </div>
-
-          <!-- Harga final -->
-          <p
-            itemprop="price"
-            class="text-[14px] sm:text-[17px] font-black tracking-tight"
-            :class="discount_percentage > 0 ? 'text-red-600' : 'text-gray-900'"
-          >
-            {{ formatPrice(price) }}
-          </p>
-        </div>
-
-        <!-- Terjual — tanpa bintang -->
-        <div v-if="soldLabel" class="mt-2 sm:mt-3 pt-2 sm:pt-3 border-t border-gray-100">
-          <span class="text-[10px] font-bold text-gray-400">
-            Terjual {{ soldLabel }}
-          </span>
-        </div>
+          {{ spec }}
+        </span>
       </div>
-    </NuxtLink>
+
+      <!-- Trust Badges (Warranty) -->
+      <div data-test="trust-badges" v-if="warrantyLabel" class="flex items-center gap-1 text-[11px] text-[#03AC0E] font-medium mt-1">
+        <UIcon name="i-heroicons-shield-check" class="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+        <span class="truncate">{{ warrantyLabel }}</span>
+      </div>
+
+      <!-- Social Proof / Terjual / Rating -->
+      <div class="flex items-center gap-1.5 text-[11px] text-gray-500 mt-1.5">
+        <span v-if="ratingLabel" :aria-label="`Rating ${ratingLabel} dari 5`" class="inline-flex items-center gap-0.5 font-medium text-gray-700">
+          <UIcon name="i-heroicons-star-solid" class="h-3.5 w-3.5 text-[#FFB703]" aria-hidden="true" />
+          {{ ratingLabel }}
+        </span>
+        <span v-if="ratingLabel && soldLabel" aria-hidden="true" class="text-gray-300">·</span>
+        <span v-if="soldLabel" class="text-gray-500">Terjual {{ soldLabel }}</span>
+      </div>
+    </div>
   </article>
 </template>
 
 <style scoped>
-* {
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-}
-.line-clamp-2 {
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
+@media (prefers-reduced-motion: reduce) {
+  .product-card { transition: none; }
 }
 </style>

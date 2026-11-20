@@ -1,6 +1,31 @@
 @import "tailwindcss";
 @import "@nuxt/ui";
 
+@theme {
+  --color-pasarcctv-black: #000000;
+  --color-pasarcctv-red: #C40000;
+  --color-pasarcctv-green: #03AC0E;
+  --color-amazon-amber: #FF9900;
+  --font-heading: 'Plus Jakarta Sans', sans-serif;
+  --font-body: 'Open Sans', sans-serif;
+  --radius-auth: 0.5rem;
+  --input-h: 42px;
+  --btn-h: 42px;
+  --focus-ring: 0 0 0 1px var(--color-pasarcctv-black), 0 0 0 3px var(--color-amazon-amber);
+}
+
+.auth-input {
+  @apply w-full h-[var(--input-h)] bg-gray-50 border border-gray-200 rounded-[var(--radius-auth)] text-sm font-medium text-black placeholder-gray-400 transition-all;
+}
+.auth-input:focus {
+  @apply bg-white border-black ring-1 ring-black ring-offset-0;
+}
+.auth-btn-primary {
+  @apply flex items-center justify-center h-[var(--btn-h)] bg-black text-white rounded-[var(--radius-auth)] text-xs font-extrabold uppercase tracking-wider font-heading transition-colors;
+}
+.auth-btn-primary:hover:not(:disabled) {
+  @apply bg-gray-800;
+}
 
 .page-enter-active,
 .page-leave-active {
@@ -12,3 +37,9 @@
   filter: blur(1rem);
 }
 
+html,
+body {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}

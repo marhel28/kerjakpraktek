@@ -1,237 +1,156 @@
 <template>
-  <div
-    class="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 font-sans selection:bg-black selection:text-white"
-  >
-    <div
-      class="w-full max-w-5xl bg-white border border-gray-200 shadow-xl rounded-xl overflow-hidden flex flex-col lg:flex-row"
+  <div class="min-h-screen bg-gray-50 py-10 sm:py-14 px-4 flex flex-col justify-center font-['Open_Sans',sans-serif]">
+    <AmazonAuthCard
+      hero-image="https://daganghalal.blob.core.windows.net/44641/Product/cctv-installation-services-1745476968100.jpg"
     >
-      <!-- ── Panel kiri (dekorasi) ──────────────────────────────── -->
-      <div class="hidden lg:block lg:w-1/2 bg-black relative">
-        <img
-          src="https://daganghalal.blob.core.windows.net/44641/Product/cctv-installation-services-1745476968100.jpg"
-          alt="PasarCctv Security"
-          width="720"
-          height="900"
-          class="w-full h-full object-cover opacity-40 grayscale"
-          loading="eager"
-          fetchpriority="high"
-        />
+      <!-- Header Tagline -->
+      <template #header-tagline>
+        <h1 class="text-2xl font-black text-black tracking-tight uppercase font-['Plus_Jakarta_Sans',sans-serif]">
+          Masuk Akun
+        </h1>
+        <p class="text-gray-500 text-xs font-bold mt-1 uppercase tracking-widest font-['Plus_Jakarta_Sans',sans-serif]">
+          Akses portal layanan & belanja CCTV
+        </p>
+      </template>
+
+      <!-- Form Login: Amazon Single-Column Card with PasarCctv Colors (Hitam/Putih/Merah) -->
+      <template #form>
+        <!-- Alert Sukses Pendaftaran dari Query URL -->
         <div
-          class="absolute inset-0 bg-gradient-to-t from-black via-black/50 to-transparent"
-          aria-hidden="true"
-        />
-
-        <div class="absolute bottom-16 left-12 right-12 text-white">
-          <div class="flex flex-col leading-none mb-6">
-            <span class="text-4xl font-black text-white tracking-tighter uppercase italic"
-              >PasarCctv</span
-            >
-            <span class="text-xl font-light text-gray-400 tracking-[0.3em] uppercase mt-1"
-              >CCTV</span
-            >
-            <div class="barcode-element-white mt-4" aria-hidden="true" />
-          </div>
-          <h1 class="text-3xl font-black uppercase tracking-tight leading-tight mb-3">
-            Sistem Keamanan <br />
-            <span class="text-red-600">Nomor 1</span> di Indonesia.
-          </h1>
-          <p class="text-gray-400 text-sm font-medium leading-relaxed max-w-sm">
-            Masuk untuk mengakses produk original, layanan garansi resmi, dan penjadwalan
-            instalasi teknisi profesional.
-          </p>
-        </div>
-      </div>
-
-      <!-- ── Panel kanan (form) ─────────────────────────────────── -->
-      <div
-        class="w-full lg:w-1/2 p-10 sm:p-16 flex flex-col justify-center bg-white relative"
-      >
-        <div class="absolute top-8 right-10 hidden sm:block" aria-hidden="true">
-          <div class="barcode-element-black" />
-        </div>
-
-        <!-- Logo mobile -->
-        <div class="mb-10 text-center lg:text-left">
-          <div class="flex flex-col leading-none mb-6 lg:hidden items-center">
-            <span class="text-3xl font-black text-black tracking-tighter uppercase italic"
-              >PasarCctv</span
-            >
-            <span class="text-base font-light text-gray-500 tracking-[0.3em] uppercase"
-              >CCTV</span
-            >
-          </div>
-          <h2 class="text-2xl font-black text-black tracking-tight uppercase">
-            Selamat Datang
-          </h2>
-          <p class="text-gray-500 text-xs font-bold mt-2 uppercase tracking-widest">
-            Masuk ke akun belanja Anda
-          </p>
-        </div>
-
-        <!-- Error message -->
-        <Transition
-          enter-active-class="transition duration-200 ease-out"
-          enter-from-class="opacity-0 -translate-y-1"
-          enter-to-class="opacity-100 translate-y-0"
-          leave-active-class="transition duration-150 ease-in"
-          leave-from-class="opacity-100"
-          leave-to-class="opacity-0"
+          v-if="isRegisteredNotice"
+          class="bg-green-50 border border-green-300 p-3.5 rounded-md mb-4 flex items-start gap-2.5"
+          role="status"
         >
-          <div
-            v-if="errorMessage"
-            role="alert"
-            aria-live="polite"
-            class="mb-6 p-4 bg-red-50 border border-red-200 text-red-600 text-xs font-bold rounded-lg uppercase tracking-widest flex items-center gap-2"
-          >
-            <UIcon
-              name="i-heroicons-exclamation-circle"
-              class="w-4 h-4 flex-shrink-0"
-              aria-hidden="true"
-            />
-            {{ errorMessage }}
-          </div>
-        </Transition>
+          <UIcon name="i-heroicons-check-circle" class="w-4 h-4 text-green-700 shrink-0 mt-0.5" />
+          <p class="text-xs text-green-900 leading-relaxed font-bold">
+            Pendaftaran berhasil. Silakan masuk menggunakan email dan kata sandi Anda.
+          </p>
+        </div>
 
-        <!-- Form login -->
-        <form @submit.prevent="handleLogin" class="space-y-5" novalidate>
-          <!-- Email -->
+        <!-- Error alert -->
+        <AmazonAlertError v-if="errorMessage" :message="errorMessage" />
+
+        <form @submit.prevent="handleLogin" class="space-y-4" novalidate>
+          <!-- Email Input -->
           <div>
             <label
               for="login-email"
-              class="block text-[10px] font-black uppercase tracking-widest text-black mb-2"
+              class="block text-[11px] font-black uppercase tracking-wider text-black mb-1.5 font-['Plus_Jakarta_Sans',sans-serif]"
             >
               Email Pelanggan
             </label>
             <div class="relative">
-              <span
-                class="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"
-                aria-hidden="true"
-              >
-                <UIcon name="i-heroicons-envelope" class="w-5 h-5" />
+              <span class="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" aria-hidden="true">
+                <UIcon name="i-heroicons-envelope" class="w-4 h-4" />
               </span>
               <input
                 id="login-email"
                 v-model="email"
                 type="email"
-                placeholder="email@contoh.com"
                 autocomplete="email"
-                class="auth-input pl-12"
-                :disabled="isLoading"
                 required
+                placeholder="nama@email.com"
+                :disabled="isLoading"
+                class="auth-input pl-10"
               />
             </div>
           </div>
 
-          <!-- Password -->
+          <!-- Password Input -->
           <div>
-            <div class="flex justify-between items-end mb-2">
+            <div class="flex justify-between items-center mb-1.5">
               <label
                 for="login-password"
-                class="block text-[10px] font-black uppercase tracking-widest text-black"
+                class="block text-[11px] font-black uppercase tracking-wider text-black font-['Plus_Jakarta_Sans',sans-serif]"
               >
-                Password
+                Kata Sandi
               </label>
               <NuxtLink
                 to="/forgot-password"
-                class="text-[10px] font-bold text-gray-500 hover:text-red-600 uppercase tracking-widest transition-colors"
+                class="text-[11px] font-bold text-gray-500 hover:text-red-600 transition-colors uppercase tracking-wider font-['Plus_Jakarta_Sans',sans-serif]"
               >
                 Lupa Password?
               </NuxtLink>
             </div>
+
             <div class="relative">
-              <span
-                class="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"
-                aria-hidden="true"
-              >
-                <UIcon name="i-heroicons-lock-closed" class="w-5 h-5" />
+              <span class="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" aria-hidden="true">
+                <UIcon name="i-heroicons-lock-closed" class="w-4 h-4" />
               </span>
               <input
                 id="login-password"
                 v-model="password"
                 :type="showPassword ? 'text' : 'password'"
-                placeholder="••••••••"
                 autocomplete="current-password"
-                class="auth-input pl-12 pr-12"
-                :disabled="isLoading"
                 required
+                placeholder="••••••••"
+                :disabled="isLoading"
+                class="auth-input pl-10 pr-10"
+                @keyup="checkCapsLock"
+                @keydown="checkCapsLock"
               />
               <button
                 type="button"
-                class="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-black transition-colors"
-                :aria-label="showPassword ? 'Sembunyikan password' : 'Tampilkan password'"
+                class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-black p-1 transition-colors"
+                :aria-label="showPassword ? 'Sembunyikan kata sandi' : 'Tampilkan kata sandi'"
                 :disabled="isLoading"
                 @click="showPassword = !showPassword"
               >
                 <UIcon
                   :name="showPassword ? 'i-heroicons-eye-slash' : 'i-heroicons-eye'"
-                  class="w-5 h-5"
+                  class="w-4 h-4"
                   aria-hidden="true"
                 />
               </button>
             </div>
           </div>
 
-          <!-- Remember me -->
-          <div class="flex items-center">
-            <label class="flex items-center gap-3 cursor-pointer group">
-              <div class="relative flex items-center justify-center">
-                <input
-                  v-model="rememberMe"
-                  type="checkbox"
-                  class="peer appearance-none w-4 h-4 border-2 border-gray-300 rounded-sm checked:bg-black checked:border-black transition-colors cursor-pointer"
-                />
-                <UIcon
-                  name="i-heroicons-check"
-                  class="absolute w-3 h-3 text-white opacity-0 peer-checked:opacity-100 pointer-events-none"
-                  aria-hidden="true"
-                />
-              </div>
-              <span
-                class="text-[11px] font-bold text-gray-500 group-hover:text-black transition-colors uppercase tracking-wider"
-              >
+          <!-- Remember Me & Caps Lock Warning -->
+          <div class="flex items-center justify-between pt-1">
+            <label class="flex items-center gap-2 cursor-pointer group select-none">
+              <input
+                v-model="rememberMe"
+                type="checkbox"
+                class="w-4 h-4 rounded border-gray-300 text-black focus:ring-black cursor-pointer"
+              />
+              <span class="text-xs font-bold text-gray-600 group-hover:text-black transition-colors uppercase tracking-wider font-['Plus_Jakarta_Sans',sans-serif]">
                 Ingat Saya
               </span>
             </label>
+
+            <!-- Caps Lock Alert -->
+            <span v-if="isCapsLockOn" class="text-[10px] font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200 flex items-center gap-1">
+              <UIcon name="i-heroicons-exclamation-triangle" class="w-3 h-3" />
+              Caps Lock Aktif
+            </span>
           </div>
 
-          <!-- Submit -->
+          <!-- Submit Button: PasarCctv Solid Black Primary -->
           <button
             type="submit"
             :disabled="isLoading"
-            class="btn-primary w-full mt-6"
+            class="auth-btn-primary w-full mt-2"
             :aria-busy="isLoading"
           >
             <UIcon
               v-if="isLoading"
               name="i-heroicons-arrow-path"
-              class="w-4 h-4 animate-spin"
+              class="w-4 h-4 animate-spin mr-2 inline"
               aria-hidden="true"
             />
             <span>{{ isLoading ? "Memproses..." : "Masuk Sekarang" }}</span>
             <UIcon
               v-if="!isLoading"
               name="i-heroicons-arrow-right"
-              class="w-4 h-4"
+              class="w-4 h-4 ml-1.5 inline"
               aria-hidden="true"
             />
           </button>
         </form>
+      </template>
 
-        <!-- Divider -->
-        <div class="flex items-center my-8" aria-hidden="true">
-          <div class="flex-grow border-t border-gray-200" />
-          <span
-            class="mx-4 text-[10px] font-black text-gray-400 uppercase tracking-widest"
-            >Atau</span
-          >
-          <div class="flex-grow border-t border-gray-200" />
-        </div>
-
-        <!--
-          Google Sign-In button container.
-          id="google_btn_container" dipakai oleh Google GSI SDK untuk render tombol.
-          min-h agar tidak ada layout shift saat button render.
-        -->
+      <!-- Secondary Actions: Google Sign-In -->
+      <template #secondary-actions>
         <div class="flex justify-center w-full min-h-[44px]">
           <div
             id="google_btn_container"
@@ -239,10 +158,11 @@
             aria-label="Login dengan Google"
           />
         </div>
+      </template>
 
-        <p
-          class="text-center text-gray-500 mt-10 text-[11px] font-bold uppercase tracking-wider"
-        >
+      <!-- Footer: Link Buat Akun Baru + Bantuan CS -->
+      <template #footer-links>
+        <p class="text-xs font-bold text-gray-500 uppercase tracking-wider font-['Plus_Jakarta_Sans',sans-serif] mb-3">
           Belum punya akun?
           <NuxtLink
             to="/daftar"
@@ -251,15 +171,37 @@
             Daftar Disini
           </NuxtLink>
         </p>
-      </div>
-    </div>
+
+        <!-- Quick Help Escape Hatch -->
+        <div class="pt-3 border-t border-gray-100 flex flex-wrap items-center justify-center gap-3 text-xs text-gray-500 font-medium">
+          <NuxtLink to="/help" class="hover:text-[#03AC0E] transition-colors flex items-center gap-1">
+            <UIcon name="i-heroicons-question-mark-circle" class="w-3.5 h-3.5" />
+            <span>Pusat Bantuan</span>
+          </NuxtLink>
+          <span>•</span>
+          <a
+            href="https://wa.me/6282218828108?text=Halo%20Teknisi%20PasarCCTV,%20saya%20mengalami%20kendala%20masuk%20akun."
+            target="_blank"
+            rel="noopener"
+            class="hover:text-[#03AC0E] transition-colors flex items-center gap-1"
+          >
+            <UIcon name="i-heroicons-chat-bubble-left-right" class="w-3.5 h-3.5" />
+            <span>Bantuan Login via WA</span>
+          </a>
+        </div>
+      </template>
+    </AmazonAuthCard>
   </div>
 </template>
 
 <script setup lang="ts">
+import AmazonAuthCard from "~/components/auth/AmazonAuthCard.vue";
+import AmazonAlertError from "~/components/auth/AmazonAlertError.vue";
 import { usePesanStore } from "~/stores/UsePesanStore";
+import { useAuth } from "~/composables/useAuth";
+import { ref, onMounted, onBeforeUnmount, computed } from "vue";
+
 const pesanStore = usePesanStore();
-import { ref, onMounted, onBeforeUnmount } from "vue";
 const { setSupabaseSession } = useAuth();
 
 // ─── SEO ─────────────────────────────────────────────────────────
@@ -292,6 +234,11 @@ const showPassword = ref(false);
 const rememberMe = ref(false);
 const isLoading = ref(false);
 const errorMessage = ref("");
+const isCapsLockOn = ref(false);
+
+const checkCapsLock = (e: KeyboardEvent) => {
+  isCapsLockOn.value = e.getModifierState("CapsLock");
+};
 
 // ─── Stores ───────────────────────────────────────────────────────
 const cartStore = useCartStore();
@@ -300,8 +247,9 @@ const wishlistStore = useWishlistStore();
 // ─── Route ────────────────────────────────────────────────────────
 const route = useRoute();
 const router = useRouter();
+const isRegisteredNotice = computed(() => route.query.registered === "1");
 
-// 🆕 Cookie Supabase user ID
+// Cookie Supabase user ID
 const supabaseUserId = useCookie("supabase_user");
 
 const redirectAfterLogin = async () => {
@@ -326,7 +274,6 @@ const handleLogin = async () => {
       body: { email: email.value, password: password.value },
     });
 
-    // 🆕 Simpan Supabase User ID ke cookie
     if (response.supabase?.user?.id) {
       supabaseUserId.value = response.supabase.user.id;
     }
@@ -334,15 +281,14 @@ const handleLogin = async () => {
       pesanStore.unreadCount = response.initialUnread;
     }
 
-    // Mulai polling pasif (2 menit) untuk jaga badge tetap segar
-    pesanStore.startPassivePolling();
+    pesanStore.initAfterLogin();
     await setSupabaseSession();
     await redirectAfterLogin();
   } catch (error: any) {
     errorMessage.value =
       error?.data?.detail ||
       error?.statusMessage ||
-      "Kombinasi email dan password salah.";
+      "Kombinasi email dan kata sandi salah. Silakan coba lagi.";
   } finally {
     isLoading.value = false;
   }
@@ -360,7 +306,6 @@ const handleGoogleCallback = async (response: any) => {
       body: { id_token: response.credential },
     });
 
-    // 🆕 Simpan Supabase User ID ke cookie
     if (googleResponse.supabase?.user?.id) {
       supabaseUserId.value = googleResponse.supabase.user.id;
     }
@@ -369,9 +314,7 @@ const handleGoogleCallback = async (response: any) => {
       pesanStore.unreadCount = googleResponse.initialUnread;
     }
 
-    // Mulai polling pasif (2 menit) untuk jaga badge tetap segar
-    pesanStore.startPassivePolling();
-
+    pesanStore.initAfterLogin();
     await setSupabaseSession();
     await redirectAfterLogin();
   } catch (error: any) {
@@ -379,7 +322,7 @@ const handleGoogleCallback = async (response: any) => {
       error?.data?.message ||
       error?.data?.detail ||
       error?.statusMessage ||
-      "Gagal masuk menggunakan Google.";
+      "Gagal masuk menggunakan akun Google.";
   } finally {
     isLoading.value = false;
   }
@@ -404,7 +347,7 @@ const initGoogleGsi = () => {
       theme: "outline",
       size: "large",
       text: "continue_with",
-      width: 350,
+      width: 320,
       logo_alignment: "center",
     });
   }
@@ -448,90 +391,7 @@ onBeforeUnmount(() => {
   }
 });
 </script>
+
 <style scoped>
-.auth-input {
-  width: 100%;
-  background-color: #f9fafb;
-  border: 1px solid #e5e7eb;
-  padding-right: 1rem;
-  padding-top: 0.875rem;
-  padding-bottom: 0.875rem;
-  font-size: 0.875rem;
-  font-weight: 600;
-  color: #000000;
-  outline: 2px solid transparent;
-  outline-offset: 2px;
-  transition-property: all;
-  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
-  transition-duration: 150ms;
-}
-
-.auth-input::placeholder {
-  color: #9ca3af;
-}
-
-.auth-input:focus {
-  background-color: #ffffff;
-  border-color: #000000;
-  box-shadow: 0 0 0 1px #000000;
-}
-
-.auth-input:disabled {
-  opacity: 0.5;
-}
-
-.btn-primary {
-  background-color: #000000;
-  color: #ffffff;
-  padding-top: 1rem;
-  padding-bottom: 1rem;
-  font-size: 0.75rem;
-  font-weight: 900;
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  transition: background-color 0.2s ease;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-}
-
-.btn-primary:hover {
-  background-color: #27272a;
-}
-
-.btn-primary:disabled {
-  opacity: 0.7;
-  cursor: not-allowed;
-}
-
-
-/* Ornamen barcode */
-.barcode-element-white {
-  height: 6px;
-  width: 80px;
-  background: linear-gradient(90deg, #fff 10px, transparent 10px),
-    repeating-linear-gradient(
-      90deg,
-      transparent 0,
-      transparent 12px,
-      #fff 12px,
-      #fff 14px
-    );
-  background-repeat: no-repeat, repeat;
-}
-
-.barcode-element-black {
-  height: 8px;
-  width: 60px;
-  background: linear-gradient(90deg, #000 8px, transparent 8px),
-    repeating-linear-gradient(
-      90deg,
-      transparent 0,
-      transparent 10px,
-      #000 10px,
-      #000 12px
-    );
-  background-repeat: no-repeat, repeat;
-}
+/* Scoped styles now use global design tokens from main.css via .auth-input and .auth-btn-primary classes */
 </style>

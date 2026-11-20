@@ -30,6 +30,7 @@ from backend.user.pesan.model import (
     MessageStatus,
     SenderRole,
 )
+from backend.user.pesan.ws_manager import chat_ws_manager
 from backend.user.pesan.schema import (
     ConversationOut,
     MessageImageOut,
@@ -187,6 +188,44 @@ class MessageService:
         await db.commit()
         await db.refresh(msg)
 
+        # 🔔 EMIT WEBSOCKET EVENT AFTER COMMIT
+        # Build message payload for realtime push
+        message_payload = {
+            "uuid": str(msg.uuid),
+            "conversation_id": str(msg.conversation_id),
+            "sender_role": msg.sender_role.value,
+            "sender_id": str(msg.sender_id),
+            "body": msg.body,
+            "status": msg.status.value,
+            "sent_at": msg.sent_at.isoformat(),
+            "images": [
+                {
+                    "uuid": str(r.uuid),
+                    "image_url": r.image_url,
+                    "uploaded_at": r.uploaded_at.isoformat(),
+                }
+                for r in img_rows
+            ],
+        }
+
+        if sender_role == SenderRole.USER:
+            # Notify all connected admins
+            await chat_ws_manager.broadcast_to_admins({
+                "type": "new_message",
+                "data": message_payload,
+            })
+        else:
+            # Notify the specific user in this conversation
+            conv_result = await db.execute(
+                select(Conversation).where(Conversation.uuid == conversation_id)
+            )
+            conv = conv_result.scalar_one_or_none()
+            if conv:
+                await chat_ws_manager.send_to_user(conv.user_id, {
+                    "type": "new_message",
+                    "data": message_payload,
+                })
+
         return MessageOut(
             uuid=msg.uuid,
             conversation_id=msg.conversation_id,
@@ -303,6 +342,25 @@ class MessageService:
                 .values({unread_col.key: 0})
             )
             await db.commit()
+
+            # 🔔 EMIT READ EVENT KE WEBSOCKET
+            read_payload = {
+                "type": "message_read",
+                "data": {
+                    "conversation_id": str(conversation_id),
+                    "message_ids": [str(mid) for mid in message_ids],
+                    "reader_role": reader_role.value,
+                },
+            }
+            if reader_role == SenderRole.USER:
+                await chat_ws_manager.broadcast_to_admins(read_payload)
+            else:
+                conv_result = await db.execute(
+                    select(Conversation).where(Conversation.uuid == conversation_id)
+                )
+                conv = conv_result.scalar_one_or_none()
+                if conv:
+                    await chat_ws_manager.send_to_user(conv.user_id, read_payload)
 
         return count
 

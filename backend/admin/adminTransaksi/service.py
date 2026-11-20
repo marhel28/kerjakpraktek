@@ -93,6 +93,58 @@ class TransactionAdminService:
         from backend.data.ongkir.model import Shipment
         from sqlalchemy.orm import selectinload
 
+        # PROMO dual-path (Shipment.promo_transaction_uuid)
+        if order_id.startswith("PROMO-"):
+            from backend.data.public.promobanner.model import PromoTransaction
+            promo_r = await session.execute(
+                select(PromoTransaction).where(PromoTransaction.order_id == order_id)
+            )
+            promo_trx = promo_r.scalar_one_or_none()
+            if not promo_trx:
+                return None
+            ship_r = await session.execute(
+                select(Shipment).where(Shipment.promo_transaction_uuid == promo_trx.uuid)
+            )
+            promo_ship = ship_r.scalar_one_or_none()
+            if not promo_ship:
+                promo_ship = Shipment(
+                    promo_transaction_uuid=promo_trx.uuid,
+                    waybill_number=waybill_number,
+                    courier_name=courier_name or "JNE",
+                    delivery_status=delivery_status,
+                    recipient_name="User",
+                    recipient_phone="000",
+                    shipping_address="Address",
+                )
+                session.add(promo_ship)
+            else:
+                promo_ship.waybill_number = waybill_number
+                promo_ship.delivery_status = delivery_status
+                if courier_name:
+                    promo_ship.courier_name = courier_name
+                session.add(promo_ship)
+            await session.commit()
+            await session.refresh(promo_ship)
+            try:
+                from backend.db.supabse import SupabaseNotificationService
+                from backend.auth.model import UserMap
+                result_map = await session.execute(
+                    select(UserMap).where(UserMap.local_user_id == str(promo_trx.user_id))
+                )
+                user_map = result_map.scalar_one_or_none()
+                if user_map:
+                    await SupabaseNotificationService.send_notification(
+                        user_id=user_map.supabase_user_id,
+                        title="Pesanan Dikirim! 📦",
+                        content=f"Pesanan promo {order_id} telah dikirim dengan resi: {waybill_number}. Silakan cek berkala.",
+                        action_url=f"/dashboard/orders/{order_id}",
+                        notif_type="order",
+                        metadata={"order_id": order_id, "waybill": waybill_number},
+                    )
+            except Exception as e:
+                print(f"Failed to send shipping notification: {e}")
+            return promo_trx
+
         # Cari transaksi
         query = select(Transaction).where(Transaction.order_id == order_id).options(selectinload(Transaction.shipment))
         result = await session.execute(query)

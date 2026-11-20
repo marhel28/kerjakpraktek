@@ -11,6 +11,7 @@ interface Booking {
   dp_percentage: number; dp_amount: number; remaining_amount: number; status: string; payments: PaymentInfo[]; created_at: string;
 }
 
+const config = useRuntimeConfig();
 const route = useRoute();
 const id = route.params.id as string;
 const { data: booking, pending, error, refresh } = await useAsyncData<Booking>(`jasa-${id}`, () => $fetch(`/api/jasa/${id}`));
@@ -21,18 +22,10 @@ const toast = ref({ show: false, message: "", type: "success" as "success" | "er
 const SLOT_LABELS: Record<string, string> = { "08:00-11:00": "Pagi (08:00 - 11:00)", "11:00-14:00": "Siang (11:00 - 14:00)", "14:00-17:00": "Sore (14:00 - 17:00)" };
 const CATEGORY_LABELS: Record<string, string> = { installation: "Pemasangan Baru", maintenance: "Maintenance", consultation: "Cek Lokasi", troubleshoot: "Perbaikan" };
 
-type StatusKey = "pending" | "confirmed" | "dp_paid" | "progress" | "done" | "lunas" | "cancel";
-const STATUS_CONFIG: Record<StatusKey, { label: string; color: string; icon: string }> = {
-  pending: { label: "Menunggu Konfirmasi", color: "text-amber-600 bg-amber-50 border-amber-100", icon: "i-heroicons-clock" },
-  confirmed: { label: "Menunggu Pembayaran DP", color: "text-orange-600 bg-orange-50 border-orange-100", icon: "i-heroicons-wallet" },
-  dp_paid: { label: "DP Diterima", color: "text-blue-600 bg-blue-50 border-blue-100", icon: "i-heroicons-shield-check" },
-  progress: { label: "Sedang Dikerjakan", color: "text-purple-600 bg-purple-50 border-purple-100", icon: "i-heroicons-wrench" },
-  done: { label: "Selesai", color: "text-teal-600 bg-teal-50 border-teal-100", icon: "i-heroicons-check-badge" },
-  lunas: { label: "Lunas", color: "text-[#03AC0E] bg-emerald-50 border-emerald-100", icon: "i-heroicons-check-circle" },
-  cancel: { label: "Dibatalkan", color: "text-red-600 bg-red-50 border-red-100", icon: "i-heroicons-x-circle" },
-};
+import { useOrderStatus } from "~/composables/useOrderStatus";
+const { getBookingStatus } = useOrderStatus();
 
-const statusStyle = computed(() => STATUS_CONFIG[booking.value?.status as StatusKey] || STATUS_CONFIG.pending);
+const statusStyle = computed(() => getBookingStatus(booking.value?.status));
 
 const TIMELINE = [
   { key: "pending", label: "Dibuat", icon: "i-heroicons-document-plus" },
@@ -100,7 +93,7 @@ function showToast(message: string, type: "success" | "error") { toast.value = {
         </button>
         <h1 class="text-base font-bold text-gray-900">Detail Booking Jasa</h1>
       </div>
-      <a v-if="booking" :href="`https://wa.me/6282218828108?text=Halo Admin, bantu cek booking ${booking.booking_number}`" target="_blank" class="flex items-center gap-2 text-[#03AC0E] font-bold text-sm hover:underline">
+      <a v-if="booking" :href="`https://wa.me/${config.public.waNumber}?text=Halo Admin, bantu cek booking ${booking.booking_number}`" target="_blank" class="flex items-center gap-2 text-[#03AC0E] font-bold text-sm hover:underline">
         <UIcon name="i-heroicons-chat-bubble-left-right" class="w-4 h-4" />
         Tanya Admin
       </a>
@@ -111,35 +104,38 @@ function showToast(message: string, type: "success" | "error") { toast.value = {
       <div class="h-48 bg-gray-50 rounded-xl animate-pulse"></div>
     </div>
 
-    <div v-else-if="!booking" class="py-20 text-center border-2 border-dashed border-gray-100 rounded-xl m-8">
-      <p class="text-gray-400 font-bold">Booking tidak ditemukan.</p>
+    <div v-else-if="!booking" class="p-4 sm:p-8">
+      <DashboardEmptyState
+        icon="i-heroicons-calendar-days"
+        title="Booking Tidak Ditemukan"
+        description="Data booking dengan ID tersebut tidak tersedia."
+        cta-label="Kembali ke Daftar"
+        cta-to="/dashboard/jasa"
+      />
     </div>
 
     <div v-else class="p-8 space-y-8">
       
       <!-- 1. STATUS & NUMBER -->
-      <section :class="statusStyle.color" class="p-6 rounded-xl border flex flex-col sm:flex-row sm:items-center justify-between gap-6">
+      <section :class="statusStyle.badge" class="p-6 rounded-xl border flex flex-col sm:flex-row sm:items-center justify-between gap-6">
         <div>
           <p class="text-[10px] font-bold uppercase tracking-widest mb-1 opacity-70">Status Booking</p>
-          <p class="text-lg font-black uppercase tracking-tight">{{ statusStyle.label }}</p>
+          <p class="text-lg font-bold tracking-tight">{{ statusStyle.label }}</p>
         </div>
         <div class="sm:text-right">
           <p class="text-[10px] font-bold uppercase tracking-widest mb-1 opacity-70">No. Booking</p>
-          <p class="text-sm font-mono font-bold tracking-widest text-[#03AC0E]">#{{ booking.booking_number }}</p>
+          <p class="text-sm font-bold tracking-tight text-[#03AC0E]">#{{ booking.booking_number }}</p>
           <p class="text-[10px] text-gray-400 font-medium mt-1">Dibuat: {{ new Date(booking.created_at).toLocaleDateString() }}</p>
         </div>
       </section>
 
       <!-- 2. STEPPER -->
-      <section v-if="booking.status !== 'cancel'" class="bg-white border border-gray-200 rounded-xl p-8 overflow-x-auto no-scrollbar shadow-sm">
-        <div class="min-w-[600px] flex justify-between relative py-4">
-          <div class="absolute top-1/2 -translate-y-1/2 left-[5%] right-[5%] h-0.5 bg-gray-100"></div>
-          <div v-for="(step, i) in statusSteps" :key="step.key" class="relative z-10 flex flex-col items-center gap-3 w-1/5">
-            <div :class="step.done || step.active ? 'bg-[#03AC0E] text-white' : 'bg-white text-gray-200 border-gray-100 border'" class="w-10 h-10 rounded-full flex items-center justify-center transition-all shadow-sm">
-              <UIcon :name="step.icon" class="w-5 h-5" />
-            </div>
-            <span :class="step.done || step.active ? 'text-gray-900 font-bold' : 'text-gray-400 font-medium'" class="text-[11px] uppercase tracking-wider text-center px-2">{{ step.label }}</span>
+      <section v-if="booking.status !== 'cancel'" class="bg-white border border-gray-200 rounded-xl p-6 sm:p-8 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-4">
+        <div v-for="(step, i) in statusSteps" :key="step.key" class="flex flex-col items-center gap-2 sm:gap-3 w-1/5 sm:w-auto flex-shrink-0">
+          <div :class="step.done || step.active ? 'bg-[#03AC0E] text-white ring-4 ring-[#03AC0E]/10' : 'bg-white text-gray-200 border-gray-100 border'" class="w-10 h-10 rounded-full flex items-center justify-center transition-all shadow-sm">
+            <UIcon :name="step.icon" class="w-5 h-5" />
           </div>
+          <span :class="step.done || step.active ? 'text-gray-900 font-bold' : 'text-gray-400 font-medium'" class="text-[11px] uppercase tracking-wider text-center px-2 sm:whitespace-nowrap">{{ step.label }}</span>
         </div>
       </section>
 
@@ -198,7 +194,7 @@ function showToast(message: string, type: "success" | "error") { toast.value = {
                 <div>
                   <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest">PIC Kunjungan</p>
                   <p class="text-sm font-bold text-gray-900 mt-1">{{ booking.contact_name }}</p>
-                  <p class="text-xs text-gray-500 font-mono">{{ booking.contact_phone }}</p>
+                  <p class="text-xs text-gray-500 font-medium">{{ booking.contact_phone }}</p>
                 </div>
               </div>
               <div>

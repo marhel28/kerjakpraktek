@@ -8,6 +8,7 @@ const props = defineProps<{
     price: number
     originalPrice: number
     image: string
+    rating?: string | number
   }
 }>()
 
@@ -60,9 +61,9 @@ function formatPrice(value: number) {
           <Icon name="lucide:map-pin" size="12" class="text-red-600" />
           <span class="truncate">Jakarta Raya</span>
         </div>
-        <div class="text-[11px] text-gray-500 flex items-center gap-1">
+        <div v-if="product.rating" class="text-[11px] text-gray-500 flex items-center gap-1">
           <Icon name="lucide:star" size="12" class="text-yellow-400 fill-yellow-400" />
-          <span>4.9 | Terjual 50+</span>
+          <span>{{ product.rating }}</span>
         </div>
       </div>
     </div>

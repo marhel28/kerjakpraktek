@@ -129,7 +129,6 @@ const wishlistStore = useWishlistStore()
 const wishlistCount = computed(() => wishlistStore.count)
 
 onMounted(() => {
-  notificationStore.init()
   if (token.value) {
     wishlistStore.fetchWishlist()
   }

@@ -1,171 +1,303 @@
-<script setup lang="ts">
-import { ref } from 'vue'
-
-useSeoMeta({
-  title: 'Informasi Pengiriman & Lacak Resi - PasarCCTV',
-  description: 'Cek status pengiriman, jadwal operasional kurir, dan lacak resi pesanan PasarCCTV Anda dengan mudah.',
-})
-
-const noResi = ref('')
-
-const lacakResi = () => {
-  if (!noResi.value) return
-  // Redirect ke cekresi.com dan mem-bypass query noresi
-  const url = `https://cekresi.com/?noresi=${encodeURIComponent(noResi.value.trim())}`
-  window.open(url, '_blank')
-}
-</script>
-
 <template>
-  <main class="bg-gray-50 min-h-screen pb-16 font-jakarta">
-    <!-- Header Hero -->
-    <div class="bg-gradient-to-r from-[#03AC0E] to-[#028C0B] shadow-sm text-white pt-16 pb-20 px-4 relative overflow-hidden">
-      <!-- Aksen Cahaya Hijau Premium -->
-      <div class="absolute top-0 right-0 w-96 h-96 bg-gradient-to-r from-[#03AC0E] to-[#028C0B] shadow-sm rounded-full blur-[100px] opacity-20 transform translate-x-1/2 -translate-y-1/2 pointer-events-none"></div>
-      
-      <div class="max-w-[1000px] mx-auto relative z-10 text-center">
-        <h1 class="text-3xl md:text-4xl font-medium mb-4 tracking-tight text-white">Pengiriman & Lacak Resi</h1>
-        <p class="text-gray-100 text-sm md:text-base max-w-2xl mx-auto leading-relaxed">
-          Pahami jadwal pengiriman kami dan pantau perjalanan pesanan perangkat keamanan Anda.
-        </p>
-      </div>
-    </div>
+  <main class="bg-[#F7F8F9] min-h-screen pb-16 font-['Open_Sans',sans-serif] text-gray-900">
+    <!-- ════════════════════════════════════════════════════════════
+         HERO RESI TRACKER: Amazon-Style Search Header
+         ════════════════════════════════════════════════════════════ -->
+    <header class="bg-white border-b border-gray-200 pt-8 pb-10 px-4 sm:px-6 lg:px-8">
+      <div class="max-w-4xl mx-auto">
+        <!-- Breadcrumb -->
+        <nav aria-label="Breadcrumb" class="mb-4 flex items-center gap-2 text-xs font-medium text-gray-500 font-['Plus_Jakarta_Sans',sans-serif]">
+          <NuxtLink to="/" class="hover:text-[#03AC0E] transition-colors">Beranda</NuxtLink>
+          <span class="text-gray-300">/</span>
+          <NuxtLink to="/help" class="hover:text-[#03AC0E] transition-colors">Pusat Bantuan</NuxtLink>
+          <span class="text-gray-300">/</span>
+          <span class="text-gray-800">Lacak Pengiriman</span>
+        </nav>
 
-    <!-- Content Area -->
-    <div class="max-w-[1000px] mx-auto px-4 -mt-10 relative z-20">
-      <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        
-        <!-- Kolom Kiri: Info Pengiriman -->
-        <div class="lg:col-span-2 flex flex-col gap-6">
-          
-          <article class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 md:p-8">
-            <h2 class="text-[18px] font-medium text-gray-900 mb-5 flex items-center gap-2">
-              <span class="w-1 h-5 bg-gradient-to-r from-[#03AC0E] to-[#028C0B] shadow-sm rounded-full inline-block"></span>
-              Jadwal Operasional Pengiriman
-            </h2>
-            <div class="space-y-4 text-sm text-gray-600 leading-relaxed">
-              <p>
-                Pesanan yang telah terverifikasi sebelum batas waktu operasional (cut-off) akan diproses dan diserahkan ke pihak ekspedisi pada hari yang sama. Kami bekerja sama dengan mitra logistik terpercaya untuk memastikan keamanan paket perangkat Anda.
-              </p>
-              
-              <div class="bg-gray-50 rounded-xl p-4 md:p-5 border border-gray-100 mt-4">
-                <ul class="space-y-3.5">
-                  <li class="flex items-start justify-between border-b border-gray-200 pb-2.5">
-                    <span class="font-medium text-gray-700">Senin - Jumat</span>
-                    <span class="text-gray-900 font-medium">Cut-off 15:00 WIB</span>
-                  </li>
-                  <li class="flex items-start justify-between border-b border-gray-200 pb-2.5">
-                    <span class="font-medium text-gray-700">Sabtu</span>
-                    <span class="text-gray-900 font-medium">Cut-off 12:00 WIB</span>
-                  </li>
-                  <li class="flex items-start justify-between">
-                    <span class="font-medium text-gray-700">Minggu & Libur Nasional</span>
-                    <span class="text-[#B45309] font-medium">Tidak ada pengiriman</span>
-                  </li>
-                </ul>
-              </div>
-            </div>
-          </article>
-
-          <article class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 md:p-8">
-            <h2 class="text-[18px] font-medium text-gray-900 mb-6 flex items-center gap-2">
-              <span class="w-1 h-5 bg-gradient-to-r from-[#03AC0E] to-[#028C0B] shadow-sm rounded-full inline-block"></span>
-              Alur Penginputan Resi
-            </h2>
-            
-            <div class="space-y-0">
-              <!-- Step 1 -->
-              <div class="flex gap-4 relative">
-                <div class="flex flex-col items-center relative z-10">
-                  <div class="w-9 h-9 rounded-full bg-[#E6F7E9] flex items-center justify-center text-[#03AC0E] font-medium text-sm border-2 border-white shadow-sm">1</div>
-                  <div class="w-0.5 h-full bg-gray-100 my-1 absolute top-9 bottom-[-10px]"></div>
-                </div>
-                <div class="pb-8 pt-1.5">
-                  <h3 class="font-medium text-gray-900 mb-1.5 text-sm">Pesanan Diproses</h3>
-                  <p class="text-sm text-gray-500 leading-relaxed">Tim gudang kami menyiapkan pesanan, melakukan <em>Quality Control</em> fisik, dan mengemas paket dengan standar keamanan (bubble wrap ganda).</p>
-                </div>
-              </div>
-
-              <!-- Step 2 -->
-              <div class="flex gap-4 relative">
-                <div class="flex flex-col items-center relative z-10">
-                  <div class="w-9 h-9 rounded-full bg-[#E6F7E9] flex items-center justify-center text-[#03AC0E] font-medium text-sm border-2 border-white shadow-sm">2</div>
-                  <div class="w-0.5 h-full bg-gray-100 my-1 absolute top-9 bottom-[-10px]"></div>
-                </div>
-                <div class="pb-8 pt-1.5">
-                  <h3 class="font-medium text-gray-900 mb-1.5 text-sm">Paket Diserahkan ke Ekspedisi</h3>
-                  <p class="text-sm text-gray-500 leading-relaxed">Paket diserahkan secara kolektif ke pihak kurir/ekspedisi (JNE, Sicepat, J&T, dsb) pada sore hari sesuai jadwal operasional kami.</p>
-                </div>
-              </div>
-
-              <!-- Step 3 -->
-              <div class="flex gap-4 relative">
-                <div class="flex flex-col items-center relative z-10">
-                  <div class="w-9 h-9 rounded-full bg-gradient-to-r from-[#03AC0E] to-[#028C0B] shadow-sm flex items-center justify-center text-white font-medium text-sm shadow-sm ring-4 ring-[#E6F7E9]">3</div>
-                </div>
-                <div class="pb-2 pt-1.5">
-                  <h3 class="font-medium text-gray-900 mb-1.5 text-sm">Resi Diupdate (Malam Hari)</h3>
-                  <p class="text-sm text-gray-500 leading-relaxed">Pihak ekspedisi mengeluarkan nomor resi resmi. Kami akan menginput nomor resi tersebut ke dalam sistem PasarCCTV pada malam hari dan status pesanan Anda akan berubah menjadi "Dikirim".</p>
-                </div>
-              </div>
-            </div>
-            
-          </article>
-
+        <div class="text-center max-w-xl mx-auto mb-6">
+          <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-[#E6F7E9] text-[#03AC0E] border border-[#C8E6CC] mb-3 font-['Plus_Jakarta_Sans',sans-serif]">
+            <UIcon name="i-heroicons-truck" class="w-4 h-4 shrink-0" />
+            <span>Pelacakan Ekspedisi Resmi</span>
+          </span>
+          <h1 class="text-2xl sm:text-3xl lg:text-4xl font-black tracking-tight text-gray-900 font-['Plus_Jakarta_Sans',sans-serif]">
+            Lacak Paket & Status Resi
+          </h1>
+          <p class="text-xs sm:text-sm text-gray-600 mt-2 leading-relaxed">
+            Masukkan nomor resi ekspedisi (JNE, J&T, SiCepat, TIKI, POS, AnterAja) atau ID Pesanan Anda untuk memeriksa posisi pengiriman.
+          </p>
         </div>
 
-        <!-- Kolom Kanan: Widget Lacak Resi -->
-        <div class="lg:col-span-1">
-          <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 sticky top-24">
-            <div class="w-12 h-12 bg-[#E6F7E9] rounded-xl flex items-center justify-center mb-5">
-              <UIcon name="i-tabler-truck" class="w-6 h-6 text-[#03AC0E]" />
-            </div>
-            
-            <h3 class="font-medium text-gray-900 text-[18px] mb-2 tracking-tight">Lacak Paket Anda</h3>
-            <p class="text-[13px] text-gray-500 mb-6 leading-relaxed">
-              Jika status pesanan Anda sudah <strong class="font-medium">Dikirim</strong>, masukkan nomor resi yang tertera pada pesanan untuk memantau posisi paket menggunakan CekResi.com.
-            </p>
+        <!-- Input Resi + Select Kurir -->
+        <div class="max-w-2xl mx-auto bg-white border border-gray-300 rounded-xl p-2 shadow-sm flex flex-col sm:flex-row gap-2">
+          <!-- Dropdown Kurir -->
+          <div class="sm:w-44 shrink-0">
+            <select
+              v-model="selectedCourier"
+              class="w-full h-11 px-3 bg-gray-50 border border-gray-200 rounded-lg text-xs font-bold text-gray-900 outline-none focus:border-[#03AC0E] font-['Plus_Jakarta_Sans',sans-serif]"
+            >
+              <option value="auto">Auto-Detect</option>
+              <option value="jne">JNE Express</option>
+              <option value="jnt">J&T Express</option>
+              <option value="sicepat">SiCepat</option>
+              <option value="tiki">TIKI</option>
+              <option value="pos">POS Indonesia</option>
+              <option value="anteraja">AnterAja</option>
+            </select>
+          </div>
 
-            <form @submit.prevent="lacakResi" class="space-y-4">
-              <div>
-                <label for="resi" class="sr-only">Nomor Resi</label>
-                <input 
-                  id="resi"
-                  v-model="noResi"
-                  type="text" 
-                  placeholder="Contoh: JP321948811" 
-                  class="w-full border border-gray-200 rounded-xl px-4 py-3.5 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#03AC0E] focus:border-transparent transition-all"
-                  required
-                />
+          <!-- Input Field -->
+          <div class="relative flex-1">
+            <input
+              v-model="waybillInput"
+              type="text"
+              placeholder="Contoh: JP1234567890 / 001234567890..."
+              class="w-full h-11 pl-3.5 pr-10 bg-transparent text-sm text-gray-900 outline-none font-mono placeholder:font-sans placeholder:text-gray-400"
+              @keyup.enter="handleTrack"
+            />
+            <button
+              v-if="waybillInput"
+              type="button"
+              class="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-black p-1"
+              @click="waybillInput = ''"
+            >
+              <UIcon name="i-heroicons-x-mark" class="w-4 h-4" />
+            </button>
+          </div>
+
+          <!-- Submit Button -->
+          <button
+            type="button"
+            :disabled="isLoading || !waybillInput.trim()"
+            class="h-11 px-6 bg-[#03AC0E] hover:bg-[#028C0B] text-white text-xs font-black uppercase tracking-wider rounded-lg transition-colors flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer shrink-0 font-['Plus_Jakarta_Sans',sans-serif]"
+            @click="handleTrack"
+          >
+            <UIcon v-if="isLoading" name="i-heroicons-arrow-path" class="w-4 h-4 animate-spin" />
+            <span>{{ isLoading ? "Melacak..." : "Lacak Paket" }}</span>
+          </button>
+        </div>
+
+        <!-- Popular Courier Chips -->
+        <div class="max-w-2xl mx-auto mt-4 flex flex-wrap items-center justify-center gap-2 text-xs text-gray-500">
+          <span class="font-medium font-['Plus_Jakarta_Sans',sans-serif]">Ekspedisi Rekanan:</span>
+          <span class="px-2 py-0.5 bg-gray-100 rounded text-gray-700 font-bold">J&T</span>
+          <span class="px-2 py-0.5 bg-gray-100 rounded text-gray-700 font-bold">JNE</span>
+          <span class="px-2 py-0.5 bg-gray-100 rounded text-gray-700 font-bold">SiCepat</span>
+          <span class="px-2 py-0.5 bg-gray-100 rounded text-gray-700 font-bold">TIKI</span>
+          <span class="px-2 py-0.5 bg-gray-100 rounded text-gray-700 font-bold">GoSend/Grab</span>
+        </div>
+      </div>
+    </header>
+
+    <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 mt-8 space-y-8">
+      <!-- Error Box -->
+      <div
+        v-if="errorMessage"
+        class="border border-[#c40000] bg-white rounded-xl p-4 shadow-sm flex items-start gap-3"
+      >
+        <UIcon name="i-heroicons-exclamation-circle" class="w-5 h-5 text-[#c40000] shrink-0 mt-0.5" />
+        <div>
+          <h4 class="text-xs font-bold text-[#c40000] uppercase tracking-wider font-['Plus_Jakarta_Sans',sans-serif]">
+            Pelacakan Tidak Ditemukan
+          </h4>
+          <p class="text-xs text-gray-700 mt-0.5">
+            {{ errorMessage }}
+          </p>
+          <p class="text-[11px] text-gray-500 mt-2">
+            Catatan: Nomor resi yang baru diinput admin biasanya membutuhkan waktu 1-3 jam untuk aktif di server ekspedisi.
+          </p>
+        </div>
+      </div>
+
+      <!-- ════════════════════════════════════════════════════════════
+           TRACKING RESULT: Amazon Progress + Tokopedia Timeline Card
+           ════════════════════════════════════════════════════════════ -->
+      <div v-if="trackingData" class="space-y-6">
+        <!-- Status Summary Card -->
+        <div class="bg-white border border-gray-200 rounded-xl p-6 shadow-xs">
+          <div class="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-gray-100">
+            <div>
+              <span class="text-[10px] uppercase font-bold text-gray-400 tracking-wider font-['Plus_Jakarta_Sans',sans-serif]">
+                Nomor Resi
+              </span>
+              <div class="flex items-center gap-2 mt-0.5">
+                <span class="text-base sm:text-lg font-black font-mono text-gray-900">
+                  {{ trackingData.waybill }}
+                </span>
+                <span class="px-2 py-0.5 bg-[#E6F7E9] text-[#03AC0E] border border-[#C8E6CC] text-[11px] font-bold rounded">
+                  {{ trackingData.courier }}
+                </span>
               </div>
-              <button 
-                type="submit"
-                class="w-full bg-gradient-to-r from-[#03AC0E] to-[#028C0B] shadow-sm text-[#03AC0E] font-medium py-3.5 rounded-xl hover:bg-gray-900 transition-colors flex items-center justify-center gap-2"
+            </div>
+
+            <!-- Status Badge -->
+            <div>
+              <span
+                class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold font-['Plus_Jakarta_Sans',sans-serif]"
+                :class="trackingData.isDelivered ? 'bg-green-100 text-green-800' : 'bg-blue-100 text-blue-800'"
               >
-                Cek Posisi Paket
-                <UIcon name="i-tabler-external-link" class="w-4 h-4" />
-              </button>
-            </form>
+                <UIcon :name="trackingData.isDelivered ? 'i-heroicons-check-circle' : 'i-heroicons-arrow-path'" class="w-4 h-4" />
+                <span>{{ trackingData.isDelivered ? 'TERKIRIM (DELIVERED)' : 'DALAM PERJALANAN' }}</span>
+              </span>
+            </div>
+          </div>
 
-            <div class="mt-6 pt-5 border-t border-gray-100">
-              <div class="flex items-start gap-3 bg-[#FFF7E6] p-3.5 rounded-xl border border-[#f5e6c4]">
-                <UIcon name="i-tabler-info-circle" class="w-5 h-5 text-[#B45309] shrink-0 mt-0.5" />
-                <p class="text-xs text-[#B45309] leading-relaxed">
-                  Status pengiriman ekspedisi mungkin membutuhkan waktu <strong class="font-medium">1x24 jam</strong> untuk terupdate di sistem setelah nomor resi diinput.
-                </p>
+          <!-- Progress Bar 4-Step -->
+          <div class="py-6">
+            <div class="grid grid-cols-4 gap-2 text-center text-xs">
+              <div class="flex flex-col items-center">
+                <div class="w-7 h-7 rounded-full bg-[#03AC0E] text-white flex items-center justify-center font-bold text-xs mb-1">
+                  ✓
+                </div>
+                <span class="font-bold text-gray-900 text-[11px]">Diproses</span>
+              </div>
+              <div class="flex flex-col items-center">
+                <div class="w-7 h-7 rounded-full bg-[#03AC0E] text-white flex items-center justify-center font-bold text-xs mb-1">
+                  ✓
+                </div>
+                <span class="font-bold text-gray-900 text-[11px]">Diserahkan</span>
+              </div>
+              <div class="flex flex-col items-center">
+                <div
+                  class="w-7 h-7 rounded-full flex items-center justify-center font-bold text-xs mb-1"
+                  :class="trackingData.isDelivered ? 'bg-[#03AC0E] text-white' : 'bg-blue-600 text-white animate-pulse'"
+                >
+                  {{ trackingData.isDelivered ? '✓' : '3' }}
+                </div>
+                <span class="font-bold text-gray-900 text-[11px]">Transit Hub</span>
+              </div>
+              <div class="flex flex-col items-center">
+                <div
+                  class="w-7 h-7 rounded-full flex items-center justify-center font-bold text-xs mb-1"
+                  :class="trackingData.isDelivered ? 'bg-[#03AC0E] text-white' : 'bg-gray-200 text-gray-500'"
+                >
+                  {{ trackingData.isDelivered ? '✓' : '4' }}
+                </div>
+                <span class="font-bold text-gray-900 text-[11px]">Diterima</span>
               </div>
             </div>
+          </div>
 
+          <!-- Meta Ringkasan Paket -->
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 pt-4 border-t border-gray-100 text-xs">
+            <div>
+              <span class="text-gray-400 block text-[10px] uppercase font-semibold">Pengirim</span>
+              <span class="font-bold text-gray-800">{{ trackingData.summary.shipper_name || 'PasarCCTV Official' }}</span>
+            </div>
+            <div>
+              <span class="text-gray-400 block text-[10px] uppercase font-semibold">Penerima</span>
+              <span class="font-bold text-gray-800">{{ trackingData.summary.receiver_name || '-' }}</span>
+            </div>
+            <div>
+              <span class="text-gray-400 block text-[10px] uppercase font-semibold">Kota Asal</span>
+              <span class="font-bold text-gray-800">{{ trackingData.summary.origin || 'KOTA BOGOR' }}</span>
+            </div>
+            <div>
+              <span class="text-gray-400 block text-[10px] uppercase font-semibold">Tujuan</span>
+              <span class="font-bold text-gray-800">{{ trackingData.summary.destination || '-' }}</span>
+            </div>
           </div>
         </div>
 
+        <!-- Manifest Timeline -->
+        <div class="bg-white border border-gray-200 rounded-xl p-6 shadow-xs">
+          <h3 class="text-xs font-bold uppercase tracking-wider text-gray-400 mb-6 font-['Plus_Jakarta_Sans',sans-serif]">
+            Riwayat Perjalanan Paket
+          </h3>
+
+          <TrackingTimeline
+            v-if="trackingData.manifests && trackingData.manifests.length > 0"
+            :manifests="trackingData.manifests"
+          />
+
+          <div v-else class="text-center py-6 text-gray-400 text-xs">
+            Belum ada data riwayat perjalanan dari ekspedisi.
+          </div>
+        </div>
       </div>
+
+      <!-- ════════════════════════════════════════════════════════════
+           PANDUAN & ALUR RESI PASARCCTV
+           ════════════════════════════════════════════════════════════ -->
+      <section class="bg-white border border-gray-200 rounded-xl p-6 sm:p-8 shadow-xs">
+        <h2 class="text-base font-bold text-gray-900 mb-4 font-['Plus_Jakarta_Sans',sans-serif]">
+          Alur Pengiriman & Pemberian Nomor Resi
+        </h2>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-5 text-xs text-gray-600">
+          <div class="p-4 rounded-lg bg-gray-50 border border-gray-200/70">
+            <span class="w-5 h-5 rounded-full bg-black text-white text-[10px] font-bold flex items-center justify-center mb-2 font-['Plus_Jakarta_Sans',sans-serif]">1</span>
+            <h3 class="font-bold text-gray-900 mb-1 font-['Plus_Jakarta_Sans',sans-serif]">Checkout & Pembayaran</h3>
+            <p>Setelah Anda membayar pesanan, tim gudang kami menyiapkan unit, memeriksa segel garansi resmi, dan melakukan packing bubble berlapis.</p>
+          </div>
+
+          <div class="p-4 rounded-lg bg-gray-50 border border-gray-200/70">
+            <span class="w-5 h-5 rounded-full bg-black text-white text-[10px] font-bold flex items-center justify-center mb-2 font-['Plus_Jakarta_Sans',sans-serif]">2</span>
+            <h3 class="font-bold text-gray-900 mb-1 font-['Plus_Jakarta_Sans',sans-serif]">Penyerahan ke Kurir</h3>
+            <p>Paket diserahkan ke gerai ekspedisi rekanan sebelum pukul 17.00 WIB. Admin memasukkan nomor resi resmi ke sistem PasarCCTV.</p>
+          </div>
+
+          <div class="p-4 rounded-lg bg-gray-50 border border-gray-200/70">
+            <span class="w-5 h-5 rounded-full bg-black text-white text-[10px] font-bold flex items-center justify-center mb-2 font-['Plus_Jakarta_Sans',sans-serif]">3</span>
+            <h3 class="font-bold text-gray-900 mb-1 font-['Plus_Jakarta_Sans',sans-serif]">Notifikasi & Pelacakan</h3>
+            <p>Nomor resi otomatis tertera di menu Pesanan Saya dan dikirimkan via WhatsApp. Anda dapat memantau pergerakan posisi paket di halaman ini.</p>
+          </div>
+        </div>
+
+        <div class="mt-6 p-4 rounded-lg bg-[#E6F7E9] border border-[#C8E6CC] flex items-center justify-between flex-wrap gap-3">
+          <div class="text-xs text-gray-700">
+            <span class="font-bold text-gray-900 block">Butuh bantuan kendala pengiriman atau resi macet?</span>
+            Hubungi Customer Service pengiriman kami via WhatsApp.
+          </div>
+          <a
+            href="https://wa.me/6282117779003?text=Halo%20PasarCCTV,%20saya%20ingin%20cek%20status%20resi%20pengiriman."
+            target="_blank"
+            rel="noopener"
+            class="px-4 py-2 bg-[#03AC0E] hover:bg-[#028C0B] text-white text-xs font-bold rounded-lg transition-colors font-['Plus_Jakarta_Sans',sans-serif]"
+          >
+            Chat CS Pengiriman
+          </a>
+        </div>
+      </section>
     </div>
   </main>
 </template>
 
-<style scoped>
-.font-jakarta {
-  font-family: 'Plus Jakarta Sans', sans-serif;
+<script setup lang="ts">
+import TrackingTimeline from '~/components/shipping/TrackingTimeline.vue'
+import { ref } from 'vue'
+
+useSeoMeta({
+  title: 'Lacak Pengiriman & Cek Resi — PasarCCTV',
+  description: 'Lacak status kiriman pesanan kamera CCTV, DVR, NVR dan aksesoris resmi via JNE, J&T, SiCepat, TIKI, dan POS Indonesia.',
+})
+
+const waybillInput = ref('')
+const selectedCourier = ref('auto')
+const isLoading = ref(false)
+const errorMessage = ref('')
+const trackingData = ref<any>(null)
+
+const handleTrack = async () => {
+  const cleanWaybill = waybillInput.value.trim()
+  if (!cleanWaybill) return
+
+  isLoading.value = true
+  errorMessage.value = ''
+  trackingData.value = null
+
+  try {
+    const res = await $fetch<any>('/api/shipping/track', {
+      method: 'POST',
+      body: {
+        waybill: cleanWaybill,
+        courier: selectedCourier.value === 'auto' ? undefined : selectedCourier.value,
+      },
+    })
+    trackingData.value = res
+  } catch (err: any) {
+    errorMessage.value = err?.statusMessage || 'Nomor resi tidak ditemukan atau belum terdaftar di sistem ekspedisi.'
+  } finally {
+    isLoading.value = false
+  }
 }
-</style>
+</script>

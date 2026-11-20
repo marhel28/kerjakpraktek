@@ -57,7 +57,7 @@ useHead({ title: "Notifikasi — PasarCctv" });
         <button @click="$router.push('/dashboard')" class="p-1 -ml-1 text-gray-400 hover:text-gray-900 transition-colors">
           <UIcon name="i-heroicons-arrow-left" class="w-5 h-5" />
         </button>
-        <h1 class="text-base font-black text-gray-900 uppercase tracking-wider">Notifikasi</h1>
+        <h1 class="text-base font-bold text-gray-900">Notifikasi</h1>
       </div>
       <button v-if="unreadCount > 0" @click="markAllAsRead" class="text-xs font-black text-[#03AC0E] hover:underline uppercase tracking-wider">
         Baca Semua
@@ -102,9 +102,12 @@ useHead({ title: "Notifikasi — PasarCctv" });
           <p class="text-xs font-bold text-gray-400 uppercase tracking-widest">Memuat...</p>
         </div>
 
-        <div v-else-if="notifications.length === 0" class="py-24 text-center">
-          <p class="text-sm font-bold text-gray-400">Belum ada notifikasi.</p>
-        </div>
+        <DashboardEmptyState
+          v-else-if="notifications.length === 0"
+          icon="i-heroicons-bell"
+          title="Belum Ada Notifikasi"
+          description="Pemberitahuan terkait pesanan, booking jasa, dan promo akan muncul di sini."
+        />
 
         <div v-else class="divide-y divide-gray-100">
           <div v-for="notif in notifications" :key="notif.id" @click="handleNotificationClick(notif)"

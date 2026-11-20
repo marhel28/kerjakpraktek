@@ -22,16 +22,16 @@ const compareStore = useCompareStore()
         <div class="relative">
           <Icon
             name="i-heroicons-scale"
-            class="text-2xl text-gray-700 group-hover:text-blue-600 transition-colors"
+            class="text-2xl text-gray-700 group-hover:text-[#03AC0E] transition-colors"
           />
           <span
-            class="absolute -top-2 -right-2 bg-red-500 text-white text-[10px] font-black w-5 h-5 flex items-center justify-center rounded-full border-2 border-white shadow-sm"
+            class="absolute -top-2 -right-2 bg-[#03AC0E] text-white text-[10px] font-medium w-5 h-5 flex items-center justify-center rounded-full border-2 border-white shadow-xs"
           >
             {{ compareStore.count }}
           </span>
         </div>
 
-        <span class="text-[10px] font-bold uppercase tracking-widest text-gray-500 group-hover:text-blue-600 mt-1" style="writing-mode: vertical-rl; text-orientation: mixed;">
+        <span class="text-[10px] font-medium uppercase tracking-widest text-gray-500 group-hover:text-[#03AC0E] mt-1" style="writing-mode: vertical-rl; text-orientation: mixed;">
           Bandingkan
         </span>
       </NuxtLink>

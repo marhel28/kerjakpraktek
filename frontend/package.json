@@ -36,6 +36,7 @@
   "devDependencies": {
     "@iconify-json/heroicons": "^1.2.3",
     "@iconify-json/lucide": "^1.2.93",
-    "@iconify-json/simple-icons": "^1.2.71"
+    "@iconify-json/simple-icons": "^1.2.71",
+    "vue-tsc": "^3.3.11"
   }
 }

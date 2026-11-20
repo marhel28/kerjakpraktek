@@ -3,23 +3,91 @@ import { ref, computed } from 'vue'
 import { useRoute } from 'vue-router'
 
 const route = useRoute()
-const brandSlug = route.params.id as string
+const brandSlug = (route.params.id as string || '').toLowerCase().trim()
 const siteUrl = useRuntimeConfig().public.siteUrl ?? 'https://yourdomain.com'
 
 // ========================================================================
-// 1. STATE MANAGEMENT (Silent Fetching Tanpa Ubah URL)
+// 1. BRAND METADATA & AMAZON STORE CATEGORIES
 // ========================================================================
+interface BrandMetaItem {
+  tagline: string
+  badge: string
+  subcategories?: string[]
+}
 
+const BRAND_METADATA: Record<string, BrandMetaItem> = {
+  dahua: {
+    tagline: 'Spesialis Kamera Pengawas IP, XVR, dan Teknologi AI WizSense',
+    badge: 'Tier-1 Partner',
+    subcategories: ['Semua', 'IP Camera', 'HDCVI Camera', 'NVR & XVR', 'PTZ & Speed Dome', 'Aksesoris'],
+  },
+  hikvision: {
+    tagline: 'Sistem Keamanan CCTV ColorVu dan NVR 4K No. 1 Global',
+    badge: 'Authorized Distributor',
+    subcategories: ['Semua', 'ColorVu', 'IP Network Camera', 'DVR & NVR', 'Turbo HD', 'Aksesoris'],
+  },
+  ezviz: {
+    tagline: 'Smart Home Camera dan Perangkat Keamanan WiFi Praktis',
+    badge: 'Official Store',
+    subcategories: ['Semua', 'Indoor WiFi', 'Outdoor WiFi', 'Battery Camera', 'Smart Lock'],
+  },
+  imou: {
+    tagline: 'Kamera Pengawas Nirkabel dengan AI Human dan Pet Detection',
+    badge: 'Official Partner',
+    subcategories: ['Semua', 'Ranger Series', 'Bullet Camera', 'Cruiser PTZ', 'Aksesoris'],
+  },
+  tapo: {
+    tagline: 'Smart Security dan IoT Terkoneksi dari TP-Link',
+    badge: 'Official Store',
+    subcategories: ['Semua', 'Indoor Pan/Tilt', 'Outdoor Camera', 'Battery Camera', 'Smart Hub'],
+  },
+  tiandy: {
+    tagline: 'Pionir Kamera Pengawas Super Starlight Full Color Malam Hari',
+    badge: 'Official Partner',
+    subcategories: ['Semua', 'Color Maker', 'Starlight Series', 'NVR', 'Aksesoris'],
+  },
+  glenz: {
+    tagline: 'Power Supply Jaring, Video Balun, dan Aksesori Instalasi CCTV',
+    badge: 'Distributor Resmi',
+    subcategories: ['Semua', 'Power Supply', 'Video Balun', 'Konektor BNC', 'Kabel'],
+  },
+  'tp-link': {
+    tagline: 'Switch PoE Gigabit, WiFi 6 Router, dan Access Point Komersial',
+    badge: 'Networking Partner',
+    subcategories: ['Semua', 'PoE Switch', 'Omada Access Point', 'Router', 'Media Converter'],
+  },
+  seagate: {
+    tagline: 'Harddisk Surveillance SkyHawk Tahan Rekam 24/7 Nonstop',
+    badge: 'Storage Partner',
+    subcategories: ['Semua', 'SkyHawk 1TB - 2TB', 'SkyHawk 4TB - 6TB', 'SkyHawk AI 8TB+'],
+  },
+  wd: {
+    tagline: 'Harddrive CCTV WD Purple dengan Teknologi AllFrame 4K',
+    badge: 'Storage Partner',
+    subcategories: ['Semua', 'WD Purple 1TB - 2TB', 'WD Purple 4TB - 6TB', 'WD Purple Pro 8TB+'],
+  },
+  belden: {
+    tagline: 'Kabel UTP Cat6 dan Coaxial Tembaga Murni Kualitas USA',
+    badge: 'Cabling Partner',
+    subcategories: ['Semua', 'UTP Cat6', 'Coaxial RG59', 'Coaxial RG6', 'Konektor'],
+  },
+}
+
+// ========================================================================
+// 2. STATE MANAGEMENT & FILTERS
+// ========================================================================
 const initialSearch = (route.query.q as string) || ''
 const initialSort = (route.query.sort as string) || 'newest'
 
 const localSearchInput = ref(initialSearch) 
 const activeSearchQuery = ref(initialSearch) 
 const selectedSort = ref(initialSort)
+const selectedCategory = ref('Semua')
+const filterReadyStockOnly = ref(false)
 const currentPage = ref(1)
 
 const handleSearch = () => {
-  activeSearchQuery.value = localSearchInput.value
+  activeSearchQuery.value = localSearchInput.value.trim()
   currentPage.value = 1 
 }
 
@@ -33,23 +101,27 @@ const clearSearch = () => {
   currentPage.value = 1
 }
 
+const selectCategory = (cat: string) => {
+  selectedCategory.value = cat
+  currentPage.value = 1
+}
+
 const sortOptions = [
-  { label: 'Terbaru', value: 'newest' },
-  { label: 'Harga Terendah', value: 'price_asc' },
-  { label: 'Harga Tertinggi', value: 'price_desc' },
-  { label: 'Terlaris', value: 'popular' },
+  { label: 'Unggulan & Terbaru', value: 'newest' },
+  { label: 'Harga: Rendah ke Tinggi', value: 'price_asc' },
+  { label: 'Harga: Tinggi ke Rendah', value: 'price_desc' },
+  { label: 'Ulasan & Terlaris', value: 'popular' },
 ]
 
 // ========================================================================
-// 2. SEO & BRAND IDENTITY (Blocking API)
+// 3. SEO & BRAND IDENTITY (Blocking API)
 // ========================================================================
-
 const { data: brandProfile } = await useFetch<any>('/api/brands', {
   key: `brand-profile:${brandSlug}`,
   server: true, 
   transform: (data) => {
     if (!data) return null
-    return data.find((b: any) => b.brand_slug === brandSlug) || null
+    return data.find((b: any) => (b.brand_slug || '').toLowerCase() === brandSlug) || null
   },
 })
 
@@ -57,13 +129,21 @@ const displayBrandName = computed(() => {
   if (brandProfile.value?.brand_name) return brandProfile.value.brand_name
   return brandSlug.split('-').map((w: string) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')
 })
+
+const brandMeta = computed(() => {
+  return BRAND_METADATA[brandSlug] || {
+    tagline: `Solusi perangkat keamanan resmi bergaransi untuk ${displayBrandName.value}`,
+    badge: 'Official Partner',
+    subcategories: ['Semua', 'CCTV & Kamera', 'Perekam / DVR', 'Aksesoris'],
+  }
+})
+
 const displayBrandLogo = computed(() => brandProfile.value?.brand_logo || '')
-const totalFromProfile = computed(() => brandProfile.value?.total_items || 0)
 
 useSeoMeta({
-  title: () => `${displayBrandName.value} Official Store — PasarCctv`,
-  description: () => `Katalog produk resmi ${displayBrandName.value}. Harga terbaik, garansi resmi, tersedia pengiriman seluruh Indonesia.`,
-  ogTitle: () => `${displayBrandName.value} Official Store`,
+  title: () => `${displayBrandName.value} Official Store: Katalog Resmi & Harga Terbaik | PasarCctv`,
+  description: () => `Belanja produk resmi ${displayBrandName.value}. Garansi resmi prinsipal, pengiriman ke seluruh Indonesia.`,
+  ogTitle: () => `${displayBrandName.value} Official Store | PasarCctv`,
   ogImage: displayBrandLogo,
   robots: 'index, follow',
 })
@@ -73,13 +153,18 @@ useHead({
 })
 
 // ========================================================================
-// 3. PRODUCT FETCHING (Lazy API - Reactivity via Watcher)
+// 4. PRODUCT FETCHING (Lazy API)
 // ========================================================================
+interface SearchApiResponse {
+  items: any[]
+  total: number
+  status?: string
+}
 
-const { data: productData, pending } = await useFetch('/api/search', {
+const { data: productData, pending } = await useFetch<SearchApiResponse>('/api/search', {
   lazy: true,
   server: true,
-  watch: [selectedSort, activeSearchQuery, currentPage], 
+  watch: [selectedSort, activeSearchQuery, selectedCategory, currentPage], 
   query: computed(() => {
     const payload: Record<string, any> = {
       brand: brandSlug,
@@ -87,118 +172,202 @@ const { data: productData, pending } = await useFetch('/api/search', {
       size: 24,
       page: currentPage.value,
     }
+    const queries: string[] = []
     if (activeSearchQuery.value) {
-      payload.q = activeSearchQuery.value
+      queries.push(activeSearchQuery.value)
+    }
+    if (selectedCategory.value && selectedCategory.value !== 'Semua') {
+      queries.push(selectedCategory.value)
+    }
+    if (queries.length > 0) {
+      payload.q = queries.join(' ')
     }
     return payload
   }),
 })
 
-const products = computed(() => productData.value?.items || [])
+const allItems = computed(() => productData.value?.items || [])
+const products = computed(() => {
+  if (filterReadyStockOnly.value) {
+    return allItems.value.filter((p: any) => p.stock_status !== 'out_of_stock')
+  }
+  return allItems.value
+})
+
 const totalProducts = computed(() => productData.value?.total || 0)
+const startIndex = computed(() => totalProducts.value === 0 ? 0 : (currentPage.value - 1) * 24 + 1)
+const endIndex = computed(() => Math.min(currentPage.value * 24, totalProducts.value))
 </script>
 
 <template>
-  <main class="brand-page min-h-screen bg-[#F4F5F7]">
-
-    <div class="brand-hero">
-      <div class="brand-hero__noise" aria-hidden="true" />
-      <div class="brand-hero__blob brand-hero__blob--1" aria-hidden="true" />
-      <div class="brand-hero__blob brand-hero__blob--2" aria-hidden="true" />
-
-      <div class="brand-hero__inner">
-        <nav aria-label="Breadcrumb" class="brand-breadcrumb">
-          <ol class="flex items-center gap-1.5 list-none p-0 m-0">
-            <li><NuxtLink to="/" class="brand-breadcrumb__link">Beranda</NuxtLink></li>
-            <li><UIcon name="i-heroicons-chevron-right" class="w-3 h-3 text-gray-400" /></li>
-            <li><NuxtLink to="/brands" class="brand-breadcrumb__link">Brand Resmi</NuxtLink></li>
-            <li><UIcon name="i-heroicons-chevron-right" class="w-3 h-3 text-gray-400" /></li>
-            <li><span class="brand-breadcrumb__current">{{ displayBrandName }}</span></li>
-          </ol>
+  <main class="brand-page min-h-screen bg-slate-50/70 text-slate-800">
+    <!-- 1. Amazon Storefront Brand Header -->
+    <header class="bg-white border-b border-slate-200 pt-6 pb-0">
+      <div class="max-w-[1360px] mx-auto px-4 sm:px-6 lg:px-8">
+        <!-- Breadcrumb -->
+        <nav aria-label="Breadcrumb" class="flex items-center gap-2 text-xs text-slate-500 mb-4 font-medium">
+          <NuxtLink to="/" class="hover:text-[#03AC0E] transition-colors">Beranda</NuxtLink>
+          <UIcon name="i-tabler-chevron-right" class="w-3.5 h-3.5 text-slate-400" />
+          <NuxtLink to="/brands" class="hover:text-[#03AC0E] transition-colors">Brand Resmi</NuxtLink>
+          <UIcon name="i-tabler-chevron-right" class="w-3.5 h-3.5 text-slate-400" />
+          <span class="text-slate-900 font-semibold">{{ displayBrandName }}</span>
         </nav>
 
-        <div class="brand-identity">
-          <div class="brand-logo-box">
-            <NuxtImg
-              v-if="displayBrandLogo"
-              :src="displayBrandLogo"
-              :alt="`Logo ${displayBrandName}`"
-              width="120"
-              height="60"
-              format="webp"
-              fetchpriority="high"
-              loading="eager"
-              class="max-w-full max-h-full object-contain mix-blend-multiply"
-            />
-            <span v-else class="brand-logo-box__fallback">{{ displayBrandName.charAt(0) }}</span>
-          </div>
-
-          <div class="brand-identity__info">
-            <div class="brand-identity__badge">
-              <UIcon name="i-heroicons-shield-check" class="w-3.5 h-3.5" /> Official Store
+        <!-- Identity Bar -->
+        <div class="flex flex-col md:flex-row md:items-center justify-between gap-5 pb-6 border-b border-slate-100">
+          <div class="flex items-center gap-4">
+            <div class="w-20 h-20 bg-white rounded-xl border border-slate-200 p-2 flex items-center justify-center shrink-0 shadow-xs">
+              <NuxtImg
+                v-if="displayBrandLogo"
+                :src="displayBrandLogo"
+                :alt="`Logo ${displayBrandName}`"
+                width="120"
+                height="60"
+                format="webp"
+                fetchpriority="high"
+                loading="eager"
+                class="max-w-full max-h-full object-contain"
+              />
+              <span v-else class="text-2xl font-bold text-slate-400">{{ displayBrandName.charAt(0) }}</span>
             </div>
-            <h1 class="brand-identity__name">{{ displayBrandName }}</h1>
-            <p class="brand-identity__sub">Produk original bergaransi resmi · Pengiriman ke seluruh Indonesia</p>
+
+            <div class="space-y-1">
+              <div class="flex items-center gap-2">
+                <h1 class="text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight">
+                  {{ displayBrandName }}
+                </h1>
+                <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-[#E6F7E9] text-[#03AC0E] border border-[#C8E6CC] text-xs font-semibold">
+                  <UIcon name="i-tabler-circle-check" class="w-3.5 h-3.5" />
+                  <span>{{ brandMeta.badge }}</span>
+                </span>
+              </div>
+              <p class="text-xs sm:text-sm text-slate-600 font-normal">
+                {{ brandMeta.tagline }}
+              </p>
+            </div>
           </div>
 
-          <div class="brand-stat">
-            <span class="brand-stat__num">{{ pending ? '—' : totalProducts }}</span>
-            <span class="brand-stat__label">Produk<br/>Ditemukan</span>
+          <!-- Quick Value Props -->
+          <div class="flex items-center gap-2 self-start md:self-auto text-xs text-slate-600">
+            <div class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-50 border border-slate-200">
+              <UIcon name="i-tabler-shield-check" class="w-4 h-4 text-[#03AC0E]" />
+              <span>Garansi Resmi</span>
+            </div>
+            <div class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-50 border border-slate-200">
+              <UIcon name="i-tabler-truck" class="w-4 h-4 text-[#03AC0E]" />
+              <span>Pengiriman Seluruh RI</span>
+            </div>
           </div>
         </div>
-      </div>
-    </div>
 
-    <div class="max-w-[1400px] mx-auto px-4 md:px-6 pt-7 pb-16">
-
-      <div class="toolbar">
-        <div class="toolbar__left">
-          <span class="toolbar__accent" aria-hidden="true" />
-          <h2 class="toolbar__title hidden sm:block">Semua Produk</h2>
-
-          <form @submit.prevent="handleSearch" class="relative flex-grow max-w-xs sm:ml-4">
-            <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
-              <UIcon name="i-heroicons-magnifying-glass" class="w-4 h-4" />
-            </span>
-            <input 
-              v-model="localSearchInput"
-              type="text" 
-              :placeholder="`Cari di ${displayBrandName}...`" 
-              class="w-full bg-gray-50 border border-gray-200 rounded-lg pl-9 pr-3 py-1.5 text-sm font-semibold text-black placeholder-gray-400 focus:bg-white focus:border-green-500 focus:ring-1 focus:ring-green-500 outline-none transition-all"
-            >
-          </form>
-        </div>
-
-        <div class="toolbar__right">
-          <label for="sort-select" class="toolbar__sort-label">Urutkan:</label>
-          <select
-            id="sort-select"
-            v-model="selectedSort"
-            @change="handleSortChange"
-            class="toolbar__select"
+        <!-- Amazon-Style Category Navigation Tabs -->
+        <div class="flex items-center gap-1 overflow-x-auto pt-2 scrollbar-none">
+          <button
+            v-for="sub in brandMeta.subcategories"
+            :key="sub"
+            @click="selectCategory(sub)"
+            :class="[
+              'px-4 py-3 text-xs sm:text-sm font-semibold border-b-2 whitespace-nowrap transition cursor-pointer',
+              selectedCategory === sub
+                ? 'border-[#03AC0E] text-[#03AC0E] bg-[#E6F7E9]/30'
+                : 'border-transparent text-slate-600 hover:text-slate-900 hover:border-slate-300'
+            ]"
           >
-            <option v-for="opt in sortOptions" :key="opt.value" :value="opt.value">
-              {{ opt.label }}
-            </option>
-          </select>
+            {{ sub }}
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <!-- 2. Amazon-Style Search & Facets Control -->
+    <div class="max-w-[1360px] mx-auto px-4 sm:px-6 lg:px-8 pt-6 pb-12">
+      <div class="bg-white border border-slate-200 rounded-xl p-4 mb-6 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <!-- Search bar inside store -->
+        <form @submit.prevent="handleSearch" class="relative flex-1 max-w-md">
+          <UIcon name="i-tabler-search" class="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+          <input 
+            v-model="localSearchInput"
+            type="text" 
+            :placeholder="`Cari produk di toko ${displayBrandName}...`" 
+            class="w-full bg-slate-50 border border-slate-200 rounded-lg pl-10 pr-9 py-2 text-xs sm:text-sm font-medium text-slate-800 placeholder-slate-400 focus:bg-white focus:border-[#03AC0E] focus:ring-2 focus:ring-[#03AC0E]/20 outline-none transition"
+          >
+          <button
+            v-if="localSearchInput"
+            type="button"
+            @click="clearSearch"
+            class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+            aria-label="Hapus pencarian"
+          >
+            <UIcon name="i-tabler-x" class="w-4 h-4" />
+          </button>
+        </form>
+
+        <!-- Filter Pills & Sorting -->
+        <div class="flex flex-wrap items-center justify-between md:justify-end gap-3">
+          <!-- Ready Stock Toggle Pill -->
+          <button
+            type="button"
+            @click="filterReadyStockOnly = !filterReadyStockOnly"
+            :class="[
+              'px-3 py-2 rounded-lg text-xs font-semibold border transition flex items-center gap-1.5 cursor-pointer',
+              filterReadyStockOnly
+                ? 'bg-[#E6F7E9] text-[#03AC0E] border-[#C8E6CC]'
+                : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
+            ]"
+          >
+            <UIcon :name="filterReadyStockOnly ? 'i-tabler-check' : 'i-tabler-circle'" class="w-3.5 h-3.5" />
+            <span>Ready Stock Saja</span>
+          </button>
+
+          <!-- Sort Select -->
+          <div class="flex items-center gap-2">
+            <label for="sort-select" class="text-xs text-slate-500 font-medium">Urutkan:</label>
+            <select
+              id="sort-select"
+              v-model="selectedSort"
+              @change="handleSortChange"
+              class="bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold text-slate-700 px-3 py-2 outline-none focus:border-[#03AC0E] focus:ring-2 focus:ring-[#03AC0E]/20 cursor-pointer"
+            >
+              <option v-for="opt in sortOptions" :key="opt.value" :value="opt.value">
+                {{ opt.label }}
+              </option>
+            </select>
+          </div>
         </div>
       </div>
 
-      <div v-if="pending" class="products-grid">
+      <!-- Amazon-Style Result Status Header -->
+      <div class="flex items-center justify-between pb-4 mb-4 border-b border-slate-200 text-xs sm:text-sm text-slate-600">
+        <div>
+          <span v-if="pending" class="font-medium">Memuat katalog...</span>
+          <span v-else-if="totalProducts > 0">
+            Menampilkan <strong>{{ startIndex }}-{{ endIndex }}</strong> dari <strong>{{ totalProducts }}</strong> hasil untuk <strong class="text-slate-900">{{ displayBrandName }}</strong>
+            <span v-if="selectedCategory !== 'Semua'"> di kategori <em>"{{ selectedCategory }}"</em></span>
+            <span v-if="activeSearchQuery"> dengan kata kunci <em>"{{ activeSearchQuery }}"</em></span>
+          </span>
+          <span v-else>
+            0 hasil ditemukan untuk <strong class="text-slate-900">{{ displayBrandName }}</strong>
+          </span>
+        </div>
+      </div>
+
+      <!-- 3. Products Grid Loading State -->
+      <div v-if="pending" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4">
         <CardPerItemSkeleton v-for="i in 10" :key="`skeleton-${i}`" />
       </div>
 
-      <div v-else-if="products.length" class="products-grid">
+      <!-- 4. Products Grid Content -->
+      <div v-else-if="products.length" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4">
         <div
           v-for="product in products"
           :key="product.uuid"
-          class="product-item"
+          class="flex flex-col h-full"
         >
           <CardPerItems
             :uuid="product.uuid"
             :slug="product.slug"
             :title="product.title"
-            :brand="product.brand"
+            :brand="product.brand || displayBrandName"
             :type="product.type"
             :specs="product.specs || {}"
             :price="product.price"
@@ -213,27 +382,30 @@ const totalProducts = computed(() => productData.value?.total || 0)
         </div>
       </div>
 
-      <div v-else class="empty-state">
-        <div class="empty-state__icon">
-          <UIcon name="i-heroicons-magnifying-glass" class="w-9 h-9 text-gray-300" />
+      <!-- 5. Empty State -->
+      <div v-else class="bg-white border border-slate-200 rounded-2xl p-12 text-center my-8 shadow-xs">
+        <div class="w-14 h-14 rounded-full bg-slate-100 flex items-center justify-center mx-auto mb-3 text-slate-400">
+          <UIcon name="i-tabler-search" class="w-6 h-6" />
         </div>
-        <h2 class="empty-state__title">
-          {{ activeSearchQuery ? 'Pencarian Tidak Ditemukan' : 'Produk Kosong' }}
+        <h2 class="text-base font-semibold text-slate-900 mb-1">
+          {{ activeSearchQuery || selectedCategory !== 'Semua' ? 'Hasil Tidak Ditemukan' : 'Produk Belum Tersedia' }}
         </h2>
-        <p class="empty-state__sub">
-          <template v-if="activeSearchQuery">
-            Kami tidak dapat menemukan produk yang cocok dengan 
-            <strong class="text-gray-700">"{{ activeSearchQuery }}"</strong> 
-            pada brand {{ displayBrandName }}.
+        <p class="text-xs sm:text-sm text-slate-500 max-w-sm mx-auto mb-5 leading-relaxed">
+          <template v-if="activeSearchQuery || selectedCategory !== 'Semua'">
+            Tidak ada produk yang cocok dengan kriteria filter saat ini.
           </template>
           <template v-else>
-            Saat ini belum ada produk untuk brand <strong class="text-gray-700">{{ displayBrandName }}</strong>.
+            Saat ini belum ada produk aktif yang terdaftar untuk brand {{ displayBrandName }}.
           </template>
         </p>
-        <button v-if="activeSearchQuery" @click="clearSearch" class="empty-state__btn">
-          Hapus Pencarian
+        <button 
+          v-if="activeSearchQuery || selectedCategory !== 'Semua' || filterReadyStockOnly" 
+          @click="clearSearch(); selectedCategory = 'Semua'; filterReadyStockOnly = false" 
+          class="px-4 py-2 rounded-xl bg-[#03AC0E] hover:bg-[#02930c] text-white text-xs font-medium transition shadow-xs cursor-pointer"
+        >
+          Reset Semua Filter
         </button>
-        <NuxtLink v-else to="/brands" class="empty-state__btn">
+        <NuxtLink v-else to="/brands" class="px-4 py-2 rounded-xl bg-[#03AC0E] hover:bg-[#02930c] text-white text-xs font-medium transition shadow-xs inline-block">
           Kembali ke Daftar Brand
         </NuxtLink>
       </div>
@@ -243,61 +415,15 @@ const totalProducts = computed(() => productData.value?.total || 0)
 </template>
 
 <style scoped>
-.brand-page { font-family: 'Plus Jakarta Sans', sans-serif; }
+.brand-page {
+  font-family: 'Plus Jakarta Sans', sans-serif;
+}
 
-/* ── Hero Styles ── */
-.brand-hero { position: relative; background: #fff; border-bottom: 1px solid #f0f0f0; padding: 2rem 0 2.25rem; overflow: hidden; background-image: linear-gradient(135deg, #f7fdf9 0%, #ffffff 60%); }
-.brand-hero__noise { position: absolute; inset: 0; background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.018'/%3E%3C/svg%3E"); pointer-events: none; }
-.brand-hero__blob { position: absolute; border-radius: 50%; pointer-events: none; filter: blur(60px); }
-.brand-hero__blob--1 { width: 360px; height: 360px; background: rgba(0, 170, 91, 0.07); top: -120px; right: -60px; }
-.brand-hero__blob--2 { width: 200px; height: 200px; background: rgba(66, 181, 73, 0.05); bottom: -60px; left: 10%; }
-.brand-hero__inner { position: relative; z-index: 1; max-width: 1400px; margin: 0 auto; padding: 0 1rem; }
-@media (min-width: 768px) { .brand-hero__inner { padding: 0 1.5rem; } }
-
-/* ── Typography & Layout ── */
-.brand-breadcrumb { margin-bottom: 1.25rem; }
-.brand-breadcrumb__link { font-size: 11px; font-weight: 700; color: #9ca3af; text-transform: uppercase; letter-spacing: 0.08em; text-decoration: none; transition: color 0.15s; }
-.brand-breadcrumb__link:hover { color: #03AC0E; }
-.brand-breadcrumb__current { font-size: 11px; font-weight: 800; color: #374151; text-transform: uppercase; letter-spacing: 0.08em; }
-.brand-identity { display: flex; align-items: center; gap: 1.25rem; flex-wrap: wrap; }
-.brand-logo-box { width: 80px; height: 80px; background: #fff; border: 1.5px solid #e5e7eb; border-radius: 1rem; display: flex; align-items: center; justify-content: center; padding: 0.875rem; box-shadow: 0 2px 12px rgba(0,0,0,0.06); flex-shrink: 0; }
-@media (min-width: 768px) { .brand-logo-box { width: 96px; height: 96px; } }
-.brand-logo-box__fallback { font-size: 2rem; font-weight: 900; color: #d1d5db; text-transform: uppercase; }
-.brand-identity__info { flex: 1; min-width: 0; }
-.brand-identity__badge { display: inline-flex; align-items: center; gap: 0.3rem; font-size: 10px; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; color: #03AC0E; background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 6px; padding: 3px 8px; margin-bottom: 0.5rem; }
-.brand-identity__name { font-size: clamp(1.75rem, 4vw, 2.75rem); font-weight: 900; color: #111827; letter-spacing: -0.025em; line-height: 1; text-transform: uppercase; margin-bottom: 0.4rem; }
-.brand-identity__sub { font-size: 0.8rem; color: #9ca3af; font-weight: 600; }
-.brand-stat { display: flex; flex-direction: column; align-items: center; justify-content: center; background: #f0fdf4; border: 1.5px solid #bbf7d0; border-radius: 1rem; padding: 0.875rem 1.25rem; min-width: 90px; text-align: center; margin-left: auto; }
-.brand-stat__num { font-size: 1.75rem; font-weight: 900; color: #03AC0E; line-height: 1; }
-.brand-stat__label { font-size: 10px; font-weight: 700; color: #6b7280; text-transform: uppercase; letter-spacing: 0.08em; margin-top: 4px; line-height: 1.3; }
-
-/* ── Toolbar ── */
-.toolbar { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.75rem; background: #fff; border: 1px solid #e5e7eb; border-radius: 1rem; padding: 0.75rem 1rem; margin-bottom: 1.25rem; box-shadow: 0 1px 4px rgba(0,0,0,0.04); }
-.toolbar__left { display: flex; align-items: center; gap: 0.625rem; width: 100%; }
-@media (min-width: 640px) { .toolbar__left { width: auto; flex: 1; } }
-.toolbar__accent { display: block; width: 4px; height: 1.2rem; border-radius: 4px; background: linear-gradient(180deg, #42b549 0%, #03AC0E 100%); flex-shrink: 0; }
-.toolbar__title { font-size: 0.875rem; font-weight: 800; color: #111827; letter-spacing: -0.01em; white-space: nowrap; }
-.toolbar__right { display: flex; align-items: center; gap: 0.5rem; width: 100%; justify-content: flex-end; }
-@media (min-width: 640px) { .toolbar__right { width: auto; } }
-.toolbar__sort-label { font-size: 11px; font-weight: 700; color: #9ca3af; text-transform: uppercase; letter-spacing: 0.08em; }
-.toolbar__select { background: #f9fafb; border: 1.5px solid #e5e7eb; border-radius: 0.625rem; font-size: 0.8rem; font-weight: 700; color: #374151; padding: 0.4rem 0.75rem; outline: none; cursor: pointer; transition: border-color 0.15s; font-family: 'Plus Jakarta Sans', sans-serif; }
-.toolbar__select:focus { border-color: #03AC0E; }
-
-/* ── Grids & Animations ── */
-.products-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.75rem; }
-@media (min-width: 640px)  { .products-grid { grid-template-columns: repeat(3, 1fr); } }
-@media (min-width: 768px)  { .products-grid { grid-template-columns: repeat(4, 1fr); gap: 0.875rem; } }
-@media (min-width: 1280px) { .products-grid { grid-template-columns: repeat(5, 1fr); gap: 1rem; } }
-
-.product-item { display: flex; flex-direction: column; }
-
-/* ── Empty State ── */
-.empty-state { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 5rem 2rem; border: 2px dashed #e5e7eb; border-radius: 1.5rem; background: #fff; text-align: center; margin-top: 0.5rem; }
-.empty-state__icon { width: 4.5rem; height: 4.5rem; background: #f9fafb; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin-bottom: 1.25rem; }
-.empty-state__title { font-size: 1.15rem; font-weight: 900; color: #111827; letter-spacing: -0.01em; margin-bottom: 0.5rem; }
-.empty-state__sub { font-size: 0.85rem; color: #6b7280; max-width: 320px; line-height: 1.6; margin-bottom: 1.5rem; }
-.empty-state__btn { display: inline-flex; align-items: center; background: #111827; color: #fff; font-size: 11px; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; padding: 0.75rem 1.5rem; border-radius: 0.75rem; transition: background 0.2s; text-decoration: none; cursor: pointer; border: none; }
-.empty-state__btn:hover { background: #03AC0E; }
-
-
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
+.scrollbar-none {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
 </style>

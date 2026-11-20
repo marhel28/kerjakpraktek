@@ -54,35 +54,35 @@ const hasProducts = computed(() => popularProducts.value.length > 0);
         <div class="flex flex-col gap-1">
           <div class="flex items-center gap-2">
             <div class="w-1.5 h-6 bg-[#03AC0E] rounded-full" aria-hidden="true" />
-            <h2 id="popular-heading" class="text-lg lg:text-xl font-black text-gray-900 tracking-tighter uppercase italic">
+            <h2 id="popular-heading" class="text-lg lg:text-xl font-bold text-gray-900 tracking-tight">
               Produk Populer
             </h2>
           </div>
-          <p class="text-[10px] lg:text-[11px] font-bold text-gray-400 uppercase tracking-[0.2em]">
+          <p class="text-xs text-gray-500 font-medium">
             Pilihan Terbaik Keamanan Pro
           </p>
         </div>
 
-        <div class="flex items-center gap-4">
+        <div class="flex items-center gap-3">
           <NuxtLink
             to="/category/popular"
-            class="hidden lg:flex items-center gap-1.5 text-[10px] font-black text-gray-400 hover:text-[#03AC0E] transition-colors uppercase tracking-[0.2em]"
+            class="flex items-center gap-1 text-xs font-bold text-[#03AC0E] hover:text-[#028C0B] transition-colors"
           >
             Lihat Semua
             <UIcon name="i-heroicons-arrow-small-right" class="w-4 h-4" />
           </NuxtLink>
 
-          <!-- Navigation Controls -->
-          <div class="flex items-center gap-2">
+          <!-- Navigation Controls (Desktop) -->
+          <div class="hidden sm:flex items-center gap-1.5">
             <button
               aria-label="Previous"
-              class="pop-prev w-8 h-8 flex items-center justify-center rounded-lg border border-gray-100 bg-white text-gray-400 hover:bg-[#03AC0E] hover:text-white disabled:opacity-30 transition-all shadow-sm"
+              class="pop-prev w-8 h-8 flex items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-500 hover:bg-[#03AC0E] hover:text-white hover:border-[#03AC0E] disabled:opacity-30 transition-all shadow-xs"
             >
               <UIcon name="i-heroicons-chevron-left" class="w-4 h-4" />
             </button>
             <button
               aria-label="Next"
-              class="pop-next w-8 h-8 flex items-center justify-center rounded-lg border border-gray-100 bg-white text-gray-400 hover:bg-[#03AC0E] hover:text-white disabled:opacity-30 transition-all shadow-sm"
+              class="pop-next w-8 h-8 flex items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-500 hover:bg-[#03AC0E] hover:text-white hover:border-[#03AC0E] disabled:opacity-30 transition-all shadow-xs"
             >
               <UIcon name="i-heroicons-chevron-right" class="w-4 h-4" />
             </button>
@@ -130,5 +130,13 @@ const hasProducts = computed(() => popularProducts.value.length > 0);
 <style scoped>
 .pop-swiper-wrap :deep(.swiper) {
   overflow: visible !important;
+}
+:deep(.swiper-slide) {
+  height: auto !important;
+  display: flex !important;
+}
+:deep(.swiper-slide > *) {
+  width: 100% !important;
+  height: 100% !important;
 }
 </style>

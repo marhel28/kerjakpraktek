@@ -149,9 +149,27 @@
   
               <div class="modal__body">
   
+                <!-- Preset Rute Utama Amazon / E-Commerce Style -->
+                <div v-if="!sectionForm.uuid" class="field-group">
+                  <label class="field-label field-label--sm">Preset Rekomendasi Rute</label>
+                  <div class="preset-chips">
+                    <button
+                      v-for="p in ROUTE_PRESETS"
+                      :key="p.identifier"
+                      type="button"
+                      class="chip-btn"
+                      :class="{ 'chip-btn--active': sectionForm.identifier === p.identifier }"
+                      @click="applyPreset(p)"
+                    >
+                      <span class="chip-btn__tag">{{ p.tag }}</span>
+                      <span class="chip-btn__id">{{ p.identifier }}</span>
+                    </button>
+                  </div>
+                </div>
+
                 <!-- Auto-fill dari kategori -->
                 <div v-if="!sectionForm.uuid" class="field-group field-group--accent">
-                  <label class="field-label field-label--sm">Quick fill dari Kategori</label>
+                  <label class="field-label field-label--sm">Atau Quick fill dari Kategori</label>
                   <select class="field-select" @change="autoFillFromCategory">
                     <option value="">-- Pilih Kategori --</option>
                     <template v-for="cat in categoriesList" :key="cat.id">
@@ -294,8 +312,92 @@
                 </div>
   
                 <div class="field-group">
-                  <label class="field-label">Target URL <span class="field-req">*</span></label>
-                  <input v-model="bannerForm.target_url" type="text" class="field-input" placeholder="https://domain.com/promo" required />
+                  <label class="field-label">Tipe Tujuan (Destination) <span class="field-req">*</span></label>
+                  <div class="dest-type-selector">
+                    <button
+                      v-for="dest in DESTINATION_TYPES"
+                      :key="dest.type"
+                      type="button"
+                      class="dest-type-btn"
+                      :class="{ 'dest-type-btn--active': destinationType === dest.type }"
+                      @click="setDestinationType(dest.type)"
+                    >
+                      <span class="dest-type-icon">{{ dest.icon }}</span>
+                      <span class="dest-type-name">{{ dest.label }}</span>
+                    </button>
+                  </div>
+                </div>
+
+                <!-- Destination Specific Inputs -->
+                <div v-if="destinationType === 'category'" class="field-group">
+                  <label class="field-label">Pilih Kategori / Subkategori</label>
+                  <select v-model="destCategorySlug" class="field-select" @change="buildTargetUrl">
+                    <option value="">-- Pilih Kategori --</option>
+                    <template v-for="cat in categoriesList" :key="cat.uuid">
+                      <option :value="cat.slug">{{ cat.name }} (/category/{{ cat.slug }})</option>
+                      <option
+                        v-for="sub in (cat.subcategories || [])"
+                        :key="sub.uuid"
+                        :value="sub.slug"
+                      >
+                        &nbsp;&nbsp;↳ {{ sub.name }} (/category/{{ sub.slug }})
+                      </option>
+                    </template>
+                  </select>
+                </div>
+
+                <div v-else-if="destinationType === 'brand'" class="field-group">
+                  <label class="field-label">Pilih Brand</label>
+                  <select v-model="destBrandSlug" class="field-select" @change="buildTargetUrl">
+                    <option value="">-- Pilih Brand --</option>
+                    <option v-for="b in brandsList" :key="b.uuid || b.id" :value="b.name.toLowerCase()">
+                      {{ b.name }} (/brands/{{ b.name.toLowerCase() }})
+                    </option>
+                  </select>
+                </div>
+
+                <div v-else-if="destinationType === 'search'" class="field-group">
+                  <label class="field-label">Kata Kunci Pencarian</label>
+                  <input
+                    v-model="destSearchQuery"
+                    type="text"
+                    class="field-input"
+                    placeholder="Contoh: ColorVu atau Paket 4 Kamera"
+                    @input="buildTargetUrl"
+                  />
+                </div>
+
+                <div v-else-if="destinationType === 'product'" class="field-group">
+                  <label class="field-label">Cari & Pilih Produk</label>
+                  <input
+                    v-model="destProductSearch"
+                    type="text"
+                    class="field-input mb-1"
+                    placeholder="Ketik nama produk..."
+                    @input="onProductSearch"
+                  />
+                  <select v-if="productOptions.length" v-model="destProductSlug" class="field-select" @change="buildTargetUrl">
+                    <option value="">-- Pilih Produk Terkait --</option>
+                    <option v-for="p in productOptions" :key="p.uuid" :value="p.slug">
+                      {{ p.title }} (/product/{{ p.slug }})
+                    </option>
+                  </select>
+                </div>
+
+                <div class="field-group">
+                  <label class="field-label">Target URL (Hasil Rakitan) <span class="field-req">*</span></label>
+                  <div class="target-url-preview">
+                    <input
+                      v-model="bannerForm.target_url"
+                      type="text"
+                      class="field-input font-mono text-xs"
+                      :placeholder="destinationType === 'external' ? 'https://example.com/promo' : '/category/kamera-cctv'"
+                      required
+                    />
+                  </div>
+                  <p class="field-hint text-xs text-gray-400 mt-1">
+                    {{ destinationType === 'external' ? 'Mengarahkan ke situs luar (wajib https://)' : 'Rute internal marketplace, otomatis tervalidasi & bebas layout shift.' }}
+                  </p>
                 </div>
   
                 <div class="field-row">
@@ -419,6 +521,8 @@
   // ── State ─────────────────────────────────────────────
   const sections       = ref([])
   const categoriesList = ref([])
+  const brandsList     = ref([])
+  const productOptions = ref([])
   const isLoading      = ref(true)
   const isSubmitting   = ref(false)
   
@@ -429,6 +533,65 @@
   
   const deleteType   = ref('section')
   const itemToDelete = ref(null)
+  
+  // ── Destination System State ──────────────────────────
+  const DESTINATION_TYPES = [
+    { type: 'category',  label: 'Kategori',  icon: '📁' },
+    { type: 'brand',     label: 'Brand',     icon: '🏷️' },
+    { type: 'product',   label: 'Produk',    icon: '📦' },
+    { type: 'promo',     label: 'Promo',     icon: '🎉' },
+    { type: 'search',    label: 'Cari/Filter', icon: '🔍' },
+    { type: 'custom',    label: 'Internal',  icon: '🔗' },
+    { type: 'external',  label: 'External',  icon: '🌐' }
+  ]
+  const destinationType  = ref('category')
+  const destCategorySlug = ref('')
+  const destBrandSlug    = ref('')
+  const destProductSlug  = ref('')
+  const destProductSearch= ref('')
+  const destSearchQuery  = ref('')
+
+  let searchTimeout = null
+  const onProductSearch = () => {
+    if (searchTimeout) clearTimeout(searchTimeout)
+    searchTimeout = setTimeout(async () => {
+      const q = destProductSearch.value.trim()
+      if (!q) return
+      try {
+        const res = await api.get(`/stock/public?q=${encodeURIComponent(q)}&limit=10`)
+        productOptions.value = res.data?.data || res.data?.items || []
+      } catch (e) {
+        console.error('Failed to search stock', e)
+      }
+    }, 300)
+  }
+
+  const setDestinationType = (type) => {
+    destinationType.value = type
+    buildTargetUrl()
+  }
+
+  const buildTargetUrl = () => {
+    if (destinationType.value === 'category' && destCategorySlug.value) {
+      bannerForm.target_url = `/category/${destCategorySlug.value}`
+    } else if (destinationType.value === 'brand' && destBrandSlug.value) {
+      bannerForm.target_url = `/brands/${destBrandSlug.value}`
+    } else if (destinationType.value === 'product' && destProductSlug.value) {
+      bannerForm.target_url = `/product/${destProductSlug.value}`
+    } else if (destinationType.value === 'promo') {
+      bannerForm.target_url = `/promo`
+    } else if (destinationType.value === 'search' && destSearchQuery.value.trim()) {
+      bannerForm.target_url = `/search?q=${encodeURIComponent(destSearchQuery.value.trim())}`
+    } else if (destinationType.value === 'custom') {
+      if (!bannerForm.target_url || !bannerForm.target_url.startsWith('/')) {
+        bannerForm.target_url = '/'
+      }
+    } else if (destinationType.value === 'external') {
+      if (!bannerForm.target_url || !bannerForm.target_url.startsWith('http')) {
+        bannerForm.target_url = 'https://'
+      }
+    }
+  }
   
   const sectionForm = reactive({
     uuid: null,
@@ -469,7 +632,16 @@
   const fetchCategories = async () => {
     try {
       const res = await api.get(`${CATEGORY_API}/`)
-      categoriesList.value = res.data || []
+      categoriesList.value = res.data?.data || res.data || []
+    } catch (e) {
+      console.error(e)
+    }
+  }
+
+  const fetchBrands = async () => {
+    try {
+      const res = await api.get('/brandlogo/public')
+      brandsList.value = res.data?.data || res.data || []
     } catch (e) {
       console.error(e)
     }
@@ -510,6 +682,19 @@
   }
   
   // ── Auto fill ─────────────────────────────────────────
+  const ROUTE_PRESETS = [
+    { identifier: 'home:promo-strip', title: 'Banner Promo Eksklusif Strip (Pre-Footer)', mode: 'single', tag: 'Pre-Footer' },
+    { identifier: 'home:hero-carousel', title: 'Hero Carousel Utama Homepage', mode: 'auto', tag: 'Hero Utama' },
+    { identifier: 'promo:ramadan-sale', title: 'Banner Promo Eksklusif / Event', mode: 'single', tag: 'Promo Event' },
+    { identifier: 'category:kamera-cctv', title: 'Banner Kategori Kamera CCTV', mode: 'single', tag: 'Katalog Kamera' },
+  ]
+
+  const applyPreset = (preset) => {
+    sectionForm.identifier = preset.identifier
+    sectionForm.title      = preset.title
+    sectionForm.mode       = preset.mode || 'single'
+  }
+
   const autoFillFromCategory = (e) => {
     const slug = e.target.value
     if (!slug) return
@@ -652,6 +837,7 @@
   onMounted(() => {
     fetchSections()
     fetchCategories()
+    fetchBrands()
   })
   </script>
   
@@ -1041,6 +1227,46 @@
     border-radius: 8px;
     padding: 12px;
   }
+  .preset-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 4px;
+  }
+  .chip-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 10px;
+    border-radius: 6px;
+    border: 1px solid #e2e8f0;
+    background: #ffffff;
+    cursor: pointer;
+    font-size: 11px;
+    transition: all 150ms ease;
+  }
+  .chip-btn:hover {
+    border-color: #03AC0E;
+    background: #F0FBF2;
+  }
+  .chip-btn--active {
+    border-color: #03AC0E;
+    background: #E8F8EA;
+    box-shadow: 0 0 0 1px #03AC0E;
+  }
+  .chip-btn__tag {
+    font-weight: 700;
+    color: #03AC0E;
+    background: #E8F8EA;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 10px;
+  }
+  .chip-btn__id {
+    font-family: 'SF Mono', Menlo, monospace;
+    color: #334155;
+    font-size: 11px;
+  }
   .field-label { font-size: 12px; font-weight: 600; color: #555; }
   .field-label--sm { font-size: 11px; text-transform: uppercase; letter-spacing: 0.4px; color: #6366f1; }
   .field-req { color: #dc2626; margin-left: 2px; }
@@ -1062,6 +1288,42 @@
   .field-input:disabled { opacity: 0.5; cursor: not-allowed; }
   .field-input--mono { font-family: 'SF Mono', Menlo, monospace; font-size: 12px; }
   .field-input--center { text-align: center; }
+  
+  /* ── Destination Type Selector ── */
+  .dest-type-selector {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+    gap: 6px;
+    margin-bottom: 4px;
+  }
+  .dest-type-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    padding: 8px 6px;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    background: #ffffff;
+    cursor: pointer;
+    transition: all 150ms ease;
+  }
+  .dest-type-btn:hover {
+    border-color: #03AC0E;
+    background: #F0FBF2;
+  }
+  .dest-type-btn--active {
+    border-color: #03AC0E;
+    background: #E8F8EA;
+    box-shadow: 0 0 0 1px #03AC0E;
+  }
+  .dest-type-icon { font-size: 14px; }
+  .dest-type-name { font-size: 11px; font-weight: 700; color: #1e293b; }
+  .target-url-preview {
+    background: #f8fafc;
+    border-radius: 6px;
+  }
+
   .field-select {
     padding: 8px 12px;
     font-size: 13px;

@@ -10,6 +10,9 @@ export default defineNuxtConfig({
       apiBase: process.env.NUXT_PUBLIC_API_BASE ?? (process.env.VERCEL ? 'https://cctv-api.desa-sidomukti.com' : 'http://localhost:8000'),
       siteUrl: process.env.NUXT_PUBLIC_SITE_URL ?? 'http://localhost:3000',
       googleClientId: process.env.NUXT_PUBLIC_GOOGLE_CLIENT_ID ?? '',
+      midtransClientKey: process.env.NUXT_PUBLIC_MIDTRANS_CLIENT_KEY ?? 'SB-Mid-client-pn3mYe4w4xeY6F0w',
+      waNumber: process.env.NUXT_PUBLIC_WA_NUMBER ?? '6282218828108',
+      waSalesNumber: process.env.NUXT_PUBLIC_WA_SALES_NUMBER ?? '6282117779003',
     }
   },
 
@@ -21,6 +24,7 @@ export default defineNuxtConfig({
   devtools: { enabled: false },
   experimental: {
     appManifest: false,
+    payloadExtraction: false,
   },
 
   css: [
@@ -140,11 +144,11 @@ export default defineNuxtConfig({
     '/terms':        { swr: 3600 },
     '/privacy':      { swr: 3600 },
 
-    // ✅ Edge caching with SWR for dynamic pages
-    '/':             { swr: 300 },
-    '/brands/**':    { swr: 600 },
-    '/help/**':      { swr: 600 },
-    '/store-locator':{ swr: 3600 },
+    // ✅ Edge caching with SWR for dynamic pages (disabled in dev to prevent payload collision)
+    '/':             { swr: process.env.NODE_ENV === 'production' ? 300 : false },
+    '/brands/**':    { swr: process.env.NODE_ENV === 'production' ? 600 : false },
+    '/help/**':      { swr: process.env.NODE_ENV === 'production' ? 600 : false },
+    '/store-locator':{ swr: process.env.NODE_ENV === 'production' ? 3600 : false },
 
     // ✅ Assets cache immutable
     '/_nuxt/**':     { headers: { 'Cache-Control': 'public, max-age=31536000, immutable' } },
@@ -155,6 +159,7 @@ export default defineNuxtConfig({
     '/api/banner':          { cache: { maxAge: 60,  staleMaxAge: 300 } },
     '/api/brands':          { cache: { maxAge: 30,  staleMaxAge: 120 } },
     '/api/getpopular':      { cache: { maxAge: 300, staleMaxAge: 600 } },
+    '/api/flashsale':       { cache: { maxAge: 30,  staleMaxAge: 120 } },
 
     // ✅ Auth pages: COOP fix untuk Google GSI popup
     '/login': {

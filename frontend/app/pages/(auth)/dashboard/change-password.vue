@@ -65,7 +65,7 @@ const handleSubmit = async () => {
       <button @click="$router.push('/dashboard')" class="p-1 -ml-1 text-gray-400 hover:text-gray-900 transition-colors">
         <UIcon name="i-heroicons-arrow-left" class="w-5 h-5" />
       </button>
-      <h1 class="text-base font-black text-gray-900 uppercase tracking-wider">Keamanan Akun</h1>
+      <h1 class="text-base font-bold text-gray-900">Keamanan Akun</h1>
     </div>
 
     <!-- TABS (Desktop Only) -->
@@ -116,7 +116,7 @@ const handleSubmit = async () => {
               </div>
 
               <form v-else @submit.prevent="handleSubmit" class="space-y-8">
-                <div v-if="errorMessage" class="text-xs font-bold text-red-500 text-center bg-red-50 py-3 rounded-lg border border-red-100 uppercase tracking-widest">
+                <div v-if="errorMessage" class="text-sm font-medium text-red-600 text-center bg-red-50 py-3 rounded-lg border border-red-100 px-4 leading-relaxed">
                   {{ errorMessage }}
                 </div>
 

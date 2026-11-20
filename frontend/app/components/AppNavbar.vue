@@ -1,7 +1,7 @@
 <template>
-  <div>
+  <div class="sticky top-0 z-50">
     <header
-      class="w-full z-50 shadow-sm font-sans bg-white sticky top-0 transition-all duration-300 hidden lg:block"
+      class="w-full z-50 shadow-sm font-sans bg-white transition-all duration-300 hidden lg:block"
     >
       <div
         class="text-white transition-all duration-300 ease-in-out overflow-hidden"
@@ -1269,7 +1269,6 @@ const closeBrandMenu = () => {
 onMounted(() => {
   window.addEventListener("scroll", handleScroll, { passive: true });
   document.addEventListener("click", handleClickOutside);
-  notificationStore.init();
   // ✅ FIX: Init wishlist store saat mount (jika store punya method fetch/init)
   if (token.value) {
     wishlistStore.fetchWishlist();

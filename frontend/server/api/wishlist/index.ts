@@ -5,7 +5,7 @@ import {
   createError,
 } from "h3"
 
-const cache = new Map<string, { data: any; expire: number }>()
+const cache = (globalThis as any).__wishlistCache ??= new Map<string, { data: any; expire: number }>()
 
 export default defineEventHandler(async (event) => {
   const method = event.node.req.method

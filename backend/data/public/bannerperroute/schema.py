@@ -9,10 +9,25 @@ VALID_MODES = (
 )
 
 
+FORBIDDEN_URL_PREFIXES = ("javascript:", "data:", "vbscript:", "file:")
+
 class ImageItemCreate(BaseModel):
     asset_uuid: UUID
     target_url: str
     order: int = 1
+
+    @field_validator("target_url")
+    @classmethod
+    def validate_target_url(cls, v: str) -> str:
+        s = v.strip()
+        if not s:
+            raise ValueError("target_url tidak boleh kosong")
+        low = s.lower()
+        if any(low.startswith(prefix) for prefix in FORBIDDEN_URL_PREFIXES):
+            raise ValueError("target_url dilarang menggunakan skema tidak aman")
+        if not (s.startswith("/") or low.startswith("https://") or low.startswith("http://")):
+            raise ValueError("target_url harus berupa relative path (diawali /) atau URL https://")
+        return s
 
 
 class ImageSectionCreate(BaseModel):

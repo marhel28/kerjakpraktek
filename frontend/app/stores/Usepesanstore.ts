@@ -1,5 +1,5 @@
 /**
- * stores/usePesanStore.ts
+ * stores/UsePesanStore.ts
  * ========================
  * Pinia store untuk sistem pesan customer ↔ admin.
  *
@@ -10,10 +10,16 @@
  * 4. FloatingChat di layout.vue watch store.pendingContext
  * → berubah = auto-open chat + tampil banner produk
  * 5. User kirim pesan → ctx di-embed ke body, lalu clearPendingContext()
+ *
+ * Realtime via WebSocket (ganti polling):
+ * - initAfterLogin() -> connect() WebSocket
+ * - WebSocket event 'new_message' -> _mergeMessages + update unreadCount
+ * - WebSocket event 'message_read' -> _markLocalRead
  */
 
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
+import { useChatSocket } from '~/composables/useChatSocket'
 
 // ── Types ──────────────────────────────────────────────────────────
 export interface MessageImage {
@@ -47,23 +53,16 @@ export interface ChatMessage {
   _productContext?: ProductContext
 }
 
-const POLL_ACTIVE_MS  = 3_000
-const POLL_PASSIVE_MS = 2 * 60_000
-
 export const usePesanStore = defineStore('pesan', () => {
-
   // ── State ────────────────────────────────────────────────────────
-  const messages         = ref<ChatMessage[]>([])
-  const unreadCount      = ref(0)
-  const lastSentAt       = ref<string | null>(null)
-  const oldestSentAt     = ref<string | null>(null)
-  const hasMoreHistory   = ref(true)
+  const messages = ref<ChatMessage[]>([])
+  const unreadCount = ref(0)
+  const lastSentAt = ref<string | null>(null)
+  const oldestSentAt = ref<string | null>(null)
+  const hasMoreHistory = ref(true)
   const isLoadingHistory = ref(false)
   const isLoadingInitial = ref(false)
-  const isSending        = ref(false)
-  
-  // Flag untuk mematikan/menyalakan timer polling secara pintar
-  const isPollingPaused  = ref(false) 
+  const isSending = ref(false)
 
   /**
    * pendingContext — disimpan di store supaya persist lintas navigasi.
@@ -71,9 +70,10 @@ export const usePesanStore = defineStore('pesan', () => {
    */
   const pendingContext = ref<ProductContext | null>(null)
 
-  let pollTimer: ReturnType<typeof setTimeout> | null = null
   let isPopupOpen = false
-  let pollCycleCount = 0 // Untuk rotasi antara polling pesan baru vs sync status
+
+  // ── WebSocket ────────────────────────────────────────────────────
+  const { connect, on, off } = useChatSocket()
 
   // ── Computed ─────────────────────────────────────────────────────
   const sortedMessages = computed(() =>
@@ -111,7 +111,6 @@ export const usePesanStore = defineStore('pesan', () => {
   }
 
   // ── Context actions ───────────────────────────────────────────────
-
   function setPendingContext(ctx: ProductContext) {
     pendingContext.value = ctx
   }
@@ -120,38 +119,38 @@ export const usePesanStore = defineStore('pesan', () => {
     pendingContext.value = null
   }
 
-  // ── Smart Polling Logic ───────────────────────────────────────────
-  function evaluatePollingState() {
-    // Kondisi 1: Chat masih kosong (belum pernah ada interaksi) -> STOP
-    if (messages.value.length === 0) {
-      isPollingPaused.value = true
-      return
-    }
+  // ── WebSocket Event Handlers ─────────────────────────────────────
+  function _setupWebSocketListeners() {
+    on('new_message', (msg: ChatMessage) => {
+      _mergeMessages([msg])
+      unreadCount.value = messages.value.filter(
+        m => m.sender_role === 'admin' && m.status === 'sent'
+      ).length
+    })
 
-    const lastMsg = sortedMessages.value[sortedMessages.value.length - 1]
-    
-    // Kondisi 2: Pesan terakhir dari admin DAN popup sedang ditutup -> STOP
-    // (Jika popup terbuka, biarkan jalan agar pesan susulan admin tetap masuk live)
-    if (lastMsg && lastMsg.sender_role === 'admin' && !isPopupOpen) {
-      isPollingPaused.value = true
-      return
-    }
+    on('message_read', (payload: { message_ids: string[] }) => {
+      _markLocalRead(payload.message_ids)
+      unreadCount.value = messages.value.filter(
+        m => m.sender_role === 'admin' && m.status === 'sent'
+      ).length
+    })
 
-    // Selain itu -> JALAN
-    isPollingPaused.value = false
+    on('connection_established', () => {
+      console.log('[PesanStore] WebSocket connected, loading initial history...')
+      loadInitialHistory()
+    })
   }
 
   // ── Chat actions ──────────────────────────────────────────────────
-
   async function initAfterLogin() {
     try {
       const res = await $fetch<{ unread_count: number }>('/api/pesan?action=unread')
       unreadCount.value = res.unread_count
-      
-      // Pancing _scheduleNextPoll, nanti dia akan mengevaluasi sendiri
-      // apakah perlu pasif polling atau langsung stop (misal chat masih kosong)
-      _scheduleNextPoll()
     } catch { /* silent */ }
+
+    // Setup WebSocket listeners
+    _setupWebSocketListeners()
+    connect()
   }
 
   async function loadInitialHistory() {
@@ -160,14 +159,11 @@ export const usePesanStore = defineStore('pesan', () => {
     try {
       const res = await $fetch<ChatMessage[]>('/api/pesan?action=history&limit=30')
       if (res.length) {
-        messages.value     = res
+        messages.value = res
         oldestSentAt.value = res[0].sent_at
-        lastSentAt.value   = res[res.length - 1].sent_at
+        lastSentAt.value = res[res.length - 1].sent_at
       }
       hasMoreHistory.value = res.length >= 30
-      
-      // Evaluasi setelah history termuat
-      evaluatePollingState()
     } catch (e) {
       console.error('[pesan] loadInitialHistory:', e)
     } finally {
@@ -185,8 +181,8 @@ export const usePesanStore = defineStore('pesan', () => {
       const res = await $fetch<ChatMessage[]>(`/api/pesan?action=history${qs}`)
       if (res.length) {
         const existing = new Set(messages.value.map(m => m.uuid))
-        const newOnes  = res.filter(m => !existing.has(m.uuid))
-        messages.value     = [...newOnes, ...messages.value]
+        const newOnes = res.filter(m => !existing.has(m.uuid))
+        messages.value = [...newOnes, ...messages.value]
         oldestSentAt.value = res[0].sent_at
       }
       hasMoreHistory.value = res.length >= 30
@@ -195,89 +191,6 @@ export const usePesanStore = defineStore('pesan', () => {
     } finally {
       isLoadingHistory.value = false
     }
-  }
-
-  async function _doPoll() {
-    try {
-      pollCycleCount++
-      
-      // ROTASI OPTIMASI:
-      // - Tiap 5x poll (15 detik), ambil 30 pesan terakhir untuk sync status (sent -> read)
-      // - Selain itu, cukup ambil pesan baru saja (action=poll) -> SANGAT RINGAN
-      const isSyncCycle = pollCycleCount % 5 === 0
-      const hasMessages = messages.value.length > 0
-      
-      let endpoint = '/api/pesan?action=history&limit=30'
-      
-      if (!isSyncCycle && hasMessages && lastSentAt.value) {
-        endpoint = `/api/pesan?action=poll&after_sent_at=${encodeURIComponent(lastSentAt.value)}`
-      }
-
-      const res = await $fetch<ChatMessage[]>(endpoint)
-
-      if (res.length) {
-        const added = _mergeMessages(res)
-        
-        if (added > 0) {
-          const sorted = [...messages.value].sort((a, b) => new Date(a.sent_at).getTime() - new Date(b.sent_at).getTime())
-          lastSentAt.value = sorted[sorted.length - 1].sent_at
-        }
-
-        // Kalkulasi unread terpusat dari state lokal
-        unreadCount.value = messages.value.filter(
-          m => m.sender_role === 'admin' && m.status === 'sent'
-        ).length
-      }
-    } catch { /* silent */ }
-  }
-
-  async function _doPollUnread() {
-    try {
-      const res = await $fetch<{ unread_count: number }>('/api/pesan?action=unread')
-      unreadCount.value = res.unread_count
-    } catch { /* silent */ }
-  }
-
-  function _scheduleNextPoll() {
-    if (pollTimer) clearTimeout(pollTimer)
-
-    // Cek apakah polling sedang mode istirahat
-    evaluatePollingState()
-    if (isPollingPaused.value) {
-      console.log("[pesan] Polling dihentikan sementara (Idle).")
-      return // Jangan set timeout baru
-    }
-
-    const ms = isPopupOpen ? POLL_ACTIVE_MS : POLL_PASSIVE_MS
-    pollTimer = setTimeout(async () => {
-      if (isPopupOpen) await _doPoll()
-      else await _doPollUnread()
-      
-      _scheduleNextPoll()
-    }, ms)
-  }
-
-  function onPopupOpen() {
-    isPopupOpen = true
-    isPollingPaused.value = false // Paksa jalan karena user sedang memantau
-    _scheduleNextPoll()
-    loadInitialHistory()
-  }
-
-  function onPopupClose() {
-    isPopupOpen = false
-    if (pollTimer) clearTimeout(pollTimer)
-    // Panggil schedule untuk evaluasi (kemungkinan besar akan mati jika admin yang membalas terakhir)
-    _scheduleNextPoll() 
-  }
-
-  function startPassivePolling() {
-    if (pollTimer) return
-    _scheduleNextPoll()
-  }
-
-  function stopPolling() {
-    if (pollTimer) { clearTimeout(pollTimer); pollTimer = null }
   }
 
   async function sendMessage(
@@ -300,10 +213,6 @@ export const usePesanStore = defineStore('pesan', () => {
         lastSentAt.value = res.sent_at
       }
 
-      isPollingPaused.value = false // Paksa nyala karena user baru kirim
-      await _doPoll()
-      _scheduleNextPoll() // Restart timer tancap gas
-
       return true
     } catch (e) {
       console.error('[pesan] sendMessage:', e)
@@ -323,7 +232,7 @@ export const usePesanStore = defineStore('pesan', () => {
       if (unreadCount.value > 0) unreadCount.value = 0
       return
     }
-    
+
     try {
       await $fetch('/api/pesan', { method: 'PATCH', body: { message_ids: ids } })
       _markLocalRead(ids)
@@ -333,16 +242,24 @@ export const usePesanStore = defineStore('pesan', () => {
     }
   }
 
+  function onPopupOpen() {
+    isPopupOpen = true
+    loadInitialHistory()
+  }
+
+  function onPopupClose() {
+    isPopupOpen = false
+  }
+
   function reset() {
-    stopPolling()
-    messages.value       = []
-    unreadCount.value    = 0
-    lastSentAt.value     = null
-    oldestSentAt.value   = null
+    messages.value = []
+    unreadCount.value = 0
+    lastSentAt.value = null
+    oldestSentAt.value = null
     hasMoreHistory.value = true
     pendingContext.value = null
-    isPopupOpen          = false
-    isPollingPaused.value= false
+    isPopupOpen = false
+    isLoadingInitial.value = false
   }
 
   return {
@@ -353,7 +270,6 @@ export const usePesanStore = defineStore('pesan', () => {
     isLoadingInitial,
     isSending,
     pendingContext,
-    isPollingPaused, // di-expose barangkali butuh ditrack di Vue DevTools
 
     setPendingContext,
     clearPendingContext,
@@ -361,8 +277,8 @@ export const usePesanStore = defineStore('pesan', () => {
     loadMoreHistory,
     onPopupOpen,
     onPopupClose,
-    startPassivePolling,
-    stopPolling,
+    startPassivePolling: initAfterLogin, // alias fallback backwards compatibility
+    stopPolling: () => {}, // no-op compatibility
     sendMessage,
     markAllRead,
     reset,

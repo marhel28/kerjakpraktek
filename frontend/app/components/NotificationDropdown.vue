@@ -134,11 +134,7 @@ const unreadCount = computed(() => notificationStore.unreadCount)
 const isLoading = computed(() => notificationStore.isLoading)
 const notifications = computed(() => notificationStore.notifications.slice(0, 5))
 
-onMounted(() => {
-  if (isAuthenticated.value) {
-    notificationStore.init()
-  }
-})
+// onMounted init di-handle terpusat oleh plugin 01.realtime.client.ts
 
 const getNotificationIcon = (type?: string): string => {
   switch (type) {

@@ -411,6 +411,14 @@ class TransactionService:
             order_id=order_id,
         )
 
+        await _send_notification_to_admins(
+            session=session,
+            title="Pesanan Baru! 🛒",
+            content=f"Pesanan {order_id} sebesar Rp{int(gross_amount):,} menunggu pembayaran.",
+            action_url=f"/transaksi/{order_id}",
+            notif_type="order",
+        )
+
         return CheckoutResponse(
             order_id=order_id,
             transaction_uuid=str(transaction.uuid),
@@ -745,6 +753,17 @@ class TransactionService:
             action_url=f"/transaksi/{order_id}",
             notif_type="order",
         )
+
+        # Feedback ke user
+        try:
+            await _send_transaction_notification(
+                session=session, local_user_id=user_id,
+                title="✅ Terima Kasih! Pesanan Selesai",
+                content=f"Pesanan #{order_id} telah dikonfirmasi diterima. Terima kasih telah berbelanja!",
+                order_id=order_id,
+            )
+        except Exception as e:
+            logger.error(f"Failed to send delivery confirm feedback to user: {e}")
 
         return {
             "success": True,
@@ -1473,8 +1492,8 @@ class TransactionService:
                 if shipment:
                     shipment.delivery_status = "PROCESSING"
                     session.add(shipment)
-                notif_title = "✅ Pembayaran Berhasil"
-                notif_content = f"Pembayaran pesanan #{payload.order_id} dikonfirmasi."
+                notif_title = "✅ Pembayaran Berhasil & Pesanan Diproses 📦"
+                notif_content = f"Pembayaran pesanan #{payload.order_id} dikonfirmasi. Pesanan sedang diproses dan akan segera dikirim."
                 
                 # 📝 Log Activity
                 await ActivityService(session).log_activity(

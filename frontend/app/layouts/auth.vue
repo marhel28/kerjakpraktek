@@ -1,6 +1,6 @@
 <template>
   <div class="min-h-screen flex flex-col bg-white text-gray-900 font-sans relative">
-    <header class="sticky top-0 z-[100] shadow-sm bg-white">
+    <header class="sticky top-0 z-30 shadow-sm bg-white">
       <AppNavbar hide-sub-nav />
       <ClientOnly>
         <FloatingChat />
@@ -17,8 +17,26 @@
             <AccountSidebar />
           </div>
 
+          <!-- MOBILE NAV: horizontal scroll tabs (Tokopedia-style) -->
+          <nav class="lg:hidden w-full -mx-4 px-4">
+            <div class="flex items-center gap-1 overflow-x-auto scrollbar-none pb-1 -mb-1">
+              <NuxtLink
+                v-for="link in mobileNavLinks"
+                :key="link.to"
+                :to="link.to"
+                class="shrink-0 flex items-center gap-1.5 px-3.5 py-2.5 rounded-full text-xs font-bold border transition-colors whitespace-nowrap"
+                :class="route.path === link.to
+                  ? 'bg-[#03AC0E] text-white border-[#03AC0E]'
+                  : 'bg-white text-gray-600 border-gray-200 hover:border-[#03AC0E] hover:text-[#03AC0E]'"
+              >
+                <UIcon :name="link.icon" class="w-3.5 h-3.5" />
+                {{ link.label }}
+              </NuxtLink>
+            </div>
+          </nav>
+
           <!-- PAGE -->
-          <div class="flex-1 min-w-0 w-full bg-white lg:rounded-xl lg:border lg:border-gray-200 lg:shadow-sm overflow-hidden">
+          <div class="flex-1 min-w-0 w-full bg-white lg:rounded-xl lg:border lg:border-gray-200 lg:shadow-sm overflow-visible">
             <slot />
           </div>
 
@@ -61,7 +79,7 @@
               :class="
                 isStoreLocator
                   ? 'text-zinc-500 group-hover:text-[#03AC0E]'
-                  : 'text-gray-600 group-hover:text-blue-600'
+                  : 'text-gray-600 group-hover:text-[#03AC0E]'
               "
               aria-hidden="true"
             />
@@ -85,13 +103,13 @@
                   :class="
                     isStoreLocator
                       ? 'bg-zinc-800 group-hover:bg-gradient-to-r from-[#03AC0E] to-[#028C0B] shadow-sm'
-                      : 'bg-gray-900 group-hover:bg-blue-600'
+                      : 'bg-gray-900 group-hover:bg-[#03AC0E]'
                   "
                 >
                   <Icon name="i-lucide-camera" class="w-6 h-6 text-white" />
                 </div>
                 <span
-                  class="text-2xl font-black tracking-tighter uppercase"
+                  class="text-2xl font-bold tracking-tight uppercase"
                   :class="isStoreLocator ? 'text-white' : 'text-gray-900'"
                 >
                   PasarCCTV
@@ -160,7 +178,7 @@
                   :class="
                     isStoreLocator
                       ? 'text-zinc-400 hover:text-[#03AC0E]'
-                      : 'text-gray-500 hover:text-blue-600'
+                      : 'text-gray-500 hover:text-[#03AC0E]'
                   "
                 >
                   {{ link.name }}
@@ -212,6 +230,16 @@ import { useRoute } from "vue-router";
 
 const route = useRoute();
 const isStoreLocator = computed(() => route.path.includes("/store-locator"));
+
+const mobileNavLinks = [
+  { label: "Ringkasan", to: "/dashboard", icon: "i-heroicons-user" },
+  { label: "Pesanan", to: "/dashboard/orders", icon: "i-heroicons-shopping-bag" },
+  { label: "Jasa", to: "/dashboard/jasa", icon: "i-heroicons-wrench-screwdriver" },
+  { label: "Wishlist", to: "/dashboard/wishlist", icon: "i-heroicons-heart" },
+  { label: "Alamat", to: "/dashboard/address", icon: "i-heroicons-map-pin" },
+  { label: "Notifikasi", to: "/dashboard/notifications", icon: "i-heroicons-bell" },
+  { label: "Bantuan", to: "/dashboard/help", icon: "i-heroicons-question-mark-circle" },
+];
 
 interface Feature {
   name: string;

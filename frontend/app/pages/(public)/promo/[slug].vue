@@ -73,11 +73,12 @@ useSeoMeta({
   ogImage: () => promo.value?.banner_url || undefined,
 })
 
+const config = useRuntimeConfig();
 useHead({
   script: [
     {
       src: 'https://app.sandbox.midtrans.com/snap/snap.js',
-      'data-client-key': 'SB-Mid-client-pn3mYe4w4xeY6F0w',
+      'data-client-key': config.public.midtransClientKey,
       async: true,
       tagPosition: 'bodyClose'
     },

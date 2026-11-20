@@ -1,14 +1,8 @@
 <template>
   <div
-    class="min-h-screen flex flex-col bg-gray-50 text-gray-900 font-sans selection:bg-blue-200 selection:text-blue-900 relative"
+    class="min-h-screen flex flex-col bg-gray-50 text-gray-900 font-sans selection:bg-green-100 selection:text-green-900 relative"
   >
-    <header class="sticky top-0 z-[100] shadow-sm bg-white">
-      <AppNavbar />
-      <ClientOnly>
-        <LazyFloatingChat />
-        <LazyPromoPopup />
-      </ClientOnly>
-    </header>
+    <AppNavbar />
 
     <main class="flex-grow overflow-x-hidden flex flex-col">
       <div class="w-full mx-auto pb-6 flex-grow">
@@ -16,52 +10,30 @@
       </div>
     </main>
 
-    <!-- Global Promo Banner (Pre-Footer) -->
-    <div v-if="!isNoBannerRoute" class="w-full max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8 pb-10">
-      <BannerSection identifier="global:pre-footer" mode="marquee" class="rounded-2xl overflow-hidden" />
-    </div>
-
     <footer
-      class="mt-auto transition-colors duration-300"
-      :class="
-        isStoreLocator ? 'bg-zinc-900 border-t-0' : 'bg-white border-t border-gray-200'
-      "
+      class="mt-auto bg-[#0D1B12] text-gray-200 border-t border-[#1A3322]"
       aria-labelledby="footer-heading"
     >
-      <h2 id="footer-heading" class="sr-only">Footer</h2>
+      <h2 id="footer-heading" class="sr-only">Footer PasarCCTV</h2>
 
-      <div
-        class="border-b"
-        :class="isStoreLocator ? 'border-zinc-800' : 'border-gray-100'"
-      >
+      <!-- Bar Keunggulan Layanan (5 Kolom Tokopedia Style) -->
+      <div class="border-b border-[#183020] bg-[#112317]">
         <div
-          class="max-w-[1440px] mx-auto grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 divide-x divide-y lg:divide-y-0"
-          :class="isStoreLocator ? 'divide-zinc-800' : 'divide-gray-100'"
+          class="max-w-[1440px] mx-auto grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 divide-x divide-y lg:divide-y-0 divide-[#1B3624]"
         >
           <NuxtLink
             v-for="feature in serviceFeatures"
             :key="feature.name"
             :to="feature.to"
-            class="flex flex-col items-center justify-center py-8 px-4 transition-colors group text-center"
-            :class="
-              isStoreLocator
-                ? 'bg-zinc-900 hover:bg-zinc-800'
-                : 'bg-gray-50/50 hover:bg-gray-100'
-            "
+            class="flex flex-col items-center justify-center py-7 px-4 transition-all duration-200 group text-center hover:bg-[#152B1D]"
           >
             <Icon
               :name="feature.icon"
-              class="w-8 h-8 mb-3 group-hover:scale-110 transition-all duration-300"
-              :class="
-                isStoreLocator
-                  ? 'text-zinc-500 group-hover:text-[#03AC0E]'
-                  : 'text-gray-600 group-hover:text-blue-600'
-              "
+              class="w-7 h-7 mb-2.5 text-[#03AC0E] group-hover:scale-110 group-hover:text-[#22c55e] transition-all duration-300"
               aria-hidden="true"
             />
             <span
-              class="text-[11px] font-bold uppercase tracking-widest"
-              :class="isStoreLocator ? 'text-gray-300' : 'text-gray-800'"
+              class="text-[11px] font-bold uppercase tracking-widest text-gray-300 group-hover:text-white transition-colors"
             >
               {{ feature.name }}
             </span>
@@ -69,93 +41,70 @@
         </div>
       </div>
 
-      <div class="max-w-[1440px] mx-auto px-6 lg:px-10 py-16">
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-12 lg:gap-8">
-          <div class="lg:col-span-2 space-y-6">
-            <NuxtLink to="/" class="inline-flex flex-col gap-1 group" aria-label="Home">
-              <div class="flex items-center gap-2">
-                <div
-                  class="p-2 rounded-lg transition-colors"
-                  :class="
-                    isStoreLocator
-                      ? 'bg-zinc-800 group-hover:bg-gradient-to-r from-[#03AC0E] to-[#028C0B] shadow-sm'
-                      : 'bg-gray-900 group-hover:bg-blue-600'
-                  "
-                >
+      <!-- Konten Utama Footer -->
+      <div class="max-w-[1440px] mx-auto px-6 lg:px-10 py-14 sm:py-16">
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-10 lg:gap-8">
+          
+          <!-- Kolom 1 & 2: Identitas Brand -->
+          <div class="lg:col-span-2 space-y-5">
+            <NuxtLink to="/" class="inline-flex flex-col gap-1 group" aria-label="Home PasarCCTV">
+              <div class="flex items-center gap-2.5">
+                <div class="p-2 rounded-xl bg-[#03AC0E] text-white shadow-sm flex items-center justify-center">
                   <Icon name="i-lucide-camera" class="w-6 h-6 text-white" />
                 </div>
-                <span
-                  class="text-2xl font-black tracking-tighter uppercase"
-                  :class="isStoreLocator ? 'text-white' : 'text-gray-900'"
-                >
-                  PasarCCTV
-                </span>
+                <div>
+                  <span class="text-2xl font-black tracking-tight uppercase text-white">
+                    Pasar<span class="text-[#03AC0E]">CCTV</span>
+                  </span>
+                </div>
               </div>
-              <div
-                class="barcode-element mt-1 opacity-70 group-hover:opacity-100 transition-opacity"
-                :class="isStoreLocator ? 'text-zinc-700' : 'text-gray-900'"
-              ></div>
             </NuxtLink>
 
-            <p
-              class="text-sm leading-relaxed max-w-sm"
-              :class="isStoreLocator ? 'text-zinc-400' : 'text-gray-500'"
-            >
-              Marketplace spesialis sistem keamanan nomor 1 di Indonesia. Menyediakan
-              produk original dengan garansi resmi dan jasa instalasi profesional.
+            <p class="text-sm leading-relaxed max-w-sm text-gray-400">
+              Pusat distributor resmi dan marketplace sistem keamanan terpercaya di Bandung & Indonesia. 
+              Melayani pengadaan perangkat original, instalasi teknisi tersertifikasi, dan garansi purna jual resmi.
             </p>
 
-            <div class="flex gap-3 pt-2">
-              <UButton
+            <!-- Social Media Icons -->
+            <div class="flex gap-2.5 pt-2">
+              <NuxtLink
                 to="#"
                 target="_blank"
-                icon="i-simple-icons-instagram"
-                :color="isStoreLocator ? 'white' : 'gray'"
-                variant="ghost"
-                class="rounded-full transition-colors"
-                :class="isStoreLocator ? 'hover:bg-zinc-800' : 'hover:bg-gray-100'"
+                class="w-9 h-9 rounded-full bg-[#183020] hover:bg-[#03AC0E] text-gray-300 hover:text-white flex items-center justify-center transition-all duration-200"
                 aria-label="Instagram"
-              />
-              <UButton
+              >
+                <Icon name="i-simple-icons-instagram" class="w-4 h-4" />
+              </NuxtLink>
+              <NuxtLink
                 to="#"
                 target="_blank"
-                icon="i-simple-icons-facebook"
-                :color="isStoreLocator ? 'white' : 'gray'"
-                variant="ghost"
-                class="rounded-full transition-colors"
-                :class="isStoreLocator ? 'hover:bg-zinc-800' : 'hover:bg-gray-100'"
+                class="w-9 h-9 rounded-full bg-[#183020] hover:bg-[#03AC0E] text-gray-300 hover:text-white flex items-center justify-center transition-all duration-200"
                 aria-label="Facebook"
-              />
-              <UButton
+              >
+                <Icon name="i-simple-icons-facebook" class="w-4 h-4" />
+              </NuxtLink>
+              <NuxtLink
                 to="#"
                 target="_blank"
-                icon="i-simple-icons-whatsapp"
-                :color="isStoreLocator ? 'white' : 'gray'"
-                variant="ghost"
-                class="rounded-full transition-colors"
-                :class="isStoreLocator ? 'hover:bg-zinc-800' : 'hover:bg-gray-100'"
+                class="w-9 h-9 rounded-full bg-[#183020] hover:bg-[#03AC0E] text-gray-300 hover:text-white flex items-center justify-center transition-all duration-200"
                 aria-label="WhatsApp"
-              />
+              >
+                <Icon name="i-simple-icons-whatsapp" class="w-4 h-4" />
+              </NuxtLink>
             </div>
           </div>
 
+          <!-- Kolom Navigasi -->
           <nav v-for="group in footerLinks" :key="group.title" :aria-label="group.title">
-            <h3
-              class="font-bold mb-6 text-[11px] uppercase tracking-widest"
-              :class="isStoreLocator ? 'text-white' : 'text-gray-900'"
-            >
+            <h3 class="font-bold mb-5 text-xs uppercase tracking-widest text-white flex items-center gap-1.5">
+              <span class="w-1.5 h-3 bg-[#03AC0E] rounded-full" />
               {{ group.title }}
             </h3>
-            <ul class="space-y-4">
+            <ul class="space-y-3">
               <li v-for="link in group.links" :key="link.name">
                 <NuxtLink
                   :to="link.to"
-                  class="text-sm hover:translate-x-1 transition-all duration-200 inline-block font-medium"
-                  :class="
-                    isStoreLocator
-                      ? 'text-zinc-400 hover:text-[#03AC0E]'
-                      : 'text-gray-500 hover:text-blue-600'
-                  "
+                  class="text-sm text-gray-400 hover:text-[#03AC0E] hover:translate-x-1 transition-all duration-200 inline-block font-medium"
                 >
                   {{ link.name }}
                 </NuxtLink>
@@ -164,39 +113,46 @@
           </nav>
         </div>
 
+        <!-- Baris Bawah: Hak Cipta & Kebijakan -->
         <div
-          class="mt-16 pt-8 border-t flex flex-col md:flex-row justify-between items-center gap-4"
-          :class="isStoreLocator ? 'border-zinc-800' : 'border-gray-100'"
+          class="mt-14 pt-8 border-t border-[#183020] flex flex-col md:flex-row justify-between items-center gap-4"
         >
-          <p
-            class="text-[10px] uppercase tracking-widest font-bold text-center md:text-left"
-            :class="isStoreLocator ? 'text-zinc-500' : 'text-gray-400'"
-          >
-            &copy; {{ new Date().getFullYear() }} PasarCctv / PasarCCTV. All Rights
-            Reserved.
+          <p class="text-xs text-gray-400 text-center md:text-left">
+            &copy; {{ new Date().getFullYear() }} <span class="text-white font-semibold">PasarCCTV Indonesia</span>. Hak Cipta Dilindungi.
           </p>
           <div
-            class="flex flex-wrap justify-center gap-4 md:gap-6 text-[10px] uppercase tracking-widest font-bold"
-            :class="isStoreLocator ? 'text-zinc-500' : 'text-gray-400'"
+            class="flex flex-wrap justify-center gap-5 text-xs font-medium text-gray-400"
           >
             <NuxtLink
               to="/privacy"
-              class="transition-colors"
-              :class="isStoreLocator ? 'hover:text-white' : 'hover:text-gray-900'"
-              >Kebijakan Privasi</NuxtLink
+              class="hover:text-white transition-colors"
             >
+              Kebijakan Privasi
+            </NuxtLink>
+            <span class="text-gray-600">&bull;</span>
             <NuxtLink
               to="/terms"
-              class="transition-colors"
-              :class="isStoreLocator ? 'hover:text-white' : 'hover:text-gray-900'"
-              >Syarat &amp; Ketentuan</NuxtLink
+              class="hover:text-white transition-colors"
             >
+              Syarat &amp; Ketentuan
+            </NuxtLink>
+            <span class="text-gray-600">&bull;</span>
+            <NuxtLink
+              to="/store-locator"
+              class="hover:text-white transition-colors"
+            >
+              Lokasi Toko Bandung
+            </NuxtLink>
           </div>
         </div>
       </div>
     </footer>
 
     <CompareBadge />
+    <ClientOnly>
+      <LazyFloatingChat />
+      <LazyPromoPopup />
+    </ClientOnly>
   </div>
 </template>
 

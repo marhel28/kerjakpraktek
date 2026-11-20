@@ -38,28 +38,27 @@
 </template>
 
 <script setup>
-// Data fitur sesuai dengan teks pada gambar referensi
-// Menggunakan icon dari koleksi Lucide yang memiliki gaya outline tipis elegan
+// Data fitur keunggulan resmi PasarCCTV Bandung & Jawa Barat
 const features = [
   {
-    icon: 'lucide:ship', // Ikon kapal kargo
-    title: 'Gratis Pengiriman*',
-    subtitle: 'Jabodetabek'
+    icon: 'lucide:truck',
+    title: 'Pengiriman Cepat',
+    subtitle: 'Bisa Instan & Sameday Bandung'
   },
   {
-    icon: 'lucide:phone-call', // Ikon telepon support
-    title: 'Dukungan bantuan 24/7',
-    subtitle: 'Full support utk pelangan'
+    icon: 'lucide:shield-check',
+    title: 'Garansi Resmi 100%',
+    subtitle: 'Distributor Resmi & Unit Original'
   },
   {
-    icon: 'lucide:credit-card', // Ikon garansi uang/kartu
-    title: 'Uang Kembali',
-    subtitle: 'Garansi uang kembali'
+    icon: 'lucide:wrench',
+    title: 'Teknisi Berpengalaman',
+    subtitle: 'Siap Pasang & Setting di Lokasi'
   },
   {
-    icon: 'lucide:badge-percent', // Ikon label diskon %
-    title: 'Member Discount',
-    subtitle: 'Khusus pelanggan ada diskon'
+    icon: 'lucide:headset',
+    title: 'Konsultasi Teknis',
+    subtitle: 'Bantuan Panduan & Purna Jual'
   }
 ]
 </script>
