@@ -1,0 +1,1029 @@
+{
+  "nodes": [
+    {
+      "id": "pasarcctv-platform",
+      "label": "PasarCCTV Platform",
+      "node_type": "system",
+      "summary": "Integrated B2B Marketplace platform with microservice-ready architecture."
+    },
+    {
+      "id": "fastapi-backend",
+      "label": "FastAPI Backend",
+      "node_type": "service",
+      "summary": "Core asynchronous backend service built on FastAPI/Python handling transactions and marketplace APIs."
+    },
+    {
+      "id": "frontend-app",
+      "label": "Frontend Web Application",
+      "node_type": "service",
+      "summary": "Public web app built with Nuxt 4, Vue 3, Pinia, and Tailwind CSS v4."
+    },
+    {
+      "id": "admin-dashboard",
+      "label": "Admin Dashboard",
+      "node_type": "service",
+      "summary": "Operational management dashboard built with Vue and Vite."
+    },
+    {
+      "id": "postgresql-db",
+      "label": "PostgreSQL Database",
+      "node_type": "database",
+      "summary": "Primary relational database accessed asynchronously via SQLAlchemy 2.0 and asyncpg."
+    },
+    {
+      "id": "dragonflydb",
+      "label": "DragonflyDB",
+      "node_type": "database",
+      "summary": "Redis-compatible high-performance cache and message broker for fast response times (<50ms)."
+    },
+    {
+      "id": "elasticsearch",
+      "label": "Elasticsearch",
+      "node_type": "database",
+      "summary": "Full-text search engine backing catalog and product stock queries."
+    },
+    {
+      "id": "celery-workers",
+      "label": "Celery Task Queue",
+      "node_type": "service",
+      "summary": "Background worker task queue for asynchronous processing."
+    },
+    {
+      "id": "alembic",
+      "label": "Alembic Migrations",
+      "node_type": "tool",
+      "summary": "Database schema migration tool synchronizing SQLAlchemy ORM models."
+    },
+    {
+      "id": "user-domain",
+      "label": "User & Auth Domain",
+      "node_type": "module",
+      "summary": "Handles authentication, credentials, session management, address books, cart, and wishlist (/auth/user, /cart, /wishlist)."
+    },
+    {
+      "id": "catalog-domain",
+      "label": "Catalog & Stock Domain",
+      "node_type": "module",
+      "summary": "Manages categories, stock/products, variants, media assets, brands, and addons (/stok, /category, /brands, /addon)."
+    },
+    {
+      "id": "transaction-domain",
+      "label": "Transaction & Shipping Domain",
+      "node_type": "module",
+      "summary": "Handles checkout lifecycle, stock reservation, transaction items, recap, and shipping route calculations (/transaksi, /cek/shipping, /recap)."
+    },
+    {
+      "id": "service-domain",
+      "label": "Service Bookings Domain",
+      "node_type": "module",
+      "summary": "Manages non-physical services like CCTV installation, maintenance schedules, technician assignments, and time-collision handling (/jasa, /booking)."
+    },
+    {
+      "id": "promo-domain",
+      "label": "Promo & CMS Domain",
+      "node_type": "module",
+      "summary": "Handles coupon validation, quota rate limiting, flash sales, usage logs, banners, and CMS assets (/promos, /banner, /image-sections, /about)."
+    },
+    {
+      "id": "settings-domain",
+      "label": "Settings & Admin Operations Domain",
+      "node_type": "module",
+      "summary": "Handles system settings, global tax configuration, admin coupons, and staff activity audit logs (/settings, /admin/coupon, /activity)."
+    },
+    {
+      "id": "cors-middleware",
+      "label": "CORS Middleware",
+      "node_type": "concept",
+      "summary": "Proxy-level security layer restricting cross-origin requests to trusted origins like localhost and Vercel domains."
+    },
+    {
+      "id": "actor-customer",
+      "label": "Customer",
+      "node_type": "actor",
+      "summary": "Marketplace customer who browses catalog, purchases CCTV products, and books installation services."
+    },
+    {
+      "id": "actor-technician",
+      "label": "Technician",
+      "node_type": "actor",
+      "summary": "Field technician who receives service job assignments and updates booking execution status via mobile."
+    },
+    {
+      "id": "actor-admin",
+      "label": "Admin / Owner",
+      "node_type": "actor",
+      "summary": "Store owner or administrator managing catalog inventory, bookings, and operations via dashboard."
+    },
+    {
+      "id": "pasarcctv-system",
+      "label": "PasarCCTV System",
+      "node_type": "system",
+      "summary": "Modern marketplace system for CCTV sales, physical shipments, and professional installation services."
+    },
+    {
+      "id": "ext-payment-gateway",
+      "label": "Payment Gateway",
+      "node_type": "external_system",
+      "summary": "External payment processor (Midtrans / Xendit) handling transactions and emitting webhook payment callbacks."
+    },
+    {
+      "id": "ext-logistic-api",
+      "label": "Logistic API",
+      "node_type": "external_system",
+      "summary": "External logistics service (RajaOngkir) calculating shipping rates, couriers, and tracking shipments."
+    },
+    {
+      "id": "ext-whatsapp-api",
+      "label": "WhatsApp API",
+      "node_type": "external_system",
+      "summary": "External messaging provider (Fonnte / Watzap) sending automated transactional notifications."
+    },
+    {
+      "id": "boundary-frontend",
+      "label": "Frontend System Boundary",
+      "node_type": "boundary",
+      "summary": "C4 container boundary encapsulating the user-facing web and mobile interface."
+    },
+    {
+      "id": "boundary-backend",
+      "label": "Backend System Boundary",
+      "node_type": "boundary",
+      "summary": "C4 container boundary containing the core REST API service and asynchronous task workers."
+    },
+    {
+      "id": "boundary-data-search",
+      "label": "Data & Search Layer Boundary",
+      "node_type": "boundary",
+      "summary": "C4 container boundary hosting persistent storage, caching layer, and full-text search engine."
+    },
+    {
+      "id": "container-pwa",
+      "label": "Web App (PWA)",
+      "node_type": "container",
+      "summary": "Progressive Web App built with Nuxt 4, Vue 3, and Tailwind CSS offering mobile-first responsive marketplace UI."
+    },
+    {
+      "id": "container-api",
+      "label": "FastAPI Service",
+      "node_type": "container",
+      "summary": "Core asynchronous REST API backend service written in Python with modular routers and asyncpg."
+    },
+    {
+      "id": "container-celery",
+      "label": "Celery Workers",
+      "node_type": "container",
+      "summary": "Python Celery worker processes executing asynchronous background jobs, search indexing, and notification dispatches."
+    },
+    {
+      "id": "container-postgres",
+      "label": "PostgreSQL",
+      "node_type": "database",
+      "summary": "Primary relational database managing persistent transactional data, ACID constraints, and stock inventory."
+    },
+    {
+      "id": "container-dragonflydb",
+      "label": "DragonflyDB",
+      "node_type": "database",
+      "summary": "High-performance in-memory Redis-compatible datastore used for caching, slot locking, and Celery broker queues."
+    },
+    {
+      "id": "container-elasticsearch",
+      "label": "Elasticsearch",
+      "node_type": "database",
+      "summary": "Dedicated search engine powering catalog search with fuzzy matching, typo tolerance, and relevance scoring."
+    },
+    {
+      "id": "service-supabase-realtime",
+      "label": "Supabase Realtime",
+      "node_type": "service",
+      "summary": "Realtime event pushing layer delivering instant updates to clients without server polling."
+    },
+    {
+      "id": "infra-cloudflare-tunnels",
+      "label": "Cloudflare Tunnels",
+      "node_type": "infrastructure",
+      "summary": "Secure reverse tunnel exposing web traffic safely without exposing public inbound network ports."
+    },
+    {
+      "id": "infra-docker-compose",
+      "label": "Docker Compose",
+      "node_type": "infrastructure",
+      "summary": "Containerization runtime defining and running multi-container PasarCCTV services."
+    },
+    {
+      "id": "entity-user",
+      "label": "USER",
+      "node_type": "entity",
+      "summary": "User account entity storing UUID, email, password hash, and authorization role."
+    },
+    {
+      "id": "entity-user-address",
+      "label": "USER_ADDRESS",
+      "node_type": "entity",
+      "summary": "Customer physical addresses used for calculating shipping rates and delivery destinations."
+    },
+    {
+      "id": "entity-category",
+      "label": "CATEGORY",
+      "node_type": "entity",
+      "summary": "Top-level product catalog classification entity."
+    },
+    {
+      "id": "entity-subcategory",
+      "label": "SUBCATEGORY",
+      "node_type": "entity",
+      "summary": "Specific subcategory dividing product categories and classifying stock items."
+    },
+    {
+      "id": "entity-stock",
+      "label": "STOCK",
+      "node_type": "entity",
+      "summary": "Product stock inventory entity tracking SKU, name, quantity, price, and subcategory."
+    },
+    {
+      "id": "entity-asset",
+      "label": "ASSET",
+      "node_type": "entity",
+      "summary": "Media assets and imagery linked to product stock items."
+    },
+    {
+      "id": "entity-transaction",
+      "label": "TRANSACTION",
+      "node_type": "entity",
+      "summary": "Physical product transaction entity tracking buyer, order status, and grand total."
+    },
+    {
+      "id": "entity-transaction-item",
+      "label": "TRANSACTION_ITEM",
+      "node_type": "entity",
+      "summary": "Line item inside a purchase transaction referencing the stock item, quantity, and unit price."
+    },
+    {
+      "id": "entity-shipment",
+      "label": "SHIPMENT",
+      "node_type": "entity",
+      "summary": "Logistics delivery shipment record containing courier service and tracking details."
+    },
+    {
+      "id": "entity-service-package",
+      "label": "SERVICE_PACKAGE",
+      "node_type": "entity",
+      "summary": "CCTV installation or maintenance service package offerings."
+    },
+    {
+      "id": "entity-service-package-item",
+      "label": "SERVICE_PACKAGE_ITEM",
+      "node_type": "entity",
+      "summary": "Itemized scope and components included within a service package."
+    },
+    {
+      "id": "entity-service-booking",
+      "label": "SERVICE_BOOKING",
+      "node_type": "entity",
+      "summary": "Service booking appointment linking user, package, assigned technician, and scheduled timestamp."
+    },
+    {
+      "id": "entity-service-payment",
+      "label": "SERVICE_PAYMENT",
+      "node_type": "entity",
+      "summary": "Payment transaction record associated with a booked service appointment."
+    },
+    {
+      "id": "entity-service-technician",
+      "label": "SERVICE_TECHNICIAN",
+      "node_type": "entity",
+      "summary": "Technician assignment profile for fulfilling on-site service appointments."
+    },
+    {
+      "id": "entity-promo",
+      "label": "PROMO",
+      "node_type": "entity",
+      "summary": "Promotional coupon entity defining code, discount type, and discount value."
+    },
+    {
+      "id": "entity-promo-item",
+      "label": "PROMO_ITEM",
+      "node_type": "entity",
+      "summary": "Specific stock products eligible for a promotional discount campaign."
+    },
+    {
+      "id": "entity-promo-usage",
+      "label": "PROMO_USAGE",
+      "node_type": "entity",
+      "summary": "Log tracking individual user redemptions of promotional coupons."
+    },
+    {
+      "id": "entity-promo-transaction",
+      "label": "PROMO_TRANSACTION",
+      "node_type": "entity",
+      "summary": "Association between applied promo vouchers and physical checkout transactions."
+    },
+    {
+      "id": "frontend-nuxt-app",
+      "label": "Nuxt 4 Frontend",
+      "node_type": "service",
+      "summary": "Public web application built with Nuxt 4, Vue 3 Composition API, Tailwind CSS v4, and Nuxt UI for retail customers and B2B clients."
+    },
+    {
+      "id": "admin-spa-dashboard",
+      "label": "Admin SPA Dashboard",
+      "node_type": "service",
+      "summary": "Internal single-page application dashboard built with Vite, Vue 3, Vue Router, and Supabase Auth RBAC for store operations and management."
+    },
+    {
+      "id": "pinia-state-management",
+      "label": "Pinia State Management",
+      "node_type": "module",
+      "summary": "Reactive central state management layer in app/stores/ orchestrating money-math, cart logic, coupons, and realtime notifications."
+    },
+    {
+      "id": "store-use-checkout",
+      "label": "useCheckoutStore",
+      "node_type": "module",
+      "summary": "Pinia store handling cart items, equipment addons, weight accumulation for couriers, subtotal, discountPromo, and reactive grandTotal calculation."
+    },
+    {
+      "id": "store-use-promo",
+      "label": "usePromoStore",
+      "node_type": "module",
+      "summary": "Pinia store handling coupon validation, promo discounts/cashback, pre-populating item_uuid requirements, and calling /promos/validate."
+    },
+    {
+      "id": "store-use-notification",
+      "label": "useNotificationStore",
+      "node_type": "module",
+      "summary": "Pinia store consuming Supabase Realtime streams to trigger UI alerts, toasts, and snackbars for events like payment success or technician arrival."
+    },
+    {
+      "id": "pasarcctv-design-system",
+      "label": "PasarCCTV Design System",
+      "node_type": "concept",
+      "summary": "Visual system featuring Dark Forest Green theme, gold accents, glassmorphism backdrop-blur, Tailwind CSS v4, and mobile touch-friendly ergonomics."
+    },
+    {
+      "id": "comp-top-search-bar",
+      "label": "Top Search Bar Component",
+      "node_type": "component",
+      "summary": "Aggressive sticky top search bar component critical for B2B technical part discovery."
+    },
+    {
+      "id": "comp-product-cards",
+      "label": "Product Cards Component",
+      "node_type": "component",
+      "summary": "Spacious product display cards adhering to generous padding, margins, and clear visual hierarchy."
+    },
+    {
+      "id": "comp-service-cta-banner",
+      "label": "Service CTA Banner Component",
+      "node_type": "component",
+      "summary": "Wide horizontal Call-to-Action banner visually isolating technician service bookings from physical product catalog."
+    },
+    {
+      "id": "comp-category-icons",
+      "label": "Rounded Category Icons Component",
+      "node_type": "component",
+      "summary": "Touch-friendly rounded category navigation buttons optimized for mobile and tablet interactions."
+    },
+    {
+      "id": "admin-views-module",
+      "label": "Admin Views (src/views/)",
+      "node_type": "module",
+      "summary": "Full-screen views in Admin SPA representing Dashboard, Order Management Tables, and Catalog Addition forms."
+    },
+    {
+      "id": "admin-components-module",
+      "label": "Admin UI Components (src/components/)",
+      "node_type": "module",
+      "summary": "Reusable admin interface components including reactive data tables and standard input form elements."
+    },
+    {
+      "id": "admin-services-module",
+      "label": "Admin Services (src/services/)",
+      "node_type": "module",
+      "summary": "Axios-based API client wrappers dedicated to invoking administrator endpoints on the FastAPI backend."
+    },
+    {
+      "id": "supabase-realtime-client",
+      "label": "Supabase Realtime Client",
+      "node_type": "service",
+      "summary": "WebSocket and realtime streaming integration powering live notifications and updates in frontend stores."
+    },
+    {
+      "id": "supabase-auth-rbac",
+      "label": "Supabase Auth RBAC",
+      "node_type": "concept",
+      "summary": "Role-Based Access Control enforcing JWT token verification for internal staff, field supervisors, and business owners."
+    },
+    {
+      "id": "endpoint-promos-validate",
+      "label": "API /promos/validate",
+      "node_type": "endpoint",
+      "summary": "Nitro / FastAPI backend validation route called by usePromoStore to calculate coupon eligibility and discount amounts."
+    },
+    {
+      "id": "leaflet-mapping-system",
+      "label": "Leaflet Location Mapping",
+      "node_type": "tool",
+      "summary": "Interactive mapping library integration used on the frontend for geographic location picking and technician service areas."
+    },
+    {
+      "id": "motion-animation-system",
+      "label": "GSAP & VueUse Motion",
+      "node_type": "tool",
+      "summary": "Animation libraries powering UI interactions, transitions, and micro-animations across frontend components."
+    }
+  ],
+  "edges": [
+    {
+      "source": "pasarcctv-platform",
+      "target": "fastapi-backend",
+      "relation": "CONTAINS",
+      "confidence": "EXTRACTED",
+      "source_location": "docs/README.md:13"
+    },
+    {
+      "source": "pasarcctv-platform",
+      "target": "frontend-app",
+      "relation": "CONTAINS",
+      "confidence": "EXTRACTED",
+      "source_location": "docs/README.md:12"
+    },
+    {
+      "source": "pasarcctv-platform",
+      "target": "admin-dashboard",
+      "relation": "CONTAINS",
+      "confidence": "EXTRACTED",
+      "source_location": "docs/README.md:14"
+    },
+    {
+      "source": "fastapi-backend",
+      "target": "postgresql-db",
+      "relation": "USES_DATABASE",
+      "confidence": "EXTRACTED",
+      "source_location": "docs/backend/README.md:7"
+    },
+    {
+      "source": "fastapi-backend",
+      "target": "dragonflydb",
+      "relation": "USES_CACHE_AND_BROKER",
+      "confidence": "EXTRACTED",
+      "source_location": "docs/backend/README.md:8"
+    },
+    {
+      "source": "fastapi-backend",
+      "target": "elasticsearch",
+      "relation": "USES_SEARCH_ENGINE",
+      "confidence": "EXTRACTED",
+      "source_location": "docs/backend/README.md:9"
+    },
+    {
+      "source": "fastapi-backend",
+      "target": "celery-workers",
+      "relation": "DISPATCHES_TASKS",
+      "confidence": "EXTRACTED",
+      "source_location": "docs/backend/README.md:10"
+    },
+    {
+      "source": "alembic",
+      "target": "postgresql-db",
+      "relation": "MIGRATES_SCHEMA",
+      "confidence": "EXTRACTED",
+      "source_location": "docs/backend/README.md:35-36"
+    },
+    {
+      "source": "fastapi-backend",
+      "target": "user-domain",
+      "relation": "EXPOSES_MODULE",
+      "confidence": "EXTRACTED",
+      "source_location": "docs/backend/api-reference.md:7-10"
+    },
+    {
+      "source": "fastapi-backend",
+      "target": "catalog-domain",
+      "relation": "EXPOSES_MODULE",
+      "confidence": "EXTRACTED",
+      "source_location": "docs/backend/api-reference.md:12-15"
+    },
+    {
+      "source": "fastapi-backend",
+      "target": "transaction-domain",
+      "relation": "EXPOSES_MODULE",
+      "confidence": "EXTRACTED",
+      "source_location": "docs/backend/api-reference.md:17-20"
+    },
+    {
+      "source": "fastapi-backend",
+      "target": "service-domain",
+      "relation": "EXPOSES_MODULE",
+      "confidence": "EXTRACTED",
+      "source_location": "docs/backend/api-reference.md:22-25"
+    },
+    {
+      "source": "fastapi-backend",
+      "target": "promo-domain",
+      "relation": "EXPOSES_MODULE",
+      "confidence": "EXTRACTED",
+      "source_location": "docs/backend/api-reference.md:27-30"
+    },
+    {
+      "source": "fastapi-backend",
+      "target": "settings-domain",
+      "relation": "EXPOSES_MODULE",
+      "confidence": "EXTRACTED",
+      "source_location": "docs/backend/api-reference.md:32-34"
+    },
+    {
+      "source": "catalog-domain",
+      "target": "elasticsearch",
+      "relation": "INDEXES_AND_SEARCHES",
+      "confidence": "EXTRACTED",
+      "source_location": "docs/backend/api-reference.md:15"
+    },
+    {
+      "source": "catalog-domain",
+      "target": "dragonflydb",
+      "relation": "CACHES_QUERY_RESULTS",
+      "confidence": "EXTRACTED",
+      "source_location": "docs/backend/api-reference.md:15"
+    },
+    {
+      "source": "transaction-domain",
+      "target": "postgresql-db",
+      "relation": "PERSISTS_ORDERS_AND_STOCK_RESERVATIONS",
+      "confidence": "EXTRACTED",
+      "source_location": "docs/backend/api-reference.md:20"
+    },
+    {
+      "source": "fastapi-backend",
+      "target": "cors-middleware",
+      "relation": "PROTECTED_BY",
+      "confidence": "EXTRACTED",
+      "source_location": "docs/backend/api-reference.md:36-37"
+    },
+    {
+      "source": "boundary-frontend",
+      "target": "container-pwa",
+      "relation": "CONTAINS",
+      "confidence": "EXTRACTED",
+      "source_location": "docs/architecture/c4-containers.md:9"
+    },
+    {
+      "source": "boundary-backend",
+      "target": "container-api",
+      "relation": "CONTAINS",
+      "confidence": "EXTRACTED",
+      "source_location": "docs/architecture/c4-containers.md:13"
+    },
+    {
+      "source": "boundary-backend",
+      "target": "container-celery",
+      "relation": "CONTAINS",
+      "confidence": "EXTRACTED",
+      "source_location": "docs/architecture/c4-containers.md:13"
+    },
+    {
+      "source": "boundary-data-search",
+      "target": "container-postgres",
+      "relation": "CONTAINS",
+      "confidence": "EXTRACTED",
+      "source_location": "docs/architecture/c4-containers.md:18"
+    },
+    {
+      "source": "boundary-data-search",
+      "target": "container-dragonflydb",
+      "relation": "CONTAINS",
+      "confidence": "EXTRACTED",
+      "source_location": "docs/architecture/c4-containers.md:18"
+    },
+    {
+      "source": "boundary-data-search",
+      "target": "container-elasticsearch",
+      "relation": "CONTAINS",
+      "confidence": "EXTRACTED",
+      "source_location": "docs/architecture/c4-containers.md:18"
+    },
+    {
+      "source": "actor-customer",
+      "target": "pasarcctv-system",
+      "relation": "USES",
+      "confidence": "EXTRACTED",
+      "source_location": "docs/architecture/c4-context.md:17"
+    },
+    {
+      "source": "actor-technician",
+      "target": "pasarcctv-system",
+      "relation": "USES",
+      "confidence": "EXTRACTED",
+      "source_location": "docs/architecture/c4-context.md:18"
+    },
+    {
+      "source": "actor-admin",
+      "target": "pasarcctv-system",
+      "relation": "USES",
+      "confidence": "EXTRACTED",
+      "source_location": "docs/architecture/c4-context.md:19"
+    },
+    {
+      "source": "pasarcctv-system",
+      "target": "ext-payment-gateway",
+      "relation": "PROCESSES_PAYMENTS_VIA",
+      "confidence": "EXTRACTED",
+      "source_location": "docs/architecture/c4-context.md:21"
+    },
+    {
+      "source": "pasarcctv-system",
+      "target": "ext-logistic-api",
+      "relation": "FETCHES_RATES_FROM",
+      "confidence": "EXTRACTED",
+      "source_location": "docs/architecture/c4-context.md:22"
+    },
+    {
+      "source": "pasarcctv-system",
+      "target": "ext-whatsapp-api",
+      "relation": "SENDS_NOTIFICATIONS_VIA",
+      "confidence": "EXTRACTED",
+      "source_location": "docs/architecture/c4-context.md:23"
+    },
+    {
+      "source": "ext-payment-gateway",
+      "target": "pasarcctv-system",
+      "relation": "SENDS_PAYMENT_CALLBACKS_TO",
+      "confidence": "EXTRACTED",
+      "source_location": "docs/architecture/c4-context.md:24"
+    },
+    {
+      "source": "container-pwa",
+      "target": "container-api",
+      "relation": "MAKES_API_CALLS_TO",
+      "confidence": "EXTRACTED",
+      "source_location": "docs/architecture/c4-containers.md:25"
+    },
+    {
+      "source": "container-api",
+      "target": "container-postgres",
+      "relation": "READS_AND_WRITES",
+      "confidence": "EXTRACTED",
+      "source_location": "docs/architecture/c4-containers.md:27"
+    },
+    {
+      "source": "container-api",
+      "target": "container-dragonflydb",
+      "relation": "LOCKS_AND_CACHES",
+      "confidence": "EXTRACTED",
+      "source_location": "docs/architecture/c4-containers.md:28"
+    },
+    {
+      "source": "container-api",
+      "target": "container-elasticsearch",
+      "relation": "QUERIES",
+      "confidence": "EXTRACTED",
+      "source_location": "docs/architecture/c4-containers.md:29"
+    },
+    {
+      "source": "container-api",
+      "target": "container-celery",
+      "relation": "DISPATCHES_JOBS_TO",
+      "confidence": "EXTRACTED",
+      "source_location": "docs/architecture/c4-containers.md:31"
+    },
+    {
+      "source": "container-celery",
+      "target": "container-postgres",
+      "relation": "UPDATES_STATE",
+      "confidence": "EXTRACTED",
+      "source_location": "docs/architecture/c4-containers.md:32"
+    },
+    {
+      "source": "container-celery",
+      "target": "container-elasticsearch",
+      "relation": "INDEXES_DOCUMENTS_TO",
+      "confidence": "EXTRACTED",
+      "source_location": "docs/architecture/c4-containers.md:33"
+    },
+    {
+      "source": "container-api",
+      "target": "service-supabase-realtime",
+      "relation": "PUSHES_EVENTS_TO",
+      "confidence": "INFERRED",
+      "source_location": "docs/architecture/system-overview.md:42"
+    },
+    {
+      "source": "infra-cloudflare-tunnels",
+      "target": "container-pwa",
+      "relation": "ROUTES_TRAFFIC_TO",
+      "confidence": "INFERRED",
+      "source_location": "docs/architecture/system-overview.md:30"
+    },
+    {
+      "source": "infra-docker-compose",
+      "target": "container-api",
+      "relation": "ORCHESTRATES",
+      "confidence": "EXTRACTED",
+      "source_location": "docs/architecture/system-overview.md:30"
+    },
+    {
+      "source": "infra-docker-compose",
+      "target": "container-pwa",
+      "relation": "ORCHESTRATES",
+      "confidence": "INFERRED",
+      "source_location": "docs/architecture/system-overview.md:30"
+    },
+    {
+      "source": "entity-user",
+      "target": "entity-user-address",
+      "relation": "HAS_MANY",
+      "confidence": "EXTRACTED",
+      "source_location": "docs/architecture/erd-core-marketplace.md:6"
+    },
+    {
+      "source": "entity-user",
+      "target": "entity-transaction",
+      "relation": "PERFORMS",
+      "confidence": "EXTRACTED",
+      "source_location": "docs/architecture/erd-core-marketplace.md:7"
+    },
+    {
+      "source": "entity-user",
+      "target": "entity-service-booking",
+      "relation": "BOOKS",
+      "confidence": "EXTRACTED",
+      "source_location": "docs/architecture/erd-core-marketplace.md:8"
+    },
+    {
+      "source": "entity-user",
+      "target": "entity-promo-usage",
+      "relation": "USES",
+      "confidence": "EXTRACTED",
+      "source_location": "docs/architecture/erd-core-marketplace.md:9"
+    },
+    {
+      "source": "entity-category",
+      "target": "entity-subcategory",
+      "relation": "HAS_MANY",
+      "confidence": "EXTRACTED",
+      "source_location": "docs/architecture/erd-core-marketplace.md:12"
+    },
+    {
+      "source": "entity-subcategory",
+      "target": "entity-stock",
+      "relation": "CATEGORIZES",
+      "confidence": "EXTRACTED",
+      "source_location": "docs/architecture/erd-core-marketplace.md:13"
+    },
+    {
+      "source": "entity-stock",
+      "target": "entity-asset",
+      "relation": "HAS_IMAGE",
+      "confidence": "EXTRACTED",
+      "source_location": "docs/architecture/erd-core-marketplace.md:14"
+    },
+    {
+      "source": "entity-stock",
+      "target": "entity-transaction-item",
+      "relation": "ORDERED_IN",
+      "confidence": "EXTRACTED",
+      "source_location": "docs/architecture/erd-core-marketplace.md:15"
+    },
+    {
+      "source": "entity-stock",
+      "target": "entity-promo-item",
+      "relation": "DISCOUNTED_IN",
+      "confidence": "EXTRACTED",
+      "source_location": "docs/architecture/erd-core-marketplace.md:16"
+    },
+    {
+      "source": "entity-transaction",
+      "target": "entity-transaction-item",
+      "relation": "CONTAINS",
+      "confidence": "EXTRACTED",
+      "source_location": "docs/architecture/erd-core-marketplace.md:19"
+    },
+    {
+      "source": "entity-transaction",
+      "target": "entity-shipment",
+      "relation": "REQUIRES",
+      "confidence": "EXTRACTED",
+      "source_location": "docs/architecture/erd-core-marketplace.md:20"
+    },
+    {
+      "source": "entity-service-package",
+      "target": "entity-service-package-item",
+      "relation": "INCLUDES",
+      "confidence": "EXTRACTED",
+      "source_location": "docs/architecture/erd-core-marketplace.md:23"
+    },
+    {
+      "source": "entity-service-booking",
+      "target": "entity-service-payment",
+      "relation": "PAID_VIA",
+      "confidence": "EXTRACTED",
+      "source_location": "docs/architecture/erd-core-marketplace.md:24"
+    },
+    {
+      "source": "entity-service-booking",
+      "target": "entity-service-package",
+      "relation": "SELECTS",
+      "confidence": "EXTRACTED",
+      "source_location": "docs/architecture/erd-core-marketplace.md:25"
+    },
+    {
+      "source": "entity-service-booking",
+      "target": "entity-service-technician",
+      "relation": "ASSIGNED_TO",
+      "confidence": "EXTRACTED",
+      "source_location": "docs/architecture/erd-core-marketplace.md:26"
+    },
+    {
+      "source": "entity-promo",
+      "target": "entity-promo-item",
+      "relation": "APPLIES_TO",
+      "confidence": "EXTRACTED",
+      "source_location": "docs/architecture/erd-core-marketplace.md:29"
+    },
+    {
+      "source": "entity-promo",
+      "target": "entity-promo-usage",
+      "relation": "RECORDED_IN",
+      "confidence": "EXTRACTED",
+      "source_location": "docs/architecture/erd-core-marketplace.md:30"
+    },
+    {
+      "source": "entity-promo",
+      "target": "entity-promo-transaction",
+      "relation": "LINKED_TO",
+      "confidence": "EXTRACTED",
+      "source_location": "docs/architecture/erd-core-marketplace.md:31"
+    },
+    {
+      "source": "container-postgres",
+      "target": "entity-user",
+      "relation": "STORES",
+      "confidence": "INFERRED",
+      "source_location": "docs/architecture/system-overview.md:22"
+    },
+    {
+      "source": "container-postgres",
+      "target": "entity-stock",
+      "relation": "STORES",
+      "confidence": "INFERRED",
+      "source_location": "docs/architecture/system-overview.md:22"
+    },
+    {
+      "source": "container-postgres",
+      "target": "entity-transaction",
+      "relation": "STORES",
+      "confidence": "INFERRED",
+      "source_location": "docs/architecture/system-overview.md:22"
+    },
+    {
+      "source": "container-postgres",
+      "target": "entity-service-booking",
+      "relation": "STORES",
+      "confidence": "INFERRED",
+      "source_location": "docs/architecture/system-overview.md:22"
+    },
+    {
+      "source": "container-postgres",
+      "target": "entity-promo",
+      "relation": "STORES",
+      "confidence": "INFERRED",
+      "source_location": "docs/architecture/system-overview.md:22"
+    },
+    {
+      "source": "frontend-nuxt-app",
+      "target": "pinia-state-management",
+      "relation": "USES_STATE_MANAGEMENT",
+      "confidence": "EXTRACTED",
+      "source_location": "docs/frontend/README.md:8"
+    },
+    {
+      "source": "pinia-state-management",
+      "target": "store-use-checkout",
+      "relation": "CONTAINS_STORE",
+      "confidence": "EXTRACTED",
+      "source_location": "docs/frontend/state-management.md:8-12"
+    },
+    {
+      "source": "pinia-state-management",
+      "target": "store-use-promo",
+      "relation": "CONTAINS_STORE",
+      "confidence": "EXTRACTED",
+      "source_location": "docs/frontend/state-management.md:14-18"
+    },
+    {
+      "source": "pinia-state-management",
+      "target": "store-use-notification",
+      "relation": "CONTAINS_STORE",
+      "confidence": "EXTRACTED",
+      "source_location": "docs/frontend/state-management.md:22-23"
+    },
+    {
+      "source": "store-use-promo",
+      "target": "endpoint-promos-validate",
+      "relation": "CALLS_ENDPOINT",
+      "confidence": "EXTRACTED",
+      "source_location": "docs/frontend/state-management.md:16"
+    },
+    {
+      "source": "store-use-notification",
+      "target": "supabase-realtime-client",
+      "relation": "SUBSCRIBES_TO_STREAM",
+      "confidence": "EXTRACTED",
+      "source_location": "docs/frontend/state-management.md:23"
+    },
+    {
+      "source": "frontend-nuxt-app",
+      "target": "pasarcctv-design-system",
+      "relation": "IMPLEMENTS_DESIGN_SYSTEM",
+      "confidence": "EXTRACTED",
+      "source_location": "docs/frontend/design-system.md:3-11"
+    },
+    {
+      "source": "frontend-nuxt-app",
+      "target": "comp-top-search-bar",
+      "relation": "INCLUDES_COMPONENT",
+      "confidence": "EXTRACTED",
+      "source_location": "docs/frontend/design-system.md:17"
+    },
+    {
+      "source": "frontend-nuxt-app",
+      "target": "comp-product-cards",
+      "relation": "INCLUDES_COMPONENT",
+      "confidence": "EXTRACTED",
+      "source_location": "docs/frontend/design-system.md:10"
+    },
+    {
+      "source": "frontend-nuxt-app",
+      "target": "comp-service-cta-banner",
+      "relation": "INCLUDES_COMPONENT",
+      "confidence": "EXTRACTED",
+      "source_location": "docs/frontend/design-system.md:19"
+    },
+    {
+      "source": "frontend-nuxt-app",
+      "target": "comp-category-icons",
+      "relation": "INCLUDES_COMPONENT",
+      "confidence": "EXTRACTED",
+      "source_location": "docs/frontend/design-system.md:18"
+    },
+    {
+      "source": "frontend-nuxt-app",
+      "target": "leaflet-mapping-system",
+      "relation": "INTEGRATES_TOOL",
+      "confidence": "EXTRACTED",
+      "source_location": "docs/frontend/README.md:10"
+    },
+    {
+      "source": "frontend-nuxt-app",
+      "target": "motion-animation-system",
+      "relation": "INTEGRATES_ANIMATION",
+      "confidence": "EXTRACTED",
+      "source_location": "docs/frontend/README.md:9"
+    },
+    {
+      "source": "admin-spa-dashboard",
+      "target": "supabase-auth-rbac",
+      "relation": "SECURED_BY",
+      "confidence": "EXTRACTED",
+      "source_location": "docs/admin/README.md:10"
+    },
+    {
+      "source": "admin-spa-dashboard",
+      "target": "admin-views-module",
+      "relation": "CONTAINS_MODULE",
+      "confidence": "EXTRACTED",
+      "source_location": "docs/admin/README.md:30"
+    },
+    {
+      "source": "admin-spa-dashboard",
+      "target": "admin-components-module",
+      "relation": "CONTAINS_MODULE",
+      "confidence": "EXTRACTED",
+      "source_location": "docs/admin/README.md:31"
+    },
+    {
+      "source": "admin-spa-dashboard",
+      "target": "admin-services-module",
+      "relation": "CONTAINS_MODULE",
+      "confidence": "EXTRACTED",
+      "source_location": "docs/admin/README.md:32"
+    },
+    {
+      "source": "admin-services-module",
+      "target": "fastapi-backend",
+      "relation": "CALLS_ADMIN_API",
+      "confidence": "INFERRED",
+      "source_location": "docs/admin/README.md:32"
+    },
+    {
+      "source": "store-use-checkout",
+      "target": "store-use-promo",
+      "relation": "CONSUMES_PROMO_DATA",
+      "confidence": "INFERRED",
+      "source_location": "docs/frontend/state-management.md:12"
+    }
+  ],
+  "hyperedges": [],
+  "input_tokens": 0,
+  "output_tokens": 0
+}

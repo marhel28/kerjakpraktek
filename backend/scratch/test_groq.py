@@ -2,7 +2,10 @@ import asyncio
 import httpx
 
 async def test():
-    api_key = "***REMOVED***"
+    api_key = os.getenv("GROQ_API_KEY", "")
+    if not api_key:
+        print("Set GROQ_API_KEY di environment dulu.")
+        return
     headers = {
         "Content-Type": "application/json",
         "Authorization": f"Bearer {api_key}"

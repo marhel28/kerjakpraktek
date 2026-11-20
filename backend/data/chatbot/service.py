@@ -281,7 +281,7 @@ class AntiHalusinasiGenerator:
         if not ai_settings:
             ai_settings = {
                 "provider": "groq",
-                "api_key": "***REMOVED***",
+                "api_key": os.getenv("GROQ_API_KEY", ""),
                 "model": "qwen-2.5-32b",
                 "temperature": 0.6,
                 "max_tokens": 4096,
@@ -315,7 +315,7 @@ class AntiHalusinasiGenerator:
             base_url = "https://api.groq.com/openai/v1"
             if not model:
                 model = "qwen-2.5-32b"
-            auth_header = f"Bearer {api_key or '***REMOVED***'}"
+            auth_header = f"Bearer {api_key or os.getenv('GROQ_API_KEY', '')}"
 
         # Build factual product context
         factual_context = []
@@ -742,7 +742,7 @@ class ChatbotRAGService:
         if not ai_settings:
             ai_settings = {
                 "provider": os.getenv("CHATBOT_PROVIDER", "groq"),
-                "api_key": os.getenv("GROQ_API_KEY", "***REMOVED***"),
+                "api_key": os.getenv("GROQ_API_KEY", ""),
                 "model": os.getenv("GROQ_LLM_MODEL", "qwen-2.5-32b"),
                 "temperature": 0.6,
                 "max_tokens": 4096,
