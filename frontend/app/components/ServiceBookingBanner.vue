@@ -23,28 +23,24 @@ const SERVICES = [
     label: "Pasang Baru",
     icon: "i-heroicons-home-modern",
     desc: "Instalasi paket kamera & DVR/NVR dari nol",
-    badge: "Populer",
   },
   {
     id: "troubleshoot",
     label: "Cek Kendala & Error",
     icon: "i-heroicons-magnifying-glass",
     desc: "CCTV mati, DVR bunyi, gambar buram/hilang",
-    badge: "Sameday",
   },
   {
     id: "maintenance",
     label: "Servis & Perawatan",
     icon: "i-heroicons-wrench-screwdriver",
     desc: "Cleaning lensa, rapikan kabel & cek harddisk",
-    badge: "Rutin",
   },
   {
     id: "consultation",
     label: "Konsultasi Online",
     icon: "i-heroicons-chat-bubble-left-right",
     desc: "Tanya spesifikasi & kebutuhan gratis",
-    badge: "Gratis",
   },
 ];
 
@@ -99,22 +95,14 @@ const fmt = (n: number) => {
             
             <!-- Header Ringkas & Terpercaya -->
             <div class="mb-6">
-              <div class="flex items-center gap-2 mb-2">
-                <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-[#F0FBF2] text-[#03AC0E] border border-[#D5EED9]">
-                  <span class="w-2 h-2 rounded-full bg-[#03AC0E]" />
-                  Layanan Teknisi Standby Bandung &amp; Cimahi
-                </span>
-                <span class="text-xs text-gray-400 hidden sm:inline">Garansi Pengerjaan Resmi</span>
-              </div>
-
               <h2
                 id="service-heading"
                 class="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-900 tracking-tight leading-snug"
               >
                 CCTV Bermasalah atau Butuh Pasang Baru?
               </h2>
-              <p class="text-xs sm:text-sm text-gray-600 mt-1.5 max-w-2xl leading-relaxed">
-                Pesan teknisi ahli langsung ke lokasi rumah, ruko, atau kantor. Biaya transparan, bergaransi resmi, tanpa biaya siluman.
+              <p class="text-xs sm:text-sm text-gray-600 mt-2 max-w-2xl leading-relaxed">
+                Teknisi di Bandung dan Cimahi datang ke rumah, ruko, atau kantor. Biaya transparan dan pengerjaan bergaransi resmi.
               </p>
             </div>
 
@@ -159,22 +147,12 @@ const fmt = (n: number) => {
 
                     <!-- Label & Desc -->
                     <div class="flex-1 min-w-0">
-                      <div class="flex items-center justify-between gap-1 mb-0.5">
+                      <div class="mb-0.5">
                         <span
-                          class="text-sm font-bold transition-colors truncate"
-                          :class="selectedService === svc.id ? 'text-[#028C0B]' : 'text-gray-900'"
+                          class="text-sm font-bold transition-colors block truncate"
+                          :class="selectedService === svc.id ? 'text-[#027A08]' : 'text-gray-900'"
                         >
                           {{ svc.label }}
-                        </span>
-                        <span
-                          class="text-[10px] font-bold px-1.5 py-0.5 rounded leading-none"
-                          :class="
-                            selectedService === svc.id
-                              ? 'bg-white text-[#03AC0E] border border-[#D5EED9]'
-                              : 'bg-gray-100 text-gray-500'
-                          "
-                        >
-                          {{ svc.badge }}
                         </span>
                       </div>
                       <p class="text-xs text-gray-500 leading-snug">
@@ -190,10 +168,9 @@ const fmt = (n: number) => {
             <div class="flex flex-col sm:flex-row items-center gap-3 pt-5 border-t border-gray-100">
               <NuxtLink
                 :to="bookingUrl"
-                class="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-7 py-3 rounded-xl font-bold text-sm text-white bg-[#03AC0E] hover:bg-[#028C0B] active:scale-98 shadow-xs transition-all"
+                class="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-7 py-3 rounded-xl font-bold text-sm text-white bg-[#027A08] hover:bg-[#026A07] active:scale-98 shadow-xs transition-all"
               >
                 {{ ctaText }}
-                <UIcon name="i-heroicons-arrow-right" class="w-4 h-4" />
               </NuxtLink>
 
               <NuxtLink
@@ -211,21 +188,17 @@ const fmt = (n: number) => {
 
           </div>
 
-          <!-- Sisi Kanan: Amazon Home Services Summary & Trust Box -->
+          <!-- Sisi Kanan: Ringkasan paket pemasangan -->
           <aside class="lg:col-span-4 w-full">
             <div class="bg-gray-50/80 rounded-xl border border-gray-200/80 p-5 flex flex-col">
               
-              <div class="flex items-center justify-between pb-3 mb-3 border-b border-gray-200">
-                <h3 class="text-sm font-bold text-gray-900 tracking-tight flex items-center gap-1.5">
-                  <UIcon name="i-heroicons-sparkles" class="w-4 h-4 text-[#03AC0E]" />
-                  Paket Pemasangan Populer
+              <div class="pb-3 mb-3 border-b border-gray-200">
+                <h3 class="text-sm font-bold text-gray-900 tracking-tight">
+                  Paket pemasangan
                 </h3>
-                <span class="text-[10px] font-bold uppercase text-[#03AC0E] bg-white px-2 py-0.5 rounded border border-[#D5EED9]">
-                  Garansi Resmi
-                </span>
               </div>
 
-              <!-- List Paket Favorit -->
+              <!-- Daftar paket -->
               <div class="space-y-2.5">
                 <template v-if="pending">
                   <div v-for="i in 3" :key="i" class="flex gap-3 p-2 bg-white rounded-lg animate-pulse">
@@ -238,7 +211,7 @@ const fmt = (n: number) => {
                 </template>
 
                 <NuxtLink
-                  v-for="(pkg, idx) in packages"
+                  v-for="pkg in packages"
                   :key="pkg.uuid"
                   :to="`/layanan/booking?package=${pkg.uuid}&category=${pkg.category}`"
                   class="group flex items-center gap-3 p-2.5 rounded-xl bg-white border border-gray-200 hover:border-[#03AC0E] transition-all"
@@ -256,16 +229,13 @@ const fmt = (n: number) => {
 
                   <div class="flex-1 min-w-0">
                     <div class="flex items-center gap-1">
-                      <span v-if="idx === 0" class="text-[9px] font-bold bg-[#FFF0F2] text-[#D62828] px-1 rounded">
-                        Paling Laris
-                      </span>
                       <span class="text-[10px] text-gray-400 truncate">{{ pkg.default_brand || 'Hikvision / Dahua' }}</span>
                     </div>
-                    <h4 class="text-xs font-bold text-gray-900 group-hover:text-[#03AC0E] transition-colors truncate">
+                    <h4 class="text-xs font-bold text-gray-900 group-hover:text-[#027A08] transition-colors truncate">
                       {{ pkg.name }}
                     </h4>
-                    <p class="text-xs font-bold text-[#03AC0E]">
-                      {{ fmt(pkg.dp_amount || pkg.total_estimated || 150000) }}
+                    <p v-if="(pkg.dp_amount || pkg.total_estimated || 0) > 0" class="text-xs font-bold text-[#027A08]">
+                      {{ fmt(pkg.dp_amount || pkg.total_estimated) }}
                     </p>
                   </div>
                 </NuxtLink>
@@ -283,21 +253,6 @@ const fmt = (n: number) => {
                   Konsultasi / Tanya Teknisi via WA
                 </a>
 
-                <!-- 3 Mini Trust Points -->
-                <div class="grid grid-cols-3 gap-1 pt-1 text-center">
-                  <div class="p-1.5 rounded-lg bg-white border border-gray-100">
-                    <span class="block text-[10px] font-bold text-gray-800">100% Resmi</span>
-                    <span class="block text-[9px] text-gray-400">Garansi Toko</span>
-                  </div>
-                  <div class="p-1.5 rounded-lg bg-white border border-gray-100">
-                    <span class="block text-[10px] font-bold text-gray-800">Sameday</span>
-                    <span class="block text-[9px] text-gray-400">Teknisi Cepat</span>
-                  </div>
-                  <div class="p-1.5 rounded-lg bg-white border border-gray-100">
-                    <span class="block text-[10px] font-bold text-gray-800">Transparan</span>
-                    <span class="block text-[9px] text-gray-400">Tanpa Biaya Gaib</span>
-                  </div>
-                </div>
               </div>
 
             </div>
