@@ -55,7 +55,11 @@ def _midtrans_auth_header() -> str:
     return "Basic " + base64.b64encode(raw.encode()).decode()
 
 
-MIDTRANS_SNAP_URL = "https://app.sandbox.midtrans.com/snap/v1/transactions"
+MIDTRANS_SNAP_URL = (
+    "https://app.sandbox.midtrans.com/snap/v1/transactions"
+    if str(Config.MIDTRANS_SERVER_KEY).startswith("SB-")
+    else "https://app.midtrans.com/snap/v1/transactions"
+)
 RAJAONGKIR_CHARGE_URL = "https://rajaongkir.komerce.id/api/v1/calculate/domestic-cost"
 ORIGIN_BOGOR_UTARA    = "16155"
 
@@ -428,6 +432,7 @@ class TransactionService:
             gross_amount=gross_amount,
             payment_type=payload.payment_type,
             transaction_status=transaction.transaction_status,
+            snap_token=midtrans_resp.get("token"),
             va_numbers=midtrans_resp.get("va_numbers"),
             payment_url=midtrans_resp.get("redirect_url"),
             expiry_time=midtrans_resp.get("expiry_time"),

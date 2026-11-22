@@ -57,7 +57,11 @@ logger = logging.getLogger(__name__)
 # CONSTANTS
 # ══════════════════════════════════════════════════════════════════
 
-MIDTRANS_SNAP_URL = "https://app.sandbox.midtrans.com/snap/v1/transactions"
+MIDTRANS_SNAP_URL = (
+    "https://app.sandbox.midtrans.com/snap/v1/transactions"
+    if str(Config.MIDTRANS_SERVER_KEY).startswith("SB-")
+    else "https://app.midtrans.com/snap/v1/transactions"
+)
 RAJAONGKIR_URL    = "https://rajaongkir.komerce.id/api/v1/calculate/domestic-cost"
 ORIGIN_ID         = "16155"
 
