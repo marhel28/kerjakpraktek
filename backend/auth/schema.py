@@ -26,6 +26,11 @@ class UserRead(BaseModel):
     role: UserRole
     user_type: UserType
     is_verified: bool
+    nomertlp: Optional[str] = None
+    alamat: Optional[str] = None
+    provinsi: Optional[str] = None
+    kabupaten: Optional[str] = None
+    kecamatan: Optional[str] = None
     waktu_create: datetime
     waktu_update: datetime
 
