@@ -255,6 +255,14 @@
               <span class="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{{ formatDateShort(drawer.data.created_at) }}</span>
             </div>
 
+            <div v-if="actionState.feedback"
+              class="p-3 rounded-xl text-xs font-bold border"
+              :class="actionState.feedback.type === 'ok'
+                ? 'bg-emerald-50 border-emerald-100 text-emerald-700'
+                : 'bg-rose-50 border-rose-100 text-rose-700'">
+              {{ actionState.feedback.msg }}
+            </div>
+
             <!-- Pelanggan -->
             <section>
               <p class="text-[10px] font-bold tracking-widest uppercase text-gray-400 mb-4 ml-1">Informasi Pelanggan</p>
