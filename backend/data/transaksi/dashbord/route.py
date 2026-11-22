@@ -11,6 +11,7 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 
 from backend.db.main import get_session
 from backend.auth.depedence import get_admin
+from backend.utils.timezone import get_request_timezone
 from .service import TransaksiDashboardService
 
 router = APIRouter(
@@ -23,7 +24,9 @@ _svc = TransaksiDashboardService()
 # ── 1. Summary / KPI Cards ─────────────────────────────────────────
 @router.get("/summary")
 async def dashboard_summary(
+    range: str = Query("all", pattern="^(all|today|week|month)$"),
     session: AsyncSession = Depends(get_session),
+    tz=Depends(get_request_timezone),
     _: any = Depends(get_admin),
 ):
     """
@@ -58,7 +61,7 @@ async def dashboard_summary(
 
     TTL Redis: 60 s
     """
-    return await _svc.get_summary(session)
+    return await _svc.get_summary(session, tz=tz, period=range)
 
 
 # ── 2. Revenue Chart ───────────────────────────────────────────────
@@ -70,6 +73,7 @@ async def dashboard_revenue_chart(
         pattern="^(7d|30d|12m)$",
     ),
     session: AsyncSession = Depends(get_session),
+    tz=Depends(get_request_timezone),
     _: any = Depends(get_admin),
 ):
     """
@@ -85,7 +89,7 @@ async def dashboard_revenue_chart(
     net_revenue   = gross_revenue - sum shipping_cost
     TTL Redis: 120 s per range
     """
-    return await _svc.get_revenue_chart(session, range=range)
+    return await _svc.get_revenue_chart(session, tz=tz, range=range)
 
 
 # ── 3. Activity Feed ───────────────────────────────────────────────

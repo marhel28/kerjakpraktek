@@ -66,7 +66,7 @@ const formatRupiah = (angka: number) =>
 
 const formatDate = (dateString: string) => {
   if (!dateString) return "-";
-  return new Intl.DateTimeFormat("id-ID", { day: "2-digit", month: "short", year: "numeric" }).format(new Date(dateString));
+  return new Intl.DateTimeFormat("id-ID", { day: "2-digit", month: "short", year: "numeric", timeZoneName: "short" }).format(new Date(dateString));
 };
 
 import { useOrderStatus } from "~/composables/useOrderStatus";

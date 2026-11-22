@@ -37,7 +37,7 @@ const formatTime = (timestamp: string): string => {
   if (minutes < 1) return "Baru saja";
   if (minutes < 60) return `${minutes}m`;
   if (hours < 24) return `${hours}j`;
-  return date.toLocaleDateString("id-ID", { day: "numeric", month: "short" });
+  return date.toLocaleDateString("id-ID", { day: "numeric", month: "short", timeZoneName: "short" });
 };
 
 const handleNotificationClick = (notification: any) => {

@@ -243,6 +243,7 @@ const quotaPercent = computed(() => {
             new Date(promo.valid_until).toLocaleDateString("id-ID", {
               day: "numeric",
               month: "short",
+              timeZoneName: "short",
             })
           }}
         </span>

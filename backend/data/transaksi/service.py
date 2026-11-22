@@ -26,11 +26,11 @@ from .model import Transaction, TransactionItem
 from .schema import CheckoutRequest, CheckoutResponse, MidtransWebhookPayload
 from backend.data.stock.model import Stock, Coupon
 from backend.data.ongkir.model import Shipment
-from backend.auth.model import User, UserAddress, UserMap
+from backend.auth.model import User, UserAddress
 from backend.user.cart.model import Cart
 from backend.config import Config
 from sqlalchemy.orm import selectinload
-from backend.db.supabse import SupabaseNotificationService
+from backend.user.notifications import notify_user, notify_users
 
 # Import PromoTransaction models
 from backend.data.public.promobanner.model import (
@@ -38,6 +38,8 @@ from backend.data.public.promobanner.model import (
     PromoTransactionItem,
 )
 from backend.data.public.addon.model import AddonItem, ProductAddonOverride
+from backend.utils.timezone import get_timezone, parse_midtrans_datetime, timezone_label
+from backend.data.transaksi.dashbord.service import invalidate_dashboard_cache
 from backend.data.jasa.model import ServicePackage, ServiceBooking
 from backend.data.stock.service import StockService
 from backend.data.activity.service import ActivityService
@@ -79,35 +81,17 @@ def _generate_order_id() -> str:
 
 
 def _parse_dt(dt_str: Optional[str]) -> Optional[datetime]:
-    if not dt_str:
-        return None
-    try:
-        return datetime.fromisoformat(dt_str.replace("Z", "+00:00"))
-    except Exception:
-        return None
-
-
-async def _get_supabase_user_id(session: AsyncSession, local_user_id: UUID) -> Optional[str]:
-    try:
-        result = await session.exec(
-            select(UserMap).where(UserMap.local_user_id == str(local_user_id))
-        )
-        user_map = result.one_or_none()
-        return user_map.supabase_user_id if user_map else None
-    except Exception as e:
-        logger.error(f"Error getting supabase_user_id: {e}")
-        return None
+    """Midtrans timestamps are GMT+7 strings without an explicit offset."""
+    return parse_midtrans_datetime(dt_str)
 
 
 async def _send_transaction_notification(
     session, local_user_id, title, content, order_id, notif_type="order"
 ):
+    """Notifikasi transaksi memakai uuid user lokal (bukan Supabase id)."""
     try:
-        supabase_user_id = await _get_supabase_user_id(session, local_user_id)
-        if not supabase_user_id:
-            return
-        await SupabaseNotificationService.send_notification(
-            user_id=supabase_user_id,
+        await notify_user(
+            user_id=local_user_id,
             title=title,
             content=content,
             action_url=f"/dashboard/orders/{order_id}",
@@ -122,29 +106,17 @@ async def _send_notification_to_admins(
     session: AsyncSession, title: str, content: str, action_url: str, notif_type: str = "order"
 ):
     try:
-        from backend.auth.model import User, UserMap, UserRole
-        # 1. Get all local admin users
-        admin_users_query = select(User).where(User.role == UserRole.ADMIN)
-        admin_users_result = await session.execute(admin_users_query)
-        admin_users = admin_users_result.scalars().all()
-        
-        if not admin_users:
+        from backend.auth.model import UserRole
+
+        admin_users_result = await session.execute(
+            select(User).where(User.role == UserRole.ADMIN)
+        )
+        admin_ids = [u.uuid for u in admin_users_result.scalars().all()]
+        if not admin_ids:
             return
-        
-        # 2. Get Supabase User IDs for all admin users
-        admin_uuids = [str(u.uuid) for u in admin_users]
-        user_maps_query = select(UserMap).where(UserMap.local_user_id.in_(admin_uuids))
-        user_maps_result = await session.execute(user_maps_query)
-        user_maps = user_maps_result.scalars().all()
-        
-        supabase_admin_ids = [m.supabase_user_id for m in user_maps if m.supabase_user_id]
-        
-        if not supabase_admin_ids:
-            return
-        
-        # 3. Send bulk notification
-        await SupabaseNotificationService.bulk_notification(
-            user_ids=supabase_admin_ids,
+
+        await notify_users(
+            user_ids=admin_ids,
             title=title,
             content=content,
             action_url=action_url,
@@ -1557,6 +1529,7 @@ class TransactionService:
                 )
 
         await session.commit()
+        await invalidate_dashboard_cache()
         return {"status": "ok", "order_id": payload.order_id, "new_status": trx.transaction_status}
 
     # ----------------------------------------------------------
@@ -1649,13 +1622,16 @@ class TransactionService:
     # GENERATE INVOICE PDF
     # ----------------------------------------------------------
     @staticmethod
-    async def generate_invoice_pdf(*, session: AsyncSession, user_id: Optional[UUID], order_id: str):
+    async def generate_invoice_pdf(*, session: AsyncSession, user_id: Optional[UUID], order_id: str, tz=None):
         """
         Menghasilkan PDF invoice menggunakan xhtml2pdf.
         """
         import io
         from jinja2 import Template
         from xhtml2pdf import pisa
+
+        tz = tz or get_timezone(None)
+        zone_label = timezone_label(tz)
 
         # 1. Ambil detail transaksi
         if order_id.startswith("PROMO-"):
@@ -1681,17 +1657,18 @@ class TransactionService:
 
         def fmt_dt(dt):
             if not dt: return "Menunggu"
-            if isinstance(dt, str): return dt
-            return dt.strftime("%Y-%m-%d %H:%M")
+            if isinstance(dt, str):
+                try:
+                    dt = datetime.fromisoformat(dt.replace("Z", "+00:00"))
+                except ValueError:
+                    return dt
+            if dt.tzinfo is None:
+                dt = dt.replace(tzinfo=timezone.utc)
+            return f"{dt.astimezone(tz).strftime('%Y-%m-%d %H:%M')} {zone_label}"
 
         # Transaction time handle
         t_time = detail.get("transaction_time") or detail.get("created_at")
-        if isinstance(t_time, datetime):
-            t_time_str = t_time.strftime("%Y-%m-%d %H:%M")
-        elif isinstance(t_time, str):
-            t_time_str = t_time
-        else:
-            t_time_str = "-"
+        t_time_str = fmt_dt(t_time) if t_time else "-"
 
         data = {
             "order_id": detail["order_id"],
@@ -1712,7 +1689,7 @@ class TransactionService:
             "trx_type": detail.get("trx_type"),
             "timeline": detail.get("timeline", []),
             "booking": detail.get("booking"),
-            "now": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            "now": f"{datetime.now(tz).strftime('%Y-%m-%d %H:%M:%S')} {zone_label}"
         }
 
         # 3. Template HTML

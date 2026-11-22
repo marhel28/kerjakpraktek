@@ -2,6 +2,7 @@
 import axios from 'axios';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+export const ADMIN_TIMEZONE = Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Jakarta';
 
 // ============================
 // MAIN API (pakai interceptor)
@@ -66,6 +67,8 @@ api.interceptors.request.use(
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
+
+    config.headers['X-Timezone'] = ADMIN_TIMEZONE;
 
     // 🔥 PENTING: Jangan set Content-Type manual untuk FormData
     // Biarkan browser yang menentukan boundary otomatis

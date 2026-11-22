@@ -326,6 +326,7 @@ import api from '@/service/api'
 import StatusBadge from '@/components/StatusBadge.vue'
 import InfoCard from '@/components/InfoCard.vue'
 import { useToastStore } from '@/stores/toast'
+import { formatDateTime } from '@/service/datetime'
 
 const route = useRoute()
 const router = useRouter()
@@ -373,18 +374,7 @@ function formatRp(n) {
 }
 
 function formatDate(d) {
-    if (!d) return '-'
-    try {
-        return new Date(d).toLocaleDateString('id-ID', { 
-            day: '2-digit', 
-            month: 'short', 
-            year: 'numeric', 
-            hour: '2-digit', 
-            minute: '2-digit' 
-        })
-    } catch (e) {
-        return d
-    }
+    return formatDateTime(d)
 }
 
 function copyOrderId() {

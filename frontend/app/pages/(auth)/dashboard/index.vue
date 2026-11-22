@@ -437,7 +437,7 @@ function formatPrice(val: number) {
               <p class="text-sm text-gray-700 font-medium">Total Belanja: <span class="font-bold text-gray-900">{{ formatPrice(activeOrder.gross_amount) }}</span></p>
               <p class="text-xs text-gray-500 flex items-center gap-1.5">
                 <UIcon name="i-heroicons-calendar" class="w-3.5 h-3.5" />
-                {{ new Date(activeOrder.created_at || '').toLocaleDateString("id-ID", { day: "2-digit", month: "short", year: "numeric" }) }}
+                {{ new Date(activeOrder.created_at || '').toLocaleDateString("id-ID", { day: "2-digit", month: "short", year: "numeric", timeZoneName: "short" }) }}
                 <span v-if="activeOrder.shipment?.waybill_number" class="mx-1">•</span>
                 <span v-if="activeOrder.shipment?.waybill_number" class="font-bold text-[#03AC0E]">Resi: {{ activeOrder.shipment.waybill_number }}</span>
               </p>

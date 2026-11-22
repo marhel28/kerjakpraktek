@@ -79,7 +79,7 @@ async function payNow(type: "dp" | "lunas") {
 }
 
 function formatRp(n: number) { return new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(n); }
-function formatDate(iso: string) { return new Date(iso).toLocaleDateString("id-ID", { weekday: "long", day: "numeric", month: "long", year: "numeric" }); }
+function formatDate(iso: string) { return new Date(iso).toLocaleDateString("id-ID", { weekday: "long", day: "numeric", month: "long", year: "numeric", timeZoneName: "short" }); }
 function showToast(message: string, type: "success" | "error") { toast.value = { show: true, message, type }; setTimeout(() => toast.value.show = false, 3000); }
 </script>
 
@@ -125,7 +125,7 @@ function showToast(message: string, type: "success" | "error") { toast.value = {
         <div class="sm:text-right">
           <p class="text-[10px] font-bold uppercase tracking-widest mb-1 opacity-70">No. Booking</p>
           <p class="text-sm font-bold tracking-tight text-[#03AC0E]">#{{ booking.booking_number }}</p>
-          <p class="text-[10px] text-gray-400 font-medium mt-1">Dibuat: {{ new Date(booking.created_at).toLocaleDateString() }}</p>
+          <p class="text-[10px] text-gray-400 font-medium mt-1">Dibuat: {{ new Date(booking.created_at).toLocaleDateString("id-ID", { day: "2-digit", month: "short", year: "numeric", timeZoneName: "short" }) }}</p>
         </div>
       </section>
 

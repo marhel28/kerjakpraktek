@@ -73,7 +73,7 @@
           <div class="card card--chart">
             <div class="card__header">
               <div>
-                <h2 class="card__title">Revenue</h2>
+                <h2 class="card__title">Pembayaran Diterima</h2>
                 <p class="card__subtitle">Pendapatan bersih dari transaksi terkonfirmasi</p>
               </div>
               <div class="chart-tabs">
@@ -553,6 +553,7 @@
 import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import * as d3 from 'd3'
 import api from '@/service/api'
+import { formatLocalDate } from '@/service/datetime'
 
 // ── Helpers ──────────────────────────────────────────────────────
 const fmtRp = (n) => {
@@ -645,7 +646,7 @@ const dtVal          = ref(null)
 const dtPct          = ref(null)
 
 // ── Date labels ───────────────────────────────────────────────────
-const todayLabel = computed(() => new Date().toLocaleDateString('id-ID', { weekday:'long', day:'numeric', month:'long', year:'numeric' }))
+const todayLabel = computed(() => formatLocalDate(new Date()))
 const todayShort = computed(() => new Date().toLocaleDateString('id-ID', { day:'numeric', month:'short' }))
 
 // ── Tabs & filters ────────────────────────────────────────────────
@@ -671,25 +672,23 @@ const activityFilters = [
 const kpiCards = computed(() => {
   const s  = summaryData.value  || {}
   const bk = bookingKpi.value?.data || {}
-  const rangeRevKey = { all:'total_revenue', today:'revenue_today', week:'revenue_this_week', month:'revenue_this_month' }[activeRange.value]
-  const rev = s[rangeRevKey] ?? 0
   return [
     {
-      key:'revenue', label:'Total Revenue', color:'blue',
-      formatted: fmtRp(rev),
+      key:'sales', label:'Total Penjualan', color:'blue',
+      formatted: fmtRp(s.sales_total || 0),
       icon: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>`,
-      badge: activeRange.value !== 'all' ? '+' + fmtRp((s.revenue_this_month || 0) * 0.08) : 'Detail Laku ➜',
-      badgeType: activeRange.value !== 'all' ? 'green' : 'blue',
-      sub: `${(s.settlement_count||0).toLocaleString('id')} order sukses (Klik untuk rincian)`,
-      link: '/transaksi/list?status=settlement'
+      badge: `${(s.orders_paid||0).toLocaleString('id')} lunas`,
+      badgeType:'blue',
+      sub: `Dibayar ${fmtRp(s.total_revenue)} · Menunggu ${fmtRp(s.sales_pending)}`,
+      link: '/transaksi/list'
     },
     {
       key:'orders', label:'Total Order', color:'indigo',
-      formatted: (s.total_orders||0).toLocaleString('id'),
+      formatted: (s.orders_total||0).toLocaleString('id'),
       icon: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>`,
       badge: s.orders_today ? `+${s.orders_today} hari ini` : 'Rincian ➜',
       badgeType:'blue', 
-      sub: `${(s.pending_payment_count||0)} pending payment (Klik untuk rincian)`,
+      sub: `${(s.orders_pending||0).toLocaleString('id')} menunggu pembayaran (Klik untuk rincian)`,
       link: '/transaksi/list'
     },
     {
@@ -712,12 +711,12 @@ const kpiCards = computed(() => {
     },
     {
       key:'sold', label:'Item Terjual', color:'teal',
-      formatted: (s.total_items_sold||0).toLocaleString('id'),
+      formatted: (s.items_sold||0).toLocaleString('id'),
       icon: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>`,
       badge: 'Rincian ➜', 
       badgeType:'green', 
       sub: `AOV ${fmtRp(s.avg_order_value)} (Klik untuk rincian)`,
-      link: '/transaksi/list?status=settlement'
+      link: '/transaksi/list'
     },
     {
       key:'revenue_booking', label:'Revenue Jasa', color:'orange',
@@ -1072,7 +1071,7 @@ const hideDonutTooltip = () => {
 // ── Fetch functions ───────────────────────────────────────────────
 const fetchSummary = async () => {
   summaryLoading.value = true
-  try { summaryData.value = (await api.get('/admin/dashboard/summary'))?.data?.data || {} }
+  try { summaryData.value = (await api.get(`/admin/dashboard/summary?range=${activeRange.value}`))?.data?.data || {} }
   catch (e) { console.warn('summary', e) }
   finally { summaryLoading.value = false }
 }
@@ -1157,6 +1156,7 @@ const setRange      = (v) => { activeRange.value = v }
 const setChartRange = (v) => { chartRange.value = v; fetchChart() }
 
 watch(chartRange, fetchChart)
+watch(activeRange, fetchSummary)
 
 // Redraw on resize
 let resizeObs = null

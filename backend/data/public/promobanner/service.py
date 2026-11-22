@@ -38,10 +38,12 @@ from .model import (
 from .model import PromoTransaction, PromoTransactionItem
 from backend.data.stock.model import Stock
 from backend.data.jasa.model import ServicePackage, ServiceBooking, BookingStatus
-from backend.auth.model import User, UserAddress, UserMap
+from backend.utils.timezone import parse_midtrans_datetime
+from backend.data.transaksi.dashbord.service import invalidate_dashboard_cache
+from backend.auth.model import User, UserAddress
 from backend.user.cart.model import Cart
 from backend.config import Config
-from backend.db.supabse import SupabaseNotificationService
+from backend.user.notifications import notify_user
 from backend.data.activity.service import ActivityService
 
 from .schema import (
@@ -92,12 +94,8 @@ def _generate_booking_number() -> str:
 
 
 def _parse_dt(dt_str: Optional[str]) -> Optional[datetime]:
-    if not dt_str:
-        return None
-    try:
-        return datetime.fromisoformat(dt_str.replace("Z", "+00:00"))
-    except Exception:
-        return None
+    """Midtrans timestamps are GMT+7 strings without an explicit offset."""
+    return parse_midtrans_datetime(dt_str)
 
 
 def _get_redis():
@@ -109,18 +107,6 @@ def _get_redis():
 # NOTIFICATION HELPER
 # ══════════════════════════════════════════════════════════════════
 
-async def _get_supabase_uid(session: AsyncSession, local_user_id: UUID) -> Optional[str]:
-    try:
-        result = await session.exec(
-            select(UserMap).where(UserMap.local_user_id == str(local_user_id))
-        )
-        um = result.one_or_none()
-        return um.supabase_user_id if um else None
-    except Exception as e:
-        logger.error(f"Error getting supabase_user_id: {e}")
-        return None
-
-
 async def _send_notif(
     session: AsyncSession,
     local_user_id: UUID,
@@ -130,11 +116,8 @@ async def _send_notif(
     notif_type: str = "order",
 ) -> None:
     try:
-        uid = await _get_supabase_uid(session, local_user_id)
-        if not uid:
-            return
-        await SupabaseNotificationService.send_notification(
-            user_id=uid,
+        await notify_user(
+            user_id=local_user_id,
             title=title,
             content=content,
             action_url=f"/dashboard/orders/{order_id}",
@@ -1111,6 +1094,7 @@ class PromoCheckoutService:
                     logger.error(f"Failed to send promo paid notification to admin: {e}")
 
         await session.commit()
+        await invalidate_dashboard_cache()
 
         return {
             "status": "ok",

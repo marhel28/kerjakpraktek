@@ -29,6 +29,7 @@ from ..model import (
     BookingStatus, PaymentStatus, PaymentType,
 )
 from backend.db.redis import get_redis_token
+from backend.utils.timezone import day_bounds_utc, get_timezone, timezone_name
 
 logger = logging.getLogger(__name__)
 
@@ -104,15 +105,16 @@ class BookingDashboardService:
     # 1. KPI CARDS
     # ─────────────────────────────────────────────────────────────
 
-    async def get_kpi(self, session: AsyncSession) -> Dict:
-        KEY = "dash:booking:kpi"
+    async def get_kpi(self, session: AsyncSession, tz=None) -> Dict:
+        tz = tz or get_timezone(None)
+        tz_name = timezone_name(tz)
+        KEY = f"dash:booking:kpi:{tz_name}"
         cached = await self._cache_get(KEY)
         if cached:
             return {"status": "success", "source": "cache", "data": cached}
 
-        now      = datetime.now(timezone.utc)
-        today    = now.date()
-        month_start = today.replace(day=1)
+        today = datetime.now(tz).date()
+        month_start, month_end = day_bounds_utc(today.replace(day=1), tz)
 
         # ── Satu query agregat semua status ──────────────────────
         # Gunakan conditional aggregation — satu round-trip ke DB
@@ -137,7 +139,7 @@ class BookingDashboardService:
 
                 # booking bulan ini (created_at)
                 func.sum(
-                    case((func.date(ServiceBooking.created_at) >= month_start, 1), else_=0)
+                    case((ServiceBooking.created_at >= month_start, 1), else_=0)
                 ).label("this_month"),
 
                 # revenue: sum total_price status DONE + LUNAS
@@ -154,7 +156,7 @@ class BookingDashboardService:
                         (
                             and_(
                                 ServiceBooking.status.in_(REVENUE_STATUSES),
-                                func.date(ServiceBooking.updated_at) >= month_start,
+                                ServiceBooking.updated_at >= month_start,
                             ),
                             ServiceBooking.total_price,
                         ),
@@ -210,15 +212,16 @@ class BookingDashboardService:
     # ─────────────────────────────────────────────────────────────
 
     async def get_revenue_chart(
-        self, session: AsyncSession, mode: str = "daily"
+        self, session: AsyncSession, mode: str = "daily", tz=None
     ) -> Dict:
-        KEY = f"dash:booking:revenue:{mode}"
+        tz = tz or get_timezone(None)
+        tz_name = timezone_name(tz)
+        KEY = f"dash:booking:revenue:{mode}:{tz_name}"
         cached = await self._cache_get(KEY)
         if cached:
             return {"status": "success", "source": "cache", "mode": mode, "data": cached}
 
-        now   = datetime.now(timezone.utc)
-        today = now.date()
+        today = datetime.now(tz).date()
 
         if mode == "monthly":
             # 12 bulan terakhir
@@ -233,10 +236,13 @@ class BookingDashboardService:
                     year  -= 1
                 periods.append(date(year, month, 1))
 
-            # Query: group by year-month
+            first_period, _ = day_bounds_utc(periods[0], tz)
+            local_month = func.date_trunc(
+                "month", func.timezone(tz_name, ServiceBooking.updated_at)
+            )
             rows = await session.execute(
                 select(
-                    func.date_trunc("month", ServiceBooking.updated_at).label("period"),
+                    local_month.label("period"),
                     func.sum(
                         case(
                             (ServiceBooking.status.in_(REVENUE_STATUSES), ServiceBooking.total_price),
@@ -251,11 +257,9 @@ class BookingDashboardService:
                     ).label("dp_revenue"),
                     func.count(ServiceBooking.uuid).label("booking_count"),
                 )
-                .where(
-                    ServiceBooking.updated_at >= datetime(periods[0].year, periods[0].month, 1, tzinfo=timezone.utc)
-                )
-                .group_by(func.date_trunc("month", ServiceBooking.updated_at))
-                .order_by(func.date_trunc("month", ServiceBooking.updated_at))
+                .where(ServiceBooking.updated_at >= first_period)
+                .group_by(local_month)
+                .order_by(local_month)
             )
             raw_map = {
                 r.period.date().replace(day=1): r
@@ -274,12 +278,15 @@ class BookingDashboardService:
                 })
 
         else:
-            # daily — 30 hari terakhir
+            # daily - 30 hari terakhir
             since = today - timedelta(days=29)
+            since_utc, _ = day_bounds_utc(since, tz)
+            _, end_utc = day_bounds_utc(today, tz)
+            local_day = func.date(func.timezone(tz_name, ServiceBooking.updated_at))
 
             rows = await session.execute(
                 select(
-                    func.date(ServiceBooking.updated_at).label("period"),
+                    local_day.label("period"),
                     func.sum(
                         case(
                             (ServiceBooking.status.in_(REVENUE_STATUSES), ServiceBooking.total_price),
@@ -294,9 +301,9 @@ class BookingDashboardService:
                     ).label("dp_revenue"),
                     func.count(ServiceBooking.uuid).label("booking_count"),
                 )
-                .where(func.date(ServiceBooking.updated_at) >= since)
-                .group_by(func.date(ServiceBooking.updated_at))
-                .order_by(func.date(ServiceBooking.updated_at))
+                .where(ServiceBooking.updated_at >= since_utc, ServiceBooking.updated_at < end_utc)
+                .group_by(local_day)
+                .order_by(local_day)
             )
             raw_map = {r.period: r for r in rows}
 
@@ -352,13 +359,14 @@ class BookingDashboardService:
     # 4. ALERTS
     # ─────────────────────────────────────────────────────────────
 
-    async def get_alerts(self, session: AsyncSession) -> Dict:
-        KEY = "dash:booking:alerts"
+    async def get_alerts(self, session: AsyncSession, tz=None) -> Dict:
+        tz = tz or get_timezone(None)
+        KEY = f"dash:booking:alerts:{timezone_name(tz)}"
         cached = await self._cache_get(KEY)
         if cached:
             return {"status": "success", "source": "cache", "data": cached}
 
-        now      = datetime.now(timezone.utc)
+        now      = datetime.now(tz)
         today    = now.date()
         tomorrow = today + timedelta(days=1)
         threshold_pending = now - timedelta(hours=24)
@@ -575,13 +583,15 @@ class BookingDashboardService:
     # 6. TODAY SNAPSHOT
     # ─────────────────────────────────────────────────────────────
 
-    async def get_today_snapshot(self, session: AsyncSession) -> Dict:
-        KEY = "dash:booking:today"
+    async def get_today_snapshot(self, session: AsyncSession, tz=None) -> Dict:
+        tz = tz or get_timezone(None)
+        tz_name = timezone_name(tz)
+        KEY = f"dash:booking:today:{tz_name}"
         cached = await self._cache_get(KEY)
         if cached:
             return {"status": "success", "source": "cache", "data": cached}
 
-        today = datetime.now(timezone.utc).date()
+        today = datetime.now(tz).date()
 
         rows = await session.execute(
             select(

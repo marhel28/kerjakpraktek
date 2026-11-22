@@ -16,6 +16,7 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 
 from backend.db.main import get_session
 from backend.auth.depedence import get_admin
+from backend.utils.timezone import get_request_timezone
 from .service import BookingDashboardService
 
 router = APIRouter(
@@ -29,6 +30,7 @@ _svc = BookingDashboardService()
 @router.get("/kpi")
 async def dashboard_booking_kpi(
     session: AsyncSession = Depends(get_session),
+    tz=Depends(get_request_timezone),
     _: any = Depends(get_admin),
 ):
     """
@@ -41,7 +43,7 @@ async def dashboard_booking_kpi(
     - cancel_rate      (cancel / total × 100)
     TTL Redis: 60 s
     """
-    return await _svc.get_kpi(session)
+    return await _svc.get_kpi(session, tz=tz)
 
 
 # ── 2. Revenue Chart ───────────────────────────────────────────────
@@ -50,6 +52,7 @@ async def dashboard_booking_revenue(
     mode: str = Query("daily", description="'daily' (30 hari) atau 'monthly' (12 bulan)"),
     _: any = Depends(get_admin),
     session: AsyncSession = Depends(get_session),
+    tz=Depends(get_request_timezone),
 ):
     """
     Data chart revenue:
@@ -61,7 +64,7 @@ async def dashboard_booking_revenue(
     """
     if mode not in ("daily", "monthly"):
         mode = "daily"
-    return await _svc.get_revenue_chart(session, mode=mode)
+    return await _svc.get_revenue_chart(session, mode=mode, tz=tz)
 
 
 # ── 3. Status Distribution Chart ───────────────────────────────────
@@ -82,6 +85,7 @@ async def dashboard_booking_status(
 @router.get("/alerts")
 async def dashboard_booking_alerts(
     session: AsyncSession = Depends(get_session),
+    tz=Depends(get_request_timezone),
     _: any = Depends(get_admin),
 ):
     """
@@ -92,7 +96,7 @@ async def dashboard_booking_alerts(
     - booking_besok    : daftar booking terjadwal besok (reminder teknisi)
     TTL Redis: 30 s (fresh, karena operasional)
     """
-    return await _svc.get_alerts(session)
+    return await _svc.get_alerts(session, tz=tz)
 
 
 # ── 5. Recent Activity ─────────────────────────────────────────────
@@ -115,6 +119,7 @@ async def dashboard_booking_recent(
 @router.get("/today")
 async def dashboard_booking_today(
     session: AsyncSession = Depends(get_session),
+    tz=Depends(get_request_timezone),
     _: any = Depends(get_admin),
 ):
     """
@@ -124,7 +129,7 @@ async def dashboard_booking_today(
     - total_today, confirmed_today, dp_paid_today
     TTL Redis: 30 s
     """
-    return await _svc.get_today_snapshot(session)
+    return await _svc.get_today_snapshot(session, tz=tz)
 
 
 # ── 7. Payment Summary ─────────────────────────────────────────────

@@ -24,6 +24,7 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 from backend.data.transaksi.model import Transaction, TransactionItem
 from backend.data.ongkir.model import Shipment
 from backend.db.redis import get_redis_token
+from backend.utils.timezone import day_bounds_utc, period_bounds_utc, timezone_name
 
 logger = logging.getLogger(__name__)
 
@@ -35,8 +36,11 @@ TTL_ACTIVITY = 30
 # Status Midtrans yang dianggap "lunas / sukses"
 SUCCESS_STATUSES = ("settlement", "capture")
 
+# Status yang masih menunggu pembayaran
+PENDING_STATUSES = ("pending", "pending_payment")
+
 # Status yang dianggap gagal / batal
-FAIL_STATUSES = ("cancel", "deny", "expire")
+FAIL_STATUSES = ("cancel", "deny", "expire", "failed")
 
 
 # ══════════════════════════════════════════════════════════════════
@@ -64,170 +68,145 @@ class TransaksiDashboardService:
     # 1. SUMMARY / KPI CARDS
     # ─────────────────────────────────────────────────────────────
 
-    async def get_summary(self, session: AsyncSession) -> Dict:
-        KEY = "dash:trx:summary"
+    async def get_summary(self, session: AsyncSession, tz, period: str = "all") -> Dict:
+        tz_name = timezone_name(tz)
+        KEY = f"dash:trx:summary:{period}:{tz_name}"
         cached = await self._cache_get(KEY)
         if cached:
             return {"status": "success", "source": "cache", "data": cached}
 
-        now         = datetime.now(timezone.utc)
-        today       = now.date()
-        week_start  = today - timedelta(days=6)   # 7 hari terakhir inklusif
-        month_start = today.replace(day=1)
+        today = datetime.now(tz).date()
+        start, end = period_bounds_utc(period, tz, today)
+        today_start, today_end = day_bounds_utc(today, tz)
+        week_start, _ = day_bounds_utc(today - timedelta(days=6), tz)
+        month_start, _ = day_bounds_utc(today.replace(day=1), tz)
+        _, month_end = day_bounds_utc(today, tz)
 
-        # ── Agregat utama Transaction — satu round-trip ───────────
+        period_conds = []
+        if start is not None:
+            period_conds = [Transaction.created_at >= start, Transaction.created_at < end]
+
+        paid = Transaction.transaction_status.in_(SUCCESS_STATUSES)
+        pending = Transaction.transaction_status.in_(PENDING_STATUSES)
+        failed = Transaction.transaction_status.in_(FAIL_STATUSES)
+        not_failed = Transaction.transaction_status.notin_(FAIL_STATUSES)
+
+        # Periode aktif, berdasarkan tanggal order
         agg = await session.execute(
             select(
-                # total orders
-                func.count(Transaction.uuid).label("total_orders"),
-
-                # orders hari ini
-                func.sum(
-                    case((func.date(Transaction.created_at) == today, 1), else_=0)
-                ).label("orders_today"),
-
-                # pending payment
-                func.sum(
-                    case((Transaction.transaction_status == "pending_payment", 1), else_=0)
-                ).label("pending_payment"),
-
-                # settlement / capture
-                func.sum(
-                    case(
-                        (Transaction.transaction_status.in_(SUCCESS_STATUSES), 1),
-                        else_=0,
-                    )
-                ).label("settlement_count"),
-
-                # cancel + expire + deny
-                func.sum(
-                    case(
-                        (Transaction.transaction_status.in_(FAIL_STATUSES), 1),
-                        else_=0,
-                    )
-                ).label("cancel_expire_count"),
-
-                # ── Revenue (settlement only) ─────────────────────
-                func.sum(
-                    case(
-                        (Transaction.transaction_status.in_(SUCCESS_STATUSES),
-                         Transaction.gross_amount),
-                        else_=0,
-                    )
-                ).label("total_revenue"),
-
-                func.sum(
-                    case(
-                        (
-                            and_(
-                                Transaction.transaction_status.in_(SUCCESS_STATUSES),
-                                func.date(Transaction.settlement_time) == today,
-                            ),
-                            Transaction.gross_amount,
-                        ),
-                        else_=0,
-                    )
-                ).label("revenue_today"),
-
-                func.sum(
-                    case(
-                        (
-                            and_(
-                                Transaction.transaction_status.in_(SUCCESS_STATUSES),
-                                func.date(Transaction.settlement_time) >= week_start,
-                            ),
-                            Transaction.gross_amount,
-                        ),
-                        else_=0,
-                    )
-                ).label("revenue_this_week"),
-
-                func.sum(
-                    case(
-                        (
-                            and_(
-                                Transaction.transaction_status.in_(SUCCESS_STATUSES),
-                                func.date(Transaction.settlement_time) >= month_start,
-                            ),
-                            Transaction.gross_amount,
-                        ),
-                        else_=0,
-                    )
-                ).label("revenue_this_month"),
-
-                # ── Shipping cost terkumpul ───────────────────────
-                func.sum(
-                    case(
-                        (Transaction.transaction_status.in_(SUCCESS_STATUSES),
-                         Transaction.shipping_cost),
-                        else_=0,
-                    )
-                ).label("total_shipping_cost"),
-
-                # ── Average order value ───────────────────────────
-                func.avg(
-                    case(
-                        (Transaction.transaction_status.in_(SUCCESS_STATUSES),
-                         Transaction.gross_amount),
-                        else_=None,
-                    )
-                ).label("avg_order_value"),
-            )
+                func.count(Transaction.uuid).label("orders_total"),
+                func.sum(case((paid, 1), else_=0)).label("orders_paid"),
+                func.sum(case((pending, 1), else_=0)).label("orders_pending"),
+                func.sum(case((not_failed, Transaction.gross_amount), else_=0)).label("sales_total"),
+                func.sum(case((paid, Transaction.gross_amount), else_=0)).label("sales_paid"),
+                func.sum(case((pending, Transaction.gross_amount), else_=0)).label("sales_pending"),
+            ).where(*period_conds)
         )
         row = agg.one()
 
-        total_revenue    = int(row.total_revenue    or 0)
-        settlement_count = int(row.settlement_count or 0)
-        avg_order        = int(row.avg_order_value  or 0)
-
-        # ── Total item terjual (join TransactionItem) ─────────────
-        items_agg = await session.execute(
+        # Uang masuk, berdasarkan tanggal settlement
+        cash_agg = await session.execute(
             select(
-                func.sum(TransactionItem.quantity).label("total_sold")
-            )
-            .join(Transaction, Transaction.uuid == TransactionItem.transaction_id)
-            .where(Transaction.transaction_status.in_(SUCCESS_STATUSES))
+                func.sum(case((paid, Transaction.gross_amount), else_=0)).label("cash_all"),
+                func.sum(
+                    case(
+                        (and_(paid, Transaction.settlement_time >= today_start,
+                              Transaction.settlement_time < today_end), Transaction.gross_amount),
+                        else_=0,
+                    )
+                ).label("cash_today"),
+                func.sum(
+                    case(
+                        (and_(paid, Transaction.settlement_time >= week_start,
+                              Transaction.settlement_time < today_end), Transaction.gross_amount),
+                        else_=0,
+                    )
+                ).label("cash_week"),
+                func.sum(
+                    case(
+                        (and_(paid, Transaction.settlement_time >= month_start,
+                              Transaction.settlement_time < month_end), Transaction.gross_amount),
+                        else_=0,
+                    )
+                ).label("cash_month"),
+            ).where(paid)
         )
-        items_row  = items_agg.one()
-        total_sold = int(items_row.total_sold or 0)
+        cash = cash_agg.one()
+        cash_for_period = {
+            "all": int(cash.cash_all or 0),
+            "today": int(cash.cash_today or 0),
+            "week": int(cash.cash_week or 0),
+            "month": int(cash.cash_month or 0),
+        }.get(period, 0)
 
-        # ── Shipment status ───────────────────────────────────────
-        # Hanya settlement — join Transaction agar data konsisten
-        ship_agg = await session.execute(
+        # Agregat seumur hidup untuk sub-kartu dan kompatibilitas API lama
+        all_agg = await session.execute(
             select(
-                Shipment.delivery_status,
-                func.count(Shipment.uuid).label("count"),
+                func.count(Transaction.uuid).label("all_orders"),
+                func.sum(case((paid, 1), else_=0)).label("all_paid"),
+                func.sum(case((pending, 1), else_=0)).label("all_pending"),
+                func.sum(case((failed, 1), else_=0)).label("all_failed"),
+                func.sum(
+                    case(
+                        (and_(Transaction.created_at >= today_start,
+                              Transaction.created_at < today_end), 1),
+                        else_=0,
+                    )
+                ).label("orders_today"),
+                func.sum(case((paid, Transaction.shipping_cost), else_=0)).label("shipping_cost_all"),
             )
+        )
+        all_row = all_agg.one()
+
+        items_stmt = (
+            select(func.sum(TransactionItem.quantity).label("total_sold"))
+            .join(Transaction, Transaction.uuid == TransactionItem.transaction_id)
+            .where(paid, *period_conds)
+        )
+        items_row = (await session.execute(items_stmt)).one()
+        items_sold = int(items_row.total_sold or 0)
+
+        ship_stmt = (
+            select(Shipment.delivery_status, func.count(Shipment.uuid).label("count"))
             .join(Transaction, Transaction.uuid == Shipment.transaction_uuid)
-            .where(Transaction.transaction_status.in_(SUCCESS_STATUSES))
+            .where(paid, *period_conds)
             .group_by(Shipment.delivery_status)
         )
-        ship_map: Dict[str, int] = {r.delivery_status: r.count for r in ship_agg}
+        ship_map: Dict[str, int] = {r.delivery_status: r.count for r in await session.execute(ship_stmt)}
+
+        sales_total = int(row.sales_total or 0)
+        orders_total = int(row.orders_total or 0)
+        orders_paid = int(row.orders_paid or 0)
+        orders_pending = int(row.orders_pending or 0)
 
         data = {
-            # revenue
-            "total_revenue":       total_revenue,
-            "revenue_today":       int(row.revenue_today      or 0),
-            "revenue_this_week":   int(row.revenue_this_week  or 0),
-            "revenue_this_month":  int(row.revenue_this_month or 0),
-
-            # orders
-            "total_orders":          int(row.total_orders        or 0),
-            "orders_today":          int(row.orders_today         or 0),
-            "pending_payment_count": int(row.pending_payment      or 0),
-            "settlement_count":      settlement_count,
-            "cancel_expire_count":   int(row.cancel_expire_count or 0),
-
-            # shipping
+            "period": period,
+            "timezone": tz_name,
+            # angka besar: nilai order pada periode aktif
+            "sales_total": sales_total,
+            "sales_paid": int(row.sales_paid or 0),
+            "sales_pending": int(row.sales_pending or 0),
+            "orders_total": orders_total,
+            "orders_paid": orders_paid,
+            "orders_pending": orders_pending,
+            "items_sold": items_sold,
+            "shipped_count": ship_map.get("SHIPPED", 0),
             "processing_shipment": ship_map.get("PROCESSING", 0),
-            "shipped_count":       ship_map.get("SHIPPED",    0),
-            "delivered_count":     ship_map.get("DELIVERED",  0),
-            "cancelled_shipment":  ship_map.get("CANCELLED",  0),
-
-            # produk
-            "total_items_sold":  total_sold,
-            "avg_order_value":   avg_order,
-            "total_shipping_cost": int(row.total_shipping_cost or 0),
+            "delivered_count": ship_map.get("DELIVERED", 0),
+            "cancelled_shipment": ship_map.get("CANCELLED", 0),
+            "avg_order_value": int(sales_total / orders_total) if orders_total else 0,
+            # uang masuk, untuk chart dan kompatibilitas API lama
+            "total_revenue": cash_for_period,
+            "revenue_today": int(cash.cash_today or 0),
+            "revenue_this_week": int(cash.cash_week or 0),
+            "revenue_this_month": int(cash.cash_month or 0),
+            "total_orders": int(all_row.all_orders or 0),
+            "orders_today": int(all_row.orders_today or 0),
+            "pending_payment_count": int(all_row.all_pending or 0),
+            "settlement_count": int(all_row.all_paid or 0),
+            "cancel_expire_count": int(all_row.all_failed or 0),
+            "total_items_sold": items_sold,
+            "total_shipping_cost": int(all_row.shipping_cost_all or 0),
         }
 
         await self._cache_set(KEY, data, TTL_SUMMARY)
@@ -238,32 +217,36 @@ class TransaksiDashboardService:
     # ─────────────────────────────────────────────────────────────
 
     async def get_revenue_chart(
-        self, session: AsyncSession, range: str = "7d"
+        self, session: AsyncSession, tz, range: str = "7d"
     ) -> Dict:
-        KEY = f"dash:trx:revenue:{range}"
+        tz_name = timezone_name(tz)
+        KEY = f"dash:trx:revenue:{range}:{tz_name}"
         cached = await self._cache_get(KEY)
         if cached:
             return {"status": "success", "source": "cache", "range": range, "data": cached}
 
-        today = datetime.now(timezone.utc).date()
+        today = datetime.now(tz).date()
 
         if range == "12m":
-            data = await self._revenue_monthly(session, today)
+            data = await self._revenue_monthly(session, today, tz)
         else:
             days = 7 if range == "7d" else 30
-            data = await self._revenue_daily(session, today, days)
+            data = await self._revenue_daily(session, today, days, tz)
 
         await self._cache_set(KEY, data, TTL_REVENUE)
         return {"status": "success", "source": "db", "range": range, "data": data}
 
     async def _revenue_daily(
-        self, session: AsyncSession, today: date, days: int
+        self, session: AsyncSession, today: date, days: int, tz
     ) -> List[Dict]:
         since = today - timedelta(days=days - 1)
+        since_utc, _ = day_bounds_utc(since, tz)
+        _, end_utc = day_bounds_utc(today, tz)
+        local_day = func.date(func.timezone(timezone_name(tz), Transaction.settlement_time))
 
         rows = await session.execute(
             select(
-                func.date(Transaction.settlement_time).label("day"),
+                local_day.label("day"),
                 func.sum(Transaction.gross_amount).label("gross_revenue"),
                 func.sum(Transaction.shipping_cost).label("shipping_sum"),
                 func.count(Transaction.uuid).label("order_count"),
@@ -271,12 +254,12 @@ class TransaksiDashboardService:
             .where(
                 and_(
                     Transaction.transaction_status.in_(SUCCESS_STATUSES),
-                    func.date(Transaction.settlement_time) >= since,
-                    func.date(Transaction.settlement_time) <= today,
+                    Transaction.settlement_time >= since_utc,
+                    Transaction.settlement_time < end_utc,
                 )
             )
-            .group_by(func.date(Transaction.settlement_time))
-            .order_by(func.date(Transaction.settlement_time))
+            .group_by(local_day)
+            .order_by(local_day)
         )
         raw_map: Dict[date, Any] = {r.day: r for r in rows}
 
@@ -288,14 +271,13 @@ class TransaksiDashboardService:
             shipping = int(r.shipping_sum  or 0) if r else 0
             count    = int(r.order_count   or 0) if r else 0
 
-            # Format label ringkas: "1 Jan" atau "Sen 1 Jan" (sesuai kebutuhan)
             label = d.strftime("%-d %b") if days <= 30 else d.strftime("%a %-d %b")
 
             result.append({
                 "label":       label,
                 "period":      d.isoformat(),
                 "gross_revenue": gross,
-                "net_revenue":   gross - shipping,   # tanpa ongkir
+                "net_revenue":   gross - shipping,
                 "shipping_cost": shipping,
                 "order_count":   count,
                 "avg_order":     (gross // count) if count else 0,
@@ -303,19 +285,23 @@ class TransaksiDashboardService:
         return result
 
     async def _revenue_monthly(
-        self, session: AsyncSession, today: date
+        self, session: AsyncSession, today: date, tz
     ) -> List[Dict]:
-        # Hitung bulan pertama (12 bulan lalu)
         year  = today.year
-        month = today.month - 11  # bisa negatif
+        month = today.month - 11
         while month <= 0:
             month += 12
             year  -= 1
         since = date(year, month, 1)
+        since_utc, _ = day_bounds_utc(since, tz)
+        _, end_utc = day_bounds_utc(today, tz)
+        local_month = func.date_trunc(
+            "month", func.timezone(timezone_name(tz), Transaction.settlement_time)
+        )
 
         rows = await session.execute(
             select(
-                func.date_trunc("month", Transaction.settlement_time).label("month"),
+                local_month.label("month"),
                 func.sum(Transaction.gross_amount).label("gross_revenue"),
                 func.sum(Transaction.shipping_cost).label("shipping_sum"),
                 func.count(Transaction.uuid).label("order_count"),
@@ -323,19 +309,18 @@ class TransaksiDashboardService:
             .where(
                 and_(
                     Transaction.transaction_status.in_(SUCCESS_STATUSES),
-                    func.date(Transaction.settlement_time) >= since,
+                    Transaction.settlement_time >= since_utc,
+                    Transaction.settlement_time < end_utc,
                 )
             )
-            .group_by(func.date_trunc("month", Transaction.settlement_time))
-            .order_by(func.date_trunc("month", Transaction.settlement_time))
+            .group_by(local_month)
+            .order_by(local_month)
         )
         raw_map: Dict[date, Any] = {}
         for r in rows:
-            # date_trunc returns datetime, normalise to date
             key = r.month.date().replace(day=1) if hasattr(r.month, "date") else r.month.replace(day=1)
             raw_map[key] = r
 
-        # Build 12-bulan skeleton
         result = []
         for i in range(12):
             m = today.month - (11 - i)
@@ -492,3 +477,20 @@ class TransaksiDashboardService:
 
         await self._cache_set(KEY, items, TTL_ACTIVITY)
         return {"status": "success", "source": "db", "items": items}
+
+    async def invalidate_cache(self) -> None:
+        try:
+            redis = get_redis_token()
+            for pattern in (
+                "dash:trx:summary:*",
+                "dash:trx:revenue:*",
+                "dash:trx:activity:*",
+            ):
+                async for key in redis.scan_iter(match=pattern):
+                    await redis.delete(key)
+        except Exception as exc:
+            logger.warning(f"[TrxDash] cache invalidation failed: {exc}")
+
+
+async def invalidate_dashboard_cache() -> None:
+    await TransaksiDashboardService().invalidate_cache()

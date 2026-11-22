@@ -18,6 +18,7 @@ from backend.auth.depedence import get_current_user
 from backend.auth.model import User, UserAddress
 from .service import TransactionService
 from .schema import CheckoutRequest, CheckoutResponse, MidtransWebhookPayload
+from backend.utils.timezone import get_timezone
 
 logger = logging.getLogger(__name__)
 transaksi_route = APIRouter()
@@ -269,6 +270,7 @@ async def get_transaction_detail(
 @transaksi_route.get("/invoice/{order_id}")
 async def download_invoice(
     order_id: str,
+    tz: Optional[str] = Query(default=None, description="IANA timezone, misalnya Asia/Makassar"),
     user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ):
@@ -281,7 +283,7 @@ async def download_invoice(
         target_user_id = user.uuid if user.role != UserRole.ADMIN else None
 
         pdf_buffer = await TransactionService.generate_invoice_pdf(
-            session=session, user_id=target_user_id, order_id=order_id
+            session=session, user_id=target_user_id, order_id=order_id, tz=get_timezone(tz)
         )
         
         return StreamingResponse(

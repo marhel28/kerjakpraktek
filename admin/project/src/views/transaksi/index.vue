@@ -154,6 +154,7 @@ import { useRouter, useRoute } from 'vue-router'
 import api from '@/service/api'
 import TransactionTable from '@/components/TransactionTable.vue'
 import StatusBadge from '@/components/StatusBadge.vue'
+import { formatDateTime } from '@/service/datetime'
 
 const router = useRouter()
 const route = useRoute()
@@ -261,8 +262,7 @@ function formatRp(n) {
 }
 
 function formatDate(d) {
-    if (!d) return '-'
-    return new Date(d).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+    return formatDateTime(d)
 }
 
 onMounted(() => fetchTransactions())

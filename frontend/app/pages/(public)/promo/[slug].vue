@@ -27,7 +27,7 @@ const formatRp = (n: number) =>
     .replace('Rp', 'Rp ')
 
 const formatDate = (iso: string) =>
-  new Date(iso).toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' })
+  new Date(iso).toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric', timeZoneName: 'short' })
 
 const todayISO = () => new Date().toISOString().split('T')[0]
 

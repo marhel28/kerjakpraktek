@@ -31,7 +31,8 @@ const downloadInvoice = async () => {
   if (isDownloadingInvoice.value) return;
   isDownloadingInvoice.value = true;
   try {
-    const response = await fetch(`${config.public.apiBase}/transaksi/invoice/${orderId}`, {
+    const zone = encodeURIComponent(Intl.DateTimeFormat().resolvedOptions().timeZone || "Asia/Jakarta");
+    const response = await fetch(`${config.public.apiBase}/transaksi/invoice/${orderId}?tz=${zone}`, {
       method: "GET",
       headers: { Authorization: `Bearer ${getToken()}` },
     });
@@ -165,7 +166,7 @@ const formatRupiah = (angka: number) =>
 
 const formatDate = (dateString: string | null | undefined) => {
   if (!dateString) return "-";
-  return new Intl.DateTimeFormat("id-ID", { day: "2-digit", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" }).format(new Date(dateString));
+  return new Intl.DateTimeFormat("id-ID", { day: "2-digit", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit", timeZoneName: "short" }).format(new Date(dateString));
 };
 
 const payOrder = async () => {
