@@ -24,6 +24,7 @@ class CartStockResponse(BaseModel):
     specs: Dict[str, Any] = Field(default_factory=dict)
     cover_image_url: Optional[str] = None
     weight:int
+    stok: int = 0
     
 
 class CartItemResponse(BaseModel):

@@ -118,7 +118,8 @@ class CartService:
                         subcategory_slug=stock.subcategory_slug,
                         specs=stock.specs,
                         cover_image_url=cover_url,
-                        weight=stock.weight or 0
+                        weight=stock.weight or 0,
+                        stok=stock.stok or 0
                     )
                 )
             )
