@@ -12,7 +12,7 @@
           </div>
           <div>
             <h1 class="text-lg font-bold text-gray-900 tracking-tight leading-none">Konfigurasi Pricing Jasa</h1>
-            <p class="text-xs text-gray-400 mt-0.5">Padjajaran CCTV — Admin Panel</p>
+            <p class="text-xs text-gray-400 mt-0.5">PasarCCTV, Admin Panel</p>
           </div>
         </div>
         <div class="flex items-center gap-2">
@@ -74,7 +74,7 @@
               <p class="text-2xl font-bold text-gray-900 mt-1" v-if="configs.length">
                 {{ formatDate(configs[0].created_at) }}
               </p>
-              <p class="text-2xl font-bold text-gray-300 mt-1" v-else>—</p>
+              <p class="text-2xl font-bold text-gray-300 mt-1" v-else>-</p>
             </div>
             <div class="w-9 h-9 rounded-lg bg-amber-50 flex items-center justify-center text-amber-600">
               <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -241,7 +241,7 @@ const showPreview = ref(false)
 const activeConfig = computed(() => configs.value.find(c => c.is_active))
 
 const formatDate = (iso: string) => {
-  if (!iso) return '—'
+  if (!iso) return '-'
   return new Date(iso).toLocaleDateString('id-ID', {
     day: '2-digit',
     month: 'short',

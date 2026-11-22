@@ -117,7 +117,7 @@
               <div>
                 <div class="flex items-center justify-between text-xs text-gray-600 font-semibold mb-1.5">
                   <span>Temperature (Kreativitas): {{ form.temperature }}</span>
-                  <span class="text-gray-400">0.0 (Kaku/Faktual) — 1.0 (Kreatif)</span>
+                  <span class="text-gray-400">0.0 (Kaku/Faktual) sampai 1.0 (Kreatif)</span>
                 </div>
                 <input 
                   v-model.number="form.temperature" 

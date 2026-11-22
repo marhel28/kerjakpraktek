@@ -120,7 +120,7 @@
                   <td class="px-6 py-4">
                     <div class="flex items-center gap-3">
                       <div class="w-10 h-10 rounded-lg bg-gray-100 overflow-hidden border border-gray-100 flex-shrink-0 flex items-center justify-center cursor-pointer" @click="showImagePreview(item.image_url)">
-                        <img v-if="item.image_url" :src="item.image_url" class="w-full h-full object-cover" />
+                        <img v-if="item.image_url" :src="item.image_url" alt="Gambar addon" class="w-full h-full object-cover" />
                         <svg v-else class="w-4 h-4 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                         </svg>
@@ -144,7 +144,7 @@
                     <span v-if="item.allow_quantity" class="inline-flex items-center px-2 py-0.5 rounded bg-blue-50 text-blue-600 text-[10px] font-bold">
                       Max {{ item.max_quantity }}
                     </span>
-                    <span v-else class="text-gray-300 text-[10px]">—</span>
+                    <span v-else class="text-gray-300">-</span>
                   </td>
                   <td class="px-6 py-4 text-center">
                     <div class="flex justify-center">
@@ -315,7 +315,7 @@
                   <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Image URL</label>
                   <input v-model="itemModal.form.image_url" type="text" placeholder="https://..." class="w-full px-4 py-2.5 text-sm border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all" />
                   <div class="mt-2 w-full aspect-video bg-gray-50 rounded-xl border border-dashed border-gray-200 flex items-center justify-center overflow-hidden">
-                    <img v-if="itemModal.form.image_url" :src="itemModal.form.image_url" class="w-full h-full object-contain" />
+                    <img v-if="itemModal.form.image_url" :src="itemModal.form.image_url" alt="Pratinjau addon" class="w-full h-full object-contain" />
                     <span v-else class="text-[10px] text-gray-300">Preview Image</span>
                   </div>
                 </div>
@@ -368,7 +368,7 @@
     <Teleport to="body">
       <Transition name="fade">
         <div v-if="imagePreview" class="fixed inset-0 z-[100] bg-black/90 flex items-center justify-center p-10" @click="imagePreview = null">
-          <img :src="imagePreview" class="max-w-full max-h-full object-contain shadow-2xl rounded-lg" />
+          <img :src="imagePreview" alt="Pratinjau gambar addon" class="max-w-full max-h-full object-contain shadow-2xl rounded-lg" />
           <button class="absolute top-6 right-6 text-white/50 hover:text-white transition-colors">
             <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />

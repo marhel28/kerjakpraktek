@@ -117,7 +117,7 @@
                                     @click="triggerFileInput">
                                     <template v-if="imagePreview">
                                         <div class="p-4 w-full h-full flex items-center justify-center">
-                                            <img :src="imagePreview"
+                                            <img :src="imagePreview" alt="Pratinjau logo brand"
                                                 class="max-w-full max-h-full object-contain drop-shadow-sm" />
                                         </div>
                                         <div

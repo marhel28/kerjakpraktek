@@ -107,7 +107,7 @@
                     @click="triggerFileInput"
                   >
                     <template v-if="imagePreview">
-                      <img :src="imagePreview" class="w-full h-full object-cover" />
+                      <img :src="imagePreview" alt="Pratinjau X Banner" class="w-full h-full object-cover" />
                       <div class="absolute inset-0 bg-gray-900/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                         <span class="text-white text-sm font-medium drop-shadow-md">Ganti Gambar</span>
                       </div>

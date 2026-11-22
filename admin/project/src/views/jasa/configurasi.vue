@@ -710,7 +710,7 @@ async function doSave() {
         const msg = typeof detail === 'string'
             ? detail
             : Array.isArray(detail)
-                ? detail.map(d => `${d.loc?.join('.')} — ${d.msg}`).join('; ')
+                ? detail.map(d => `${d.loc?.join('.')} - ${d.msg}`).join('; ')
                 : (e.message || 'Terjadi kesalahan')
         showToast('error', 'Gagal menyimpan: ' + msg)
     } finally {

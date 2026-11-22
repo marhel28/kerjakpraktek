@@ -305,7 +305,7 @@
               <p class="text-[10px] font-bold tracking-widest uppercase text-gray-400 mb-4 ml-1">Penugasan Teknisi</p>
               <div v-if="drawer.data.technician && !showAssign" class="flex items-center gap-4 p-4 bg-indigo-600 rounded-2xl text-white shadow-lg shadow-indigo-200">
                 <div class="w-12 h-12 rounded-xl bg-white/20 border border-white/30 overflow-hidden shrink-0">
-                  <img v-if="drawer.data.technician.picture_url" :src="drawer.data.technician.picture_url" class="w-full h-full object-cover" />
+                  <img v-if="drawer.data.technician.picture_url" :src="drawer.data.technician.picture_url" alt="Foto teknisi" class="w-full h-full object-cover" />
                   <div v-else class="w-full h-full flex items-center justify-center"><svg class="w-6 h-6 opacity-40" fill="currentColor" viewBox="0 0 24 24"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg></div>
                 </div>
                 <div class="flex-1 min-w-0">
@@ -405,7 +405,7 @@
                   <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
                   <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/>
                 </svg>
-                Bayar DP — {{ fmt(drawer.data.dp_amount) }}
+                Bayar DP: {{ fmt(drawer.data.dp_amount) }}
               </button>
               <button v-if="drawer.data.status === 'done' && drawer.data.remaining_amount > 0" @click="processPayment('lunas')" :disabled="actionState.isProcessingPayment" class="w-full py-3.5 bg-indigo-600 text-white text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-indigo-700 transition shadow-lg shadow-indigo-200 active:scale-95 flex items-center justify-center gap-2">
                 <svg v-if="actionState.isProcessingPayment" class="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
@@ -415,7 +415,7 @@
                 <svg v-else class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
                   <polyline points="20 6 9 17 4 12"/>
                 </svg>
-                Bayar Lunas — {{ fmt(drawer.data.remaining_amount) }}
+                Bayar Lunas: {{ fmt(drawer.data.remaining_amount) }}
               </button>
             </div>
 

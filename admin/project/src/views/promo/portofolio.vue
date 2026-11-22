@@ -237,7 +237,7 @@
             <div class="review-card__avatar">{{ review.name[0] }}</div>
             <div>
               <p class="review-card__name">{{ review.name }}</p>
-              <p class="review-card__role">{{ review.role || '—' }}</p>
+              <p class="review-card__role">{{ review.role || '-' }}</p>
             </div>
             <div class="review-card__stars">
               <span v-for="s in 5" :key="s" :class="s <= review.rating ? 'star star--on' : 'star star--off'">★</span>
@@ -388,7 +388,7 @@
               </div>
               <div v-else class="upload-previews">
                 <div v-for="(p, i) in uploadPreviews" :key="i" class="upload-preview">
-                  <img :src="p" />
+                  <img :src="p" alt="Pratinjau gambar proyek" />
                   <button class="upload-preview__remove" @click.stop="removePreview(i)">×</button>
                 </div>
                 <div class="upload-preview upload-preview--add" @click.stop="triggerUploadInput">+</div>
@@ -452,7 +452,7 @@
             <div class="form-group">
               <label>Project Terkait <span class="opt">opsional</span></label>
               <select v-model="reviewForm.project_id">
-                <option value="">— Tidak dilinkkan ke project —</option>
+                <option value="">(Tidak dilinkkan ke project)</option>
                 <option v-for="p in projects" :key="p.id" :value="p.id">{{ p.title }}</option>
               </select>
             </div>

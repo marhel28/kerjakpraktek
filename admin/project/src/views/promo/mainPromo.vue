@@ -649,12 +649,12 @@
                   </p>
                   <div v-if="!activeDetailPromo.items || activeDetailPromo.items.length === 0"
                     class="text-center py-6 text-sm text-gray-400 border border-dashed border-gray-200 rounded-xl">
-                    Tidak ada item spesifik — promo berlaku untuk semua
+                    Tidak ada item spesifik, promo berlaku untuk semua
                   </div>
                   <div v-else class="space-y-2">
                     <div v-for="item in activeDetailPromo.items" :key="item.uuid"
                       class="flex items-center gap-3 p-3 bg-white border border-gray-200 rounded-xl">
-                      <img v-if="item.thumbnail_url" :src="item.thumbnail_url" class="w-10 h-10 rounded-lg object-cover shrink-0" />
+                      <img v-if="item.thumbnail_url" :src="item.thumbnail_url" alt="Thumbnail promo" class="w-10 h-10 rounded-lg object-cover shrink-0" />
                       <div v-else
                         :class="item.item_type === 'stock' ? 'bg-blue-100 text-blue-700' : 'bg-purple-100 text-purple-700'"
                         class="w-10 h-10 rounded-lg flex items-center justify-center shrink-0 text-xs font-bold">

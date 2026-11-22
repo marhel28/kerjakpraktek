@@ -115,7 +115,7 @@
             
             <div class="flex items-center gap-5 mb-6">
               <div class="w-20 h-20 rounded-xl bg-gray-50 border border-gray-100 shadow-sm overflow-hidden shrink-0 flex items-center justify-center">
-                <img v-if="tech.picture_url" :src="tech.picture_url" class="w-full h-full object-cover" />
+                <img v-if="tech.picture_url" :src="tech.picture_url" alt="Foto teknisi" class="w-full h-full object-cover" />
                 <svg v-else class="w-8 h-8 text-gray-300" fill="currentColor" viewBox="0 0 24 24"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
               </div>
               <div class="min-w-0">
@@ -262,7 +262,7 @@
               <!-- Profile Picture -->
               <div class="flex items-center gap-6">
                 <div class="w-20 h-20 rounded-xl bg-gray-50 border border-dashed border-gray-200 flex items-center justify-center overflow-hidden relative group">
-                  <img v-if="modals.tech.data.picture_url" :src="modals.tech.data.picture_url" class="w-full h-full object-cover" />
+                  <img v-if="modals.tech.data.picture_url" :src="modals.tech.data.picture_url" alt="Pratinjau foto teknisi" class="w-full h-full object-cover" />
                   <svg v-else class="w-8 h-8 text-gray-200" fill="currentColor" viewBox="0 0 24 24"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
                   <div class="absolute inset-0 bg-gray-900/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center cursor-pointer">
                     <svg class="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/><path d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
@@ -359,7 +359,7 @@
             <div class="p-6 border-b border-gray-100 flex items-center justify-between bg-white sticky top-0 z-10">
               <div>
                 <h3 class="text-lg font-bold text-gray-900 tracking-tight">Jadwal Penugasan</h3>
-                <p class="text-xs text-gray-400 mt-0.5">{{ modals.schedule.techName }} — {{ modals.schedule.techId }}</p>
+                <p class="text-xs text-gray-400 mt-0.5">{{ modals.schedule.techName }} ({{ modals.schedule.techId }})</p>
               </div>
               <button @click="modals.schedule.isOpen = false" class="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-100 text-gray-400 transition-colors">
                 <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path d="M6 18L18 6M6 6l12 12"/></svg>

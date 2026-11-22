@@ -1,5 +1,5 @@
 <template>
-    <aside :class="[
+    <aside id="admin-sidebar" :class="[
         // Responsive width & layout
         isCollapsed ? 'lg:w-[76px]' : 'lg:w-64',
         'fixed inset-y-0 left-0 z-50 w-72 lg:static lg:z-20',
@@ -51,7 +51,7 @@
         </div>
 
         <!-- ── Navigation List ────────────────────────────────────── -->
-        <nav class="flex-1 overflow-y-auto py-3 px-2.5 space-y-1 scrollbar-hide">
+        <nav class="flex-1 overflow-y-auto py-3 px-2.5 space-y-1 scrollbar-hide" aria-label="Navigasi utama">
             <template v-for="(item, index) in menuItems" :key="index">
                 <!-- Group with Popover handler for collapsed mode -->
                 <div class="relative"
@@ -59,7 +59,7 @@
                     @mouseleave="handleMouseLeave">
 
                     <!-- Main Menu Button -->
-                    <button @click="handleMenuClick(item)" :class="[
+                    <button @click="handleMenuClick(item)" :aria-current="isItemActive(item) ? 'page' : undefined" :aria-expanded="item.children ? (isCollapsed ? hoveredItem === item.name : openSubmenus.includes(item.name)) : undefined" :class="[
                         'w-full flex items-center rounded-xl transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/40 relative',
                         isCollapsed ? 'lg:justify-center lg:px-0 lg:py-2.5 px-3 py-2.5' : 'px-3 py-2.5',
                         isItemActive(item)
@@ -126,6 +126,7 @@
                         <div class="space-y-0.5">
                             <button v-for="sub in item.children" :key="sub.name"
                                 @click="handleSubMenuClick(sub)"
+                                :aria-current="isActive(sub.name) ? 'page' : undefined"
                                 :class="[
                                     'w-full flex items-center px-3 py-2 text-xs rounded-xl transition-colors duration-150 text-left',
                                     isActive(sub.name)

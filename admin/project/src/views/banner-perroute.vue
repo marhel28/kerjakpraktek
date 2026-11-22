@@ -296,7 +296,7 @@
                   @drop.prevent="handleDrop"
                 >
                   <template v-if="imagePreview">
-                    <img :src="imagePreview" class="dropzone__preview" />
+                    <img :src="imagePreview" alt="Pratinjau banner" class="dropzone__preview" />
                     <div class="dropzone__overlay">Ganti Gambar</div>
                   </template>
                   <template v-else>
@@ -306,7 +306,7 @@
                       <line x1="12" y1="3" x2="12" y2="15"/>
                     </svg>
                     <p class="dropzone__label">Klik atau drag gambar ke sini</p>
-                    <p class="dropzone__hint">JPG, PNG, WEBP — maks. 2MB</p>
+                    <p class="dropzone__hint">JPG, PNG, WEBP, maks. 2MB</p>
                   </template>
                   <input type="file" ref="fileInput" class="dropzone__input" accept="image/*" @change="handleFileChange" />
                 </div>

@@ -50,7 +50,7 @@
                   :key="col.key"
                   :class="['px-4 py-3.5 text-slate-700', col.tdClass || '']"
                 >
-                  {{ row[col.key] ?? '—' }}
+                  {{ row[col.key] ?? '-' }}
                 </td>
               </slot>
             </tr>

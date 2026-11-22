@@ -217,7 +217,7 @@ onMounted(fetchPage);
     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
       <div>
         <h1 class="text-2xl font-bold tracking-tight text-gray-900">Manajemen About Us</h1>
-        <p class="mt-1 text-sm text-gray-500">Kelola konten halaman About Us — hero, stats, values, gallery, dan CTA.</p>
+        <p class="mt-1 text-sm text-gray-500">Kelola konten halaman About Us: hero, statistik, nilai, galeri, dan CTA.</p>
       </div>
       <div class="flex items-center gap-2 shrink-0">
         <button
@@ -257,7 +257,7 @@ onMounted(fetchPage);
       </div>
       <div v-else class="inline-flex items-center gap-2 px-3 py-1.5 bg-amber-50 border border-amber-200 rounded-xl">
         <span class="w-2 h-2 rounded-full bg-amber-500"></span>
-        <span class="text-xs font-semibold text-amber-700">Belum ada halaman — buat baru</span>
+        <span class="text-xs font-semibold text-amber-700">Belum ada halaman, buat baru</span>
       </div>
     </div>
 
@@ -440,7 +440,7 @@ onMounted(fetchPage);
             </div>
             <div class="p-6 bg-gray-900 flex flex-wrap gap-8 justify-around">
               <div v-for="(s, i) in form.stats" :key="i" class="flex flex-col items-center gap-1">
-                <span class="text-3xl font-black text-gray-100 leading-none">{{ s.value || "—" }}</span>
+                <span class="text-3xl font-black text-gray-100 leading-none">{{ s.value || "-" }}</span>
                 <span class="text-[10px] font-bold uppercase tracking-widest text-gray-500">{{ s.label || "Label" }}</span>
               </div>
             </div>

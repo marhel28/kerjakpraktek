@@ -133,7 +133,7 @@
                              <div class="grid grid-cols-2 gap-4">
                                 <div class="relative w-full h-32 border-2 border-dashed border-gray-200 rounded-xl flex flex-col items-center justify-center cursor-pointer hover:bg-gray-50 transition" @click="$refs.fileInput.click()">
                                     <input type="file" ref="fileInput" class="hidden" accept="image/*" @change="handleFileChange" />
-                                    <img v-if="previewUrl" :src="previewUrl" class="absolute inset-0 w-full h-full object-cover rounded-lg" />
+                                    <img v-if="previewUrl" :src="previewUrl" alt="Pratinjau paket booking" class="absolute inset-0 w-full h-full object-cover rounded-lg" />
                                     <svg v-else class="w-8 h-8 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M12 4v16m8-8H4" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"/></svg>
                                     <span class="text-[10px] font-bold text-gray-400 mt-2">Upload Gambar</span>
                                 </div>
@@ -141,7 +141,7 @@
                                     <label class="text-[10px] font-bold text-gray-400 uppercase">Atau URL Gambar</label>
                                     <input v-model="pkgForm.thumbnail_url" type="url" placeholder="https://..." class="w-full px-4 py-2 text-xs border border-gray-200 rounded-lg outline-none" />
                                     <div v-if="pkgForm.thumbnail_url && !previewUrl" class="flex-1 rounded-xl bg-gray-50 border border-gray-100 overflow-hidden">
-                                        <img :src="pkgForm.thumbnail_url" class="w-full h-full object-cover" />
+                                        <img :src="pkgForm.thumbnail_url" alt="Gambar paket booking" class="w-full h-full object-cover" />
                                     </div>
                                 </div>
                              </div>
@@ -304,7 +304,7 @@
                 ]">
                     <!-- Thumbnail -->
                     <div class="relative h-40 bg-gray-50 overflow-hidden">
-                        <img v-if="pkg.thumbnail_url" :src="pkg.thumbnail_url" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                        <img v-if="pkg.thumbnail_url" :src="pkg.thumbnail_url" alt="Gambar paket booking" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
                         <div v-else class="w-full h-full flex items-center justify-center text-gray-200">
                             <svg class="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/></svg>
                         </div>

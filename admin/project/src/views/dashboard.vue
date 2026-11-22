@@ -4,7 +4,7 @@
     <header class="dash-header">
       <div class="dash-header__left">
         <div class="dash-header__breadcrumb">
-          <span class="dash-header__breadcrumb-root">Padjajaran CCTV</span>
+          <span class="dash-header__breadcrumb-root">PasarCCTV</span>
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 18 6-6-6-6"/></svg>
           <span class="dash-header__breadcrumb-current">Dashboard</span>
         </div>
@@ -305,23 +305,23 @@
             <div v-else class="stock-list">
               <div class="stock-row">
                 <div class="stock-row__label"><span class="stock-dot stock-dot--blue"></span>Total Produk</div>
-                <span class="stock-row__val">{{ stockSummary.total_products?.toLocaleString('id') || '—' }}</span>
+                <span class="stock-row__val">{{ stockSummary.total_products?.toLocaleString('id') || '-' }}</span>
               </div>
               <div class="stock-row">
                 <div class="stock-row__label"><span class="stock-dot stock-dot--green"></span>Aktif</div>
-                <span class="stock-row__val stock-row__val--green">{{ stockSummary.active_products?.toLocaleString('id') || '—' }}</span>
+                <span class="stock-row__val stock-row__val--green">{{ stockSummary.active_products?.toLocaleString('id') || '-' }}</span>
               </div>
               <div class="stock-row">
                 <div class="stock-row__label"><span class="stock-dot stock-dot--orange"></span>Hampir Habis</div>
-                <span class="stock-row__val stock-row__val--orange">{{ stockSummary.low_stock_count || '—' }}</span>
+                <span class="stock-row__val stock-row__val--orange">{{ stockSummary.low_stock_count || '-' }}</span>
               </div>
               <div class="stock-row">
                 <div class="stock-row__label"><span class="stock-dot stock-dot--red"></span>Stok Habis</div>
-                <span class="stock-row__val stock-row__val--red">{{ stockSummary.out_of_stock_count || '—' }}</span>
+                <span class="stock-row__val stock-row__val--red">{{ stockSummary.out_of_stock_count || '-' }}</span>
               </div>
               <div class="stock-row stock-row--total">
                 <div class="stock-row__label"><span class="stock-dot stock-dot--indigo"></span>Total Terjual</div>
-                <span class="stock-row__val">{{ stockSummary.total_terjual?.toLocaleString('id') || '—' }}</span>
+                <span class="stock-row__val">{{ stockSummary.total_terjual?.toLocaleString('id') || '-' }}</span>
               </div>
             </div>
             <div class="rev-potential" v-if="!stockLoading && stockSummary.revenue_potential">
@@ -556,14 +556,14 @@ import api from '@/service/api'
 
 // ── Helpers ──────────────────────────────────────────────────────
 const fmtRp = (n) => {
-  if (!n && n !== 0) return '—'
+  if (!n && n !== 0) return '-'
   if (n >= 1_000_000_000) return `Rp ${(n / 1_000_000_000).toFixed(1)}M`
   if (n >= 1_000_000)     return `Rp ${(n / 1_000_000).toFixed(1)}jt`
   if (n >= 1_000)         return `Rp ${(n / 1_000).toFixed(0)}rb`
   return `Rp ${n.toLocaleString('id')}`
 }
 const relTime = (iso) => {
-  if (!iso) return '—'
+  if (!iso) return '-'
   const diff = (Date.now() - new Date(iso)) / 1000
   if (diff < 60)    return 'baru saja'
   if (diff < 3600)  return `${Math.floor(diff / 60)} mnt lalu`

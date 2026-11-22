@@ -167,7 +167,7 @@
                     <!-- Preview Gambar -->
                     <div v-if="imageFiles.length > 0" class="mt-4 flex flex-wrap gap-3">
                         <div v-for="(file, idx) in imageFiles" :key="idx" class="relative w-24 h-24 rounded-xl border-2 border-indigo-200 overflow-hidden group shadow-sm">
-                            <img :src="getPreviewUrl(file)" class="w-full h-full object-cover" />
+                            <img :src="getPreviewUrl(file)" alt="Pratinjau gambar produk" class="w-full h-full object-cover" />
                             <button type="button" @click="removeImage(idx)"
                                 class="absolute inset-0 bg-black/60 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity backdrop-blur-[2px]">
                                 <svg class="w-6 h-6 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">

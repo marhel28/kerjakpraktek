@@ -142,7 +142,7 @@
                       @click="triggerFileInput">
                       <template v-if="imagePreview">
                         <div class="p-4 w-full h-full flex items-center justify-center">
-                          <img :src="imagePreview" class="max-w-full max-h-full object-contain drop-shadow-sm" />
+                          <img :src="imagePreview" alt="Pratinjau banner bawah" class="max-w-full max-h-full object-contain drop-shadow-sm" />
                         </div>
                         <div
                           class="absolute inset-0 bg-gray-900/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center backdrop-blur-[2px]">

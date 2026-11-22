@@ -13,7 +13,7 @@
                     </div>
                     <div>
                         <h1 class="text-lg font-bold text-gray-900 tracking-tight leading-none">Manajemen Stok</h1>
-                        <p class="text-xs text-gray-400 mt-0.5">Padjajaran CCTV — Admin Panel</p>
+                        <p class="text-xs text-gray-400 mt-0.5">PasarCCTV, Admin Panel</p>
                     </div>
                 </div>
                 <div class="flex items-center gap-2">
@@ -305,7 +305,7 @@
                                         class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-100">
                                         {{ item.brand }}
                                     </span>
-                                    <span v-else class="text-gray-300 text-xs">—</span>
+                                    <span v-else class="text-gray-300">-</span>
                                 </td>
 
                                 <!-- Kategori -->
@@ -509,12 +509,12 @@
                                     class="w-32 h-32 flex-shrink-0 rounded-xl overflow-hidden border border-gray-200 bg-white cursor-pointer"
                                     :class="detailDrawer.activeImg === idx ? 'ring-2 ring-indigo-500' : ''"
                                     @click="detailDrawer.activeImg = idx">
-                                    <img :src="img" class="w-full h-full object-cover" />
+                                    <img :src="img" alt="Gambar produk" class="w-full h-full object-cover" />
                                 </div>
                             </div>
                             <div v-if="detailDrawer.data.images && detailDrawer.data.images.length" class="px-4 pb-4">
                                 <div class="w-full aspect-video rounded-xl overflow-hidden bg-white border border-gray-200 flex items-center justify-center">
-                                    <img :src="detailDrawer.data.images[detailDrawer.activeImg]" class="max-h-full max-w-full object-contain" />
+                                    <img :src="detailDrawer.data.images[detailDrawer.activeImg]" alt="Pratinjau gambar produk" class="max-h-full max-w-full object-contain" />
                                 </div>
                             </div>
                             <div v-else class="h-40 flex items-center justify-center">
@@ -684,6 +684,7 @@
                             <div class="w-12 h-12 rounded-lg overflow-hidden bg-gray-100 flex-shrink-0 border border-gray-100">
                                 <img v-if="quickEdit.item?.image || quickEdit.item?.cover_image_url"
                                     :src="quickEdit.item.image || quickEdit.item.cover_image_url"
+                                    alt="Gambar produk"
                                     class="w-full h-full object-cover" />
                                 <div v-else class="w-full h-full flex items-center justify-center">
                                     <svg class="w-5 h-5 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1147,7 +1148,7 @@ function formatPrice(val) {
 }
 
 function formatDate(val) {
-    if (!val) return '—'
+    if (!val) return '-'
     return new Date(val).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })
 }
 

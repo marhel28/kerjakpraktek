@@ -3,3 +3,24 @@
 .small-text {
     @apply text-xs;
   }
+
+/* Keyboard focus stays visible where a component removes the default outline. */
+:where(a, button, input, select, textarea, [tabindex]):focus-visible {
+    outline: 2px solid #4f46e5 !important;
+    outline-offset: 2px !important;
+}
+
+/* Minimum readable type and contrast for daily admin use. */
+:is(p, span, label, td, th, li, small, div):is(.text-\[10px\], .text-\[11px\]) {
+    font-size: 12px;
+}
+
+:is(p, span, label, td, th, li, small, div):is(.text-gray-400, .text-slate-400, .text-gray-300, .text-slate-300) {
+    color: #4b5563;
+}
+
+input::placeholder,
+textarea::placeholder {
+    color: #6b7280;
+    opacity: 1;
+}

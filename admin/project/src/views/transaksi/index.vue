@@ -74,7 +74,7 @@
                             placeholder="Min" min="0"
                             class="pl-8 pr-3 py-2.5 w-28 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 transition font-mono" />
                     </div>
-                    <span class="text-slate-300 text-sm">—</span>
+                    <span class="text-slate-300">-</span>
                     <div class="relative">
                         <span class="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs text-slate-400">Rp</span>
                         <input v-model.number="filters.max_amount" @change="fetchTransactions(true)" type="number"
@@ -101,7 +101,7 @@
                     <td class="px-4 py-3.5">
                         <div class="flex items-center gap-3">
                             <div class="w-10 h-10 bg-white rounded-lg border border-slate-100 overflow-hidden shrink-0 flex items-center justify-center p-1">
-                                <img v-if="row.items?.[0]?.thumbnail_url" :src="row.items[0].thumbnail_url" class="w-full h-full object-contain" />
+                                <img v-if="row.items?.[0]?.thumbnail_url" :src="row.items[0].thumbnail_url" alt="Gambar produk" class="w-full h-full object-contain" />
                                 <svg v-else class="w-5 h-5 text-slate-200" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"/></svg>
                             </div>
                             <div class="flex flex-col min-w-0">
@@ -126,7 +126,7 @@
                     </td>
                     <td class="px-4 py-3.5">
                         <StatusBadge v-if="row.shipment" type="delivery" :status="row.shipment.delivery_status" />
-                        <span v-else class="text-xs text-slate-300">—</span>
+                        <span v-else class="text-slate-300">-</span>
                     </td>
                     <td class="px-4 py-3.5 text-xs text-slate-500 whitespace-nowrap">
                         {{ formatDate(row.created_at) }}
@@ -261,7 +261,7 @@ function formatRp(n) {
 }
 
 function formatDate(d) {
-    if (!d) return '—'
+    if (!d) return '-'
     return new Date(d).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
 }
 

@@ -30,7 +30,7 @@
                 </svg>
                 <p class="font-semibold text-slate-700">Transaksi tidak ditemukan</p>
                 <p class="text-sm text-slate-400 mt-1">
-                    ID: <span class="font-mono">{{ routeParamId || '—' }}</span>
+                    ID: <span class="font-mono">{{ routeParamId || '-' }}</span>
                 </p>
             </div>
 
@@ -78,7 +78,7 @@
                         <dl class="space-y-3">
                             <div class="flex justify-between items-center gap-2">
                                 <dt class="text-xs text-slate-500 font-medium">Metode</dt>
-                                <dd class="text-xs font-bold text-slate-900 capitalize">{{ trx.payment_type || '—' }}</dd>
+                                <dd class="text-xs font-bold text-slate-900 capitalize">{{ trx.payment_type || '-' }}</dd>
                             </div>
                             <div class="flex justify-between items-center gap-2">
                                 <dt class="text-xs text-slate-500 font-medium">Status</dt>
@@ -86,7 +86,7 @@
                             </div>
                             <div class="flex justify-between items-center gap-2 pt-1 border-t border-slate-50">
                                 <dt class="text-xs text-slate-500 font-medium">Waktu Transaksi</dt>
-                                <dd class="text-xs text-slate-700 text-right">{{ trx.transaction_time ? formatDate(trx.transaction_time) : '—' }}</dd>
+                                <dd class="text-xs text-slate-700 text-right">{{ trx.transaction_time ? formatDate(trx.transaction_time) : '-' }}</dd>
                             </div>
                             <div v-if="trx.settlement_time" class="flex justify-between items-center gap-2">
                                 <dt class="text-xs text-slate-500 font-medium">Waktu Settlement</dt>
@@ -373,7 +373,7 @@ function formatRp(n) {
 }
 
 function formatDate(d) {
-    if (!d) return '—'
+    if (!d) return '-'
     try {
         return new Date(d).toLocaleDateString('id-ID', { 
             day: '2-digit', 

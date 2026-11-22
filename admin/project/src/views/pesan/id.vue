@@ -179,6 +179,7 @@
                     v-for="img in msg.images"
                     :key="img.uuid"
                     :src="img.image_url"
+                    alt="Lampiran gambar dari pelanggan"
                     @click="openLightbox(img.image_url)"
                     class="w-40 h-40 object-cover rounded-2xl cursor-pointer hover:opacity-90 transition border border-slate-200 shadow-sm"
                   />
@@ -234,7 +235,7 @@
         <!-- Preview gambar -->
         <div v-if="pendingImages.length > 0" class="flex gap-2 mb-2.5 flex-wrap">
           <div v-for="(img, i) in pendingImages" :key="i" class="relative group">
-            <img :src="img.preview" class="w-14 h-14 object-cover rounded-xl border border-slate-200" />
+            <img :src="img.preview" alt="Lampiran gambar" class="w-14 h-14 object-cover rounded-xl border border-slate-200" />
             <button
               @click="removeImage(i)"
               class="absolute -top-1.5 -right-1.5 w-5 h-5 bg-rose-500 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition text-[10px] font-bold shadow"
@@ -301,6 +302,7 @@
           >
             <img
               :src="lightboxSrc"
+              alt="Pratinjau lampiran gambar"
               class="max-w-full max-h-full object-contain rounded-xl shadow-2xl"
               @click.stop
             />

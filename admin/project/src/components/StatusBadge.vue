@@ -32,11 +32,11 @@
     RETURNED:    { label: 'Dikembalikan', class: 'bg-amber-50 text-amber-700',   dot: 'bg-amber-500' },
   }
   
-  const FALLBACK = { label: '—', class: 'bg-slate-100 text-slate-400', dot: 'bg-slate-300' }
+  const FALLBACK = { label: '-', class: 'bg-slate-100 text-slate-400', dot: 'bg-slate-300' }
   
   const config = computed(() => {
     const map = props.type === 'delivery' ? DELIVERY_MAP : PAYMENT_MAP
-    return map[props.status] || { ...FALLBACK, label: props.status || '—' }
+    return map[props.status] || { ...FALLBACK, label: props.status || '-' }
   })
   </script>
   
