@@ -37,7 +37,7 @@ from backend.db.redis import (
 logger = logging.getLogger(__name__)
 
 # ── Cache TTL ──────────────────────────────────────────────────────
-POPULAR_CACHE_KEY = "cache:popular_products:v2"
+POPULAR_CACHE_KEY = "cache:popular_products:v3"
 POPULAR_CACHE_TTL = 300   # 5 menit
 
 BEST_DEALS_CACHE_KEY = "cache:best_deals:v1"
@@ -483,6 +483,9 @@ class StockService:
                 "type":                s.type,
                 "terjual":             s.terjual,
                 "stok":                s.stok,
+                "category":            s.category_slug,
+                "subcategory":         s.subcategory_slug,
+                "specs":               s.specs,
                 "image":               s.assets[0].url if s.assets else None,
             }
             for s in stocks
