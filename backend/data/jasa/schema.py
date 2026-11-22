@@ -62,7 +62,7 @@ class PricingConfigCreate(BaseModel):
     transport_per_km: int = Field(default=5_000, ge=0)
     transport_min_fee: int = Field(default=25_000, ge=0)
     transport_max_fee: int = Field(default=300_000, ge=0)
-    max_distance_km: float = Field(default=30.0, ge=1, le=500)
+    max_distance_km: float = Field(default=30.0, ge=1, le=1000)
     addons_config: List[Dict[str, Any]] = Field(default_factory=list)
     routes_config: List[Dict[str, Any]] = Field(default_factory=list)
     dp_percentage: int = Field(default=50, ge=10, le=100)

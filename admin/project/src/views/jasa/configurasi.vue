@@ -56,12 +56,17 @@
                                 diganti yang baru.
                             </template>
                         </p>
+                        <div v-if="loadError"
+                            class="mb-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-left text-xs leading-relaxed text-red-700">
+                            Data konfigurasi belum berhasil dimuat ({{ loadError }}). Simpan dinonaktifkan agar record
+                            lama tidak tertimpa. Tutup dialog ini lalu gunakan tombol muat ulang di header.
+                        </div>
                         <div class="flex gap-3">
                             <button @click="confirmModal.show = false"
                                 class="flex-1 py-2.5 rounded-lg border border-gray-200 text-sm font-semibold text-gray-600 hover:bg-gray-50 transition active:scale-95">
                                 Batal
                             </button>
-                            <button @click="doSave" :disabled="saving"
+                            <button @click="doSave" :disabled="saving || !canSave"
                                 class="flex-1 py-2.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold transition disabled:opacity-50 flex items-center justify-center gap-2 active:scale-95">
                                 <svg v-if="saving" class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
                                     <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor"
@@ -97,7 +102,7 @@
                         <div class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
                         <span class="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Active v{{ currentVersion }}</span>
                     </div>
-                    <button @click="fetchCurrent" :disabled="loading"
+                    <button @click="reload" :disabled="loading"
                         class="w-9 h-9 flex items-center justify-center rounded-lg bg-white hover:bg-gray-50 border border-gray-200 text-gray-400 transition disabled:opacity-50 active:scale-95">
                         <svg class="w-4 h-4" :class="{ 'animate-spin': loading }" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
@@ -218,7 +223,7 @@
                     <div>
                         <label class="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5">Max Distance (KM)</label>
                         <div class="relative">
-                            <input v-model.number="form.max_distance_km" type="number" class="w-full px-3 py-2 text-sm font-mono bg-gray-50 border border-gray-200 rounded-lg outline-none" />
+                            <input v-model.number="form.max_distance_km" type="number" min="1" max="1000" step="1" class="w-full px-3 py-2 text-sm font-mono bg-gray-50 border border-gray-200 rounded-lg outline-none" />
                             <span class="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-bold text-gray-400">KM</span>
                         </div>
                     </div>
@@ -286,7 +291,7 @@
                         class="px-4 py-2.5 text-sm font-semibold text-stone-600 bg-white border border-stone-200 rounded-xl hover:border-stone-400 disabled:opacity-40 disabled:cursor-not-allowed transition active:scale-95">
                         Reset ke Aktif
                     </button>
-                    <button @click="confirmModal.show = true" :disabled="saving || !isValid"
+                    <button @click="confirmModal.show = true" :disabled="saving || !canSave"
                         class="px-6 py-2.5 bg-stone-900 hover:bg-stone-700 text-white text-sm font-black rounded-xl transition disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-2 active:scale-95 shadow-sm">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"
@@ -406,6 +411,7 @@ const loading = ref(true)
 const saving = ref(false)
 const current = ref(null)       // config aktif dari backend
 const currentVersion = ref('1') // versi display
+const loadError = ref('')       // gagal memuat config saat mode edit
 
 const toast = reactive({ show: false, type: 'success', message: '' })
 let toastTimer = null
@@ -472,8 +478,8 @@ const formErrors = computed(() => {
     })
     if (form.dp_percentage < 10 || form.dp_percentage > 100)
         errs.push('DP harus antara 10% – 100%')
-    if (form.max_distance_km < 1 || form.max_distance_km > 500)
-        errs.push('Max jarak harus antara 1 – 500 km')
+    if (form.max_distance_km < 1 || form.max_distance_km > 1000)
+        errs.push('Max jarak harus antara 1 – 1000 km')
     if (form.transport_min_fee > form.transport_max_fee)
         errs.push('Transport min fee tidak boleh lebih besar dari max fee')
     brandList.value.forEach((b, i) => {
@@ -488,6 +494,9 @@ const formErrors = computed(() => {
 })
 
 const isValid = computed(() => formErrors.value.length === 0)
+// Di mode edit, jangan simpan jika data aslinya gagal dimuat —
+// form masih berisi default dan PATCH akan menimpa record.
+const canSave = computed(() => isValid.value && (!isEditMode.value || !!current.value))
 
 // ── Helpers ────────────────────────────────────────────────
 function fmt(n) {
@@ -565,6 +574,7 @@ async function fetchCurrent() {
     try {
         const { data } = await api.get('/admin/service/pricing/active')
         current.value = data
+        loadError.value = ''
         // Generate version display dari updated_at atau uuid suffix
         if (data.updated_at) {
             currentVersion.value = new Date(data.updated_at).toLocaleDateString('id-ID', {
@@ -579,7 +589,8 @@ async function fetchCurrent() {
             current.value = null
             showToast('info', 'Belum ada konfigurasi aktif. Isi form untuk membuat yang pertama.')
         } else {
-            showToast('error', 'Gagal memuat config: ' + (e?.response?.data?.detail || e.message))
+            loadError.value = e?.response?.data?.detail || e.message
+            showToast('error', 'Gagal memuat config: ' + loadError.value)
         }
     } finally {
         loading.value = false
@@ -589,8 +600,9 @@ async function fetchCurrent() {
 async function fetchByUuid(uuid) {
     loading.value = true
     try {
-        const { data } = await api.get(`/admin/service/pricing/${uuid}`)
+        const { data } = await api.get(`/admin/pricing/${uuid}`)
         current.value = data
+        loadError.value = ''
         if (data.updated_at) {
             currentVersion.value = new Date(data.updated_at).toLocaleDateString('id-ID', {
                 day: '2-digit', month: '2-digit', year: '2-digit'
@@ -598,10 +610,17 @@ async function fetchByUuid(uuid) {
         }
         applyConfig(data)
     } catch (e) {
-        showToast('error', 'Gagal memuat config: ' + (e?.response?.data?.detail || e.message))
+        current.value = null
+        loadError.value = e?.response?.data?.detail || e.message
+        showToast('error', 'Gagal memuat config: ' + loadError.value)
     } finally {
         loading.value = false
     }
+}
+
+function reload() {
+    const uuid = route.query.uuid
+    return uuid ? fetchByUuid(uuid) : fetchCurrent()
 }
 
 function goBack() {
@@ -619,7 +638,7 @@ function loadFromCurrent() {
 }
 
 async function doSave() {
-    if (!isValid.value) {
+    if (!canSave.value) {
         confirmModal.show = false
         return
     }
