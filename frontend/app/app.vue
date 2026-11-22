@@ -4,6 +4,7 @@ const route = useRoute()
 
 <template>
   <UApp>
+    <TopProgressBar />
     <NuxtLayout :name="route.meta.layout || 'public'">
       <NuxtPage />
     </NuxtLayout>

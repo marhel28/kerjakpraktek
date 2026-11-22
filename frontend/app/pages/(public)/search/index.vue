@@ -7,7 +7,7 @@ import AmazonFacetSidebar from '~/components/category/AmazonFacetSidebar.vue'
 import AmazonActiveFilters, { type FilterChip } from '~/components/category/AmazonActiveFilters.vue'
 import CategoryFilter from '~/components/category/CategoryFilter.vue'
 import CardPerItems from '~/components/CardPerItems.vue'
-import CardPerItemSkeleton from '~/components/CardPerItemSkeleton.vue'
+import SkeletonProductCard from '~/components/SkeletonProductCard.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -388,7 +388,7 @@ useHead({
             v-if="pending"
             class="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-4"
           >
-            <CardPerItemSkeleton v-for="i in 8" :key="i" />
+            <SkeletonProductCard :count="12" />
           </div>
 
           <!-- Empty State -->
@@ -426,7 +426,7 @@ useHead({
 
             <!-- Fetch more skeletons -->
             <template v-if="isFetchingMore">
-              <CardPerItemSkeleton v-for="i in 4" :key="`more-${i}`" />
+              <SkeletonProductCard :count="4" />
             </template>
           </div>
 

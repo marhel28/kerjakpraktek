@@ -8,6 +8,7 @@ import { useCompareStore } from "~/stores/compare";
 import AddChartButton from "~/components/AddChartButton.vue";
 import AddonPicker from "~/components/product/AddonPicker.vue";
 import ProductRecommendation from "~/components/ProductRecommendation.vue";
+import SkeletonProductDetail from "~/components/SkeletonProductDetail.vue";
 
 const route = useRoute();
 const router = useRouter();
@@ -271,12 +272,9 @@ const activeTab = ref<"deskripsi" | "spesifikasi" | "garansi">("spesifikasi");
 
 <template>
   <main class="bg-[#F8F9FA] min-h-screen pb-24 lg:pb-16 font-['Plus_Jakarta_Sans',sans-serif] text-gray-900">
-    <!-- Loading Screen -->
-    <div v-if="pending" class="flex justify-center items-center h-[70vh]">
-      <div class="flex flex-col items-center gap-3">
-        <div class="w-10 h-10 border-3 border-gray-200 border-t-[#03AC0E] rounded-full animate-spin" />
-        <p class="text-xs font-semibold text-gray-500">Memuat rincian produk...</p>
-      </div>
+    <!-- Loading Skeleton -->
+    <div v-if="pending" class="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8 pt-4 sm:pt-6">
+      <SkeletonProductDetail />
     </div>
 
     <!-- Error Screen -->

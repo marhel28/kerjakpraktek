@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, reactive, computed, watch, nextTick, onMounted } from 'vue'
+import SkeletonBookingWizard from '~/components/SkeletonBookingWizard.vue'
 
 /**
  * /layanan/booking — Wizard booking jasa CCTV
@@ -615,11 +616,8 @@ onMounted(() => {
 <template>
   <div class="min-h-screen bg-[#F7F8F9] font-sans pb-32 lg:pb-16 text-gray-900 selection:bg-[#03AC0E] selection:text-white">
 
-    <div v-if="configLoading" class="flex items-center justify-center min-h-screen">
-      <div class="flex flex-col items-center gap-4">
-        <div class="w-8 h-8 rounded-full border-4 border-[#03AC0E] border-t-transparent animate-spin" />
-        <p class="text-sm font-semibold text-gray-500">Memuat layanan...</p>
-      </div>
+    <div v-if="configLoading || packagesLoading">
+      <SkeletonBookingWizard />
     </div>
 
     <div v-else-if="configError" class="flex items-center justify-center min-h-screen px-4">
