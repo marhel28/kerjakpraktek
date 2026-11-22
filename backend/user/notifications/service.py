@@ -20,7 +20,17 @@ logger = logging.getLogger(__name__)
 
 
 def _as_dict(row: Notification) -> dict:
-    return NotificationOut.model_validate(row).model_dump(mode="json")
+    """Bangun payload eksplisit agar tidak bentrok dengan `MetaData` SQLAlchemy."""
+    return NotificationOut(
+        id=row.id,
+        user_id=row.user_id,
+        title=row.title,
+        content=row.content,
+        type=row.type,
+        metadata=row.meta or {},
+        read_at=row.read_at,
+        created_at=row.created_at,
+    ).model_dump(mode="json")
 
 
 async def notify_user(

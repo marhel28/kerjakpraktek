@@ -15,7 +15,7 @@ class NotificationOut(BaseModel):
     title: str
     content: str = ""
     type: str = "general"
-    # Model menyimpan kolom DB "metadata" di atribut `meta`.
-    metadata: dict = Field(default_factory=dict, validation_alias="meta")
+    # Dibangun eksplisit di _as_dict: atribut ORM `meta` → field `metadata`.
+    metadata: dict = Field(default_factory=dict)
     read_at: Optional[datetime] = None
     created_at: datetime
