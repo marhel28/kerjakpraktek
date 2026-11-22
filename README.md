@@ -26,7 +26,7 @@ Platform marketplace CCTV B2B lengkap dengan sistem **jasa instalasi berkala**, 
 | **Database** | PostgreSQL 15 |
 | **Cache & Queue** | DragonflyDB (Redis-compatible), Celery worker |
 | **Search Engine** | Manticore Search (pengganti Elasticsearch, hemat RAM) |
-| **Realtime** | Native WebSocket (FastAPI), Supabase Realtime (notifikasi) |
+| **Realtime** | Native WebSocket (FastAPI) — chat & notifikasi, fan-out via Redis pub/sub |
 | **AI** | Groq API (LLM inference), knowledge base produk untuk RAG |
 | **Storage** | Cloudflare R2 (gambar produk & attachment chat) |
 | **Frontend** | Nuxt 4, Vue 3, TypeScript, Tailwind CSS v4, Pinia, Leaflet (store locator) |

@@ -43,9 +43,8 @@ from .schema import (
     BookingPaymentInfo,
 )
 
-# 🆕 Import untuk notifikasi
-from backend.auth.model import UserMap
-from backend.db.supabse import SupabaseNotificationService
+# Import untuk notifikasi
+from backend.user.notifications import notify_user
 from backend.data.activity.service import ActivityService
 
 logger = logging.getLogger(__name__)
@@ -100,22 +99,6 @@ def haversine_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
 # 🆕 NOTIFICATION HELPER
 # ═══════════════════════════════════════════════════════════════════
 
-async def _get_supabase_user_id_from_local(session: AsyncSession, local_user_id: UUID) -> Optional[str]:
-    """Ambil supabase_user_id dari user_maps."""
-    try:
-        result = await session.exec(
-            select(UserMap).where(UserMap.local_user_id == str(local_user_id))
-        )
-        user_map = result.one_or_none()
-        if user_map:
-            return user_map.supabase_user_id
-        logger.warning(f"UserMap not found for local_user_id: {local_user_id}")
-        return None
-    except Exception as e:
-        logger.error(f"Error getting supabase_user_id: {e}")
-        return None
-
-
 async def _send_service_notification(
     session: AsyncSession,
     local_user_id: UUID,
@@ -124,37 +107,28 @@ async def _send_service_notification(
     booking_number: str,
     notif_type: str = "order",
 ):
-    """Kirim notifikasi ke Supabase. Error tidak boleh menghentikan proses utama."""
+    """Kirim notifikasi lokal. Error tidak boleh menghentikan proses utama."""
     try:
         if not local_user_id:
-            logger.warning("❌ local_user_id is None, skipping notification")
-            return
-
-        # Cari supabase_user_id dari user_maps
-        supabase_user_id = await _get_supabase_user_id_from_local(session, local_user_id)
-        if not supabase_user_id:
-            logger.warning(f"❌ UserMap not found for local_user_id={local_user_id}, cannot send notification")
+            logger.warning("local_user_id is None, skipping notification")
             return
 
         metadata = {
             "booking_number": booking_number,
-            "url": f"/booking/status/{booking_number}"
+            "url": f"/booking/status/{booking_number}",
         }
 
-        logger.info(f"📤 Sending notification to supabase_user={supabase_user_id}: {title}")
-
-        await SupabaseNotificationService.send_notification(
-            user_id=supabase_user_id,
+        await notify_user(
+            user_id=local_user_id,
             title=title,
             content=content or "",
             action_url=metadata["url"],
             notif_type=notif_type,
             metadata=metadata,
         )
-        logger.info(f"✅ Notification sent: {title}")
+        logger.info("Notification sent: %s", title)
     except Exception as e:
-        # Jangan raise, cukup log error
-        logger.error(f"❌ Failed to send notification '{title}': {e}", exc_info=True)
+        logger.error("Failed to send notification '%s': %s", title, e, exc_info=True)
 # ═══════════════════════════════════════════════════════════════════
 # PRICING ENGINE
 # ═══════════════════════════════════════════════════════════════════

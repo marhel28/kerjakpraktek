@@ -4,12 +4,11 @@ from celery import shared_task
 from datetime import datetime, timedelta
 import pytz
 from sqlmodel import select
-from sqlalchemy import cast, String
 from backend.db.main import AsyncSessionCelery
-from backend.db.supabse import SupabaseNotificationService
+from backend.user.notifications import notify_users
 from .email_tasks import send_generic_email_task
 from backend.data.public.promobanner.model import Promo, PromoStatus
-from backend.auth.model import User, UserMap
+from backend.auth.model import User
 
 logger = logging.getLogger(__name__)
 WIB = pytz.timezone("Asia/Jakarta")
@@ -55,22 +54,16 @@ def notify_promo_ending_soon(self):
                 logger.info("Tidak ada promo yang akan berakhir.")
                 return
 
-            # ✅ FIX: Ambil User + UserMap menggunakan Outer Join
-            stmt_users = (
-                select(User, UserMap)
-                .outerjoin(UserMap, cast(User.uuid, String) == UserMap.local_user_id)
-                .where(
-                    User.is_verified == True,
-                    User.email.is_not(None),
-                )
+            stmt_users = select(User).where(
+                User.is_verified == True,
+                User.email.is_not(None),
             )
-            user_results = (await session.execute(stmt_users)).all()
+            users = (await session.execute(stmt_users)).scalars().all()
 
-            # Pisahkan list email (untuk semua user) dan list supabase_id (hanya jika ada di UserMap)
-            emails = [row.User.email for row in user_results if row.User.email]
-            supabase_user_ids = [row.UserMap.supabase_user_id for row in user_results if row.UserMap]
+            emails = [user.email for user in users if user.email]
+            user_ids = [user.uuid for user in users]
 
-            if not emails and not supabase_user_ids:
+            if not emails and not user_ids:
                 return
 
             for promo in promos:
@@ -82,17 +75,17 @@ def notify_promo_ending_soon(self):
                 )
                 action_url = f"/promo/{promo.slug}"
 
-                if supabase_user_ids:
+                if user_ids:
                     try:
-                        await SupabaseNotificationService.bulk_notification(
-                            user_ids=supabase_user_ids,
+                        await notify_users(
+                            user_ids=user_ids,
                             title=title,
                             content=content,
                             action_url=action_url,
                             notif_type="promo_ending",
                         )
                     except Exception as e:
-                        logger.error(f"Supabase bulk notif failed for ending promo: {e}")
+                        logger.error(f"Bulk notif failed for ending promo: {e}")
 
                 for email in emails:
                     html_content = f"""
@@ -123,36 +116,30 @@ def notify_new_promo(self, promo_uuid: str):
                 logger.error(f"Promo {promo_uuid} tidak ditemukan")
                 return
 
-            # ✅ FIX: Ambil User + UserMap menggunakan Outer Join
-            stmt_users = (
-                select(User, UserMap)
-                .outerjoin(UserMap, cast(User.uuid, String) == UserMap.local_user_id)
-                .where(
-                    User.is_verified == True,
-                    User.email.is_not(None),
-                )
+            stmt_users = select(User).where(
+                User.is_verified == True,
+                User.email.is_not(None),
             )
-            user_results = (await session.execute(stmt_users)).all()
+            users = (await session.execute(stmt_users)).scalars().all()
 
-            # Pisahkan list email (untuk semua user) dan list supabase_id (hanya jika ada di UserMap)
-            emails = [row.User.email for row in user_results if row.User.email]
-            supabase_user_ids = [row.UserMap.supabase_user_id for row in user_results if row.UserMap]
+            emails = [user.email for user in users if user.email]
+            user_ids = [user.uuid for user in users]
 
             title = f"🎉 Promo Baru: {promo.name}"
             content = promo.description or f"Segera cek promo {promo.name}"
             action_url = f"/promo/{promo.slug}"
 
-            if supabase_user_ids:
+            if user_ids:
                 try:
-                    await SupabaseNotificationService.bulk_notification(
-                        user_ids=supabase_user_ids,
+                    await notify_users(
+                        user_ids=user_ids,
                         title=title,
                         content=content,
                         action_url=action_url,
                         notif_type="promo_new",
                     )
                 except Exception as e:
-                    logger.error(f"Supabase bulk notif failed for new promo: {e}")
+                    logger.error(f"Bulk notif failed for new promo: {e}")
             
             for email in emails:
                 html_content = f"""

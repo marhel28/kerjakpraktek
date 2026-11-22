@@ -202,7 +202,7 @@ import { useAuth } from "~/composables/useAuth";
 import { ref, onMounted, onBeforeUnmount, computed } from "vue";
 
 const pesanStore = usePesanStore();
-const { setSupabaseSession } = useAuth();
+
 
 // ─── SEO ─────────────────────────────────────────────────────────
 useSeoMeta({
@@ -249,9 +249,6 @@ const route = useRoute();
 const router = useRouter();
 const isRegisteredNotice = computed(() => route.query.registered === "1");
 
-// Cookie Supabase user ID
-const supabaseUserId = useCookie("supabase_user");
-
 const redirectAfterLogin = async () => {
   try {
     await Promise.all([cartStore.mergeCartOnLogin(), wishlistStore.fetchWishlist()]);
@@ -274,15 +271,11 @@ const handleLogin = async () => {
       body: { email: email.value, password: password.value },
     });
 
-    if (response.supabase?.user?.id) {
-      supabaseUserId.value = response.supabase.user.id;
-    }
     if (typeof response.initialUnread === "number") {
       pesanStore.unreadCount = response.initialUnread;
     }
 
     pesanStore.initAfterLogin();
-    await setSupabaseSession();
     await redirectAfterLogin();
   } catch (error: any) {
     errorMessage.value =
@@ -306,16 +299,11 @@ const handleGoogleCallback = async (response: any) => {
       body: { id_token: response.credential },
     });
 
-    if (googleResponse.supabase?.user?.id) {
-      supabaseUserId.value = googleResponse.supabase.user.id;
-    }
-
     if (typeof googleResponse.initialUnread === "number") {
       pesanStore.unreadCount = googleResponse.initialUnread;
     }
 
     pesanStore.initAfterLogin();
-    await setSupabaseSession();
     await redirectAfterLogin();
   } catch (error: any) {
     errorMessage.value =

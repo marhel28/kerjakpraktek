@@ -7,7 +7,7 @@ Selamat datang di direktori dokumentasi *Frontend*. Aplikasi ini merupakan wajah
 * **Styling & Komponen**: Tailwind CSS v4, Nuxt UI
 * **State Management**: Pinia
 * **Animasi & Interaksi**: GSAP, VueUse Motion
-* **Integrasi Lanjutan**: Supabase (untuk WebSockets/Realtime), Leaflet (untuk Pemetaan Lokasi)
+* **Integrasi Lanjutan**: WebSocket FastAPI native (chat & notifikasi), Leaflet (untuk Pemetaan Lokasi)
 
 ## Menjalankan Proyek (Getting Started)
 
@@ -25,7 +25,7 @@ Selamat datang di direktori dokumentasi *Frontend*. Aplikasi ini merupakan wajah
    ```bash
    cp .env.example .env
    ```
-   *(Pastikan kredensial Supabase dan URL Backend API telah disetel dengan benar).*
+   *(Pastikan URL Backend API telah disetel dengan benar).*
 4. Nyalakan peladen (*development server*):
    ```bash
    npm run dev

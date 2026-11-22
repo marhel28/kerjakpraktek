@@ -1,16 +1,17 @@
-# UML Activity Diagram - Alur Notifikasi Pengguna & Admin (Supabase)
+# UML Activity Diagram - Alur Notifikasi Pengguna & Admin (WebSocket Lokal)
 
 ```mermaid
 stateDiagram-v2
     direction TB
     
     [*] --> Sistem_MendeteksiKejadianBaru
-    Sistem_MendeteksiKejadianBaru --> Sistem_MenyimpanNotifikasiKeSupabase
+    Sistem_MendeteksiKejadianBaru --> Sistem_MenyimpanNotifikasiKeDatabaseLokal
     
-    Sistem_MenyimpanNotifikasiKeSupabase --> Supabase_MemicuPembaruanLangsung
+    Sistem_MenyimpanNotifikasiKeDatabaseLokal --> Redis_Publish
+    Redis_Publish --> WebSocket_FastAPI_MemicuPembaruanLangsung
     
     state pengiriman_paralel <<fork>>
-    Supabase_MemicuPembaruanLangsung --> pengiriman_paralel
+    WebSocket_FastAPI_MemicuPembaruanLangsung --> pengiriman_paralel
     
     pengiriman_paralel --> Aplikasi_MenampilkanNotifikasiPengguna : Ke Layar Pengguna
     pengiriman_paralel --> Dashboard_Admin_MenerimaPeringatan : Ke Layar Admin

@@ -39,4 +39,4 @@ Sebagai Engineer, patuhi selalu prinsip di bawah ini:
 1. **Async-First**: Seluruh interaksi I/O (akses database, penulisan *file*, permintaan jaringan) di area *backend* diwajibkan menggunakan pola asinkron (misal: `asyncpg`, `httpx`).
 2. **Cache-First Strategy**: *DragonflyDB* harus selalu bertindak sebagai lapisan pelindung pertama (*shield*) untuk meringankan beban pembacaan data di *database* RDBMS.
 3. **Decoupled Search**: *Elasticsearch* secara eksklusif menangani kueri pencarian teks berat (*fuzzy matching*, *typographic error tolerance*, *scoring*), sementara *PostgreSQL* fokus pada integritas data transaksional (ACID).
-4. **Realtime Push**: Fitur notifikasi yang berorientasi seketika harus disalurkan via *Supabase Realtime* daripada membebani server dengan proses *polling* tradisional.
+4. **Realtime Push**: Fitur notifikasi yang berorientasi seketika disalurkan via WebSocket FastAPI (`/ws/notifications/{uuid}`). Penulisan notifikasi dari worker Celery dijembatani dengan Redis pub/sub, tanpa polling.

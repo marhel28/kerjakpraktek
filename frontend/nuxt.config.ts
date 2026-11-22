@@ -3,9 +3,6 @@ import tailwindcss from '@tailwindcss/vite'
 export default defineNuxtConfig({
 
   runtimeConfig: {
-    supabaseUrl: process.env.SUPABASE_URL,
-    supabaseKey: process.env.SUPABASE_ANON_KEY,
-    adminSupabaseId: process.env.NUXT_PUBLIC_ADMIN_SUPABASE_ID,
     public: {
       apiBase: process.env.NUXT_PUBLIC_API_BASE ?? (process.env.VERCEL ? 'https://cctv-api.desa-sidomukti.com' : 'http://localhost:8000'),
       siteUrl: process.env.NUXT_PUBLIC_SITE_URL ?? 'http://localhost:3000',
@@ -68,7 +65,6 @@ export default defineNuxtConfig({
           manualChunks: {
             leaflet: ['leaflet'],
             swiper: ['swiper', 'swiper/vue', 'swiper/modules'],
-            vendor: ['@supabase/supabase-js'],
           }
         }
       }
@@ -82,29 +78,8 @@ export default defineNuxtConfig({
     '@pinia/nuxt',
     '@nuxt/ui',
     '@nuxtjs/leaflet',
-    "@nuxtjs/supabase",
     '@vueuse/motion/nuxt'
   ],
-
-  supabase: {
-    url: process.env.SUPABASE_URL,
-    key: process.env.SUPABASE_ANON_KEY,
-    redirect: false,
-    types: 'app/types/database.types.ts',
-    // ✅ Disable auto token refresh karena app punya JWT auth sendiri.
-    // Ini menghilangkan error "Failed to fetch" dari Supabase saat offline/dev lokal.
-    cookieOptions: {
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-    },
-    clientOptions: {
-      auth: {
-        autoRefreshToken: false,
-        persistSession: false,
-        detectSessionInUrl: false,
-      }
-    }
-  },
 
   app: {
     head: {

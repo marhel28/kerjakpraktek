@@ -28,9 +28,6 @@ const handleLogout = async () => {
   
   token.value = null
   userDataCookie.value = null
-  useCookie('sb_access_token').value = null
-  useCookie('sb_refresh_token').value = null
-  useCookie('supabase_user').value = null
 
   closeMobileSidebar()
   router.push('/login')

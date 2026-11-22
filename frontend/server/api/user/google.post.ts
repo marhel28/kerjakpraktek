@@ -46,26 +46,6 @@ export default defineEventHandler(async (event) => {
       })
     }
 
-    if (response.supabase?.access_token) {
-      setCookie(event, 'sb_access_token', response.supabase.access_token, {
-        maxAge: 60 * 60,
-        path: '/',
-        httpOnly: false,
-        secure: isProd,
-        sameSite: 'lax',
-      })
-    }
-
-    if (response.supabase?.refresh_token) {
-      setCookie(event, 'sb_refresh_token', response.supabase.refresh_token, {
-        maxAge: 60 * 60 * 24 * 7,
-        path: '/',
-        httpOnly: false,
-        secure: isProd,
-        sameSite: 'lax',
-      })
-    }
-
     // ── 3. ONE-SHOT: ambil unread count pakai token yang baru didapat
     let initialUnread = 0
     if (response.access_token) {
@@ -84,7 +64,6 @@ export default defineEventHandler(async (event) => {
       success: true,
       message: 'Login Google berhasil',
       user: response.user,
-      supabase: response.supabase,
       initialUnread,
     }
 

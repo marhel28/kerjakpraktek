@@ -8,7 +8,7 @@ sequenceDiagram
     participant AdminUI as Dashboard Admin (Frontend)
     participant API as API Backend (FastAPI)
     participant DB as Basis Data (PostgreSQL)
-    participant Realtime as Supabase (Realtime)
+    participant Realtime as WebSocket + Redis pub/sub (FastAPI)
     participant App as Aplikasi Pengguna & Teknisi
     
     Admin->>AdminUI: Melihat daftar pesanan jasa baru
@@ -26,8 +26,8 @@ sequenceDiagram
         API->>DB: Mengaitkan Data Teknisi ke Pesanan (Assignment)
         DB-->>API: Konfirmasi Pembaruan Berhasil
         
-        API->>Realtime: Memasukkan Rekaman Notifikasi ke Tabel Supabase
-        Note right of Realtime: Fitur Realtime aktif.<br/>Supabase otomatis menembakkan<br/>pesan melalui WebSocket.
+        API->>DB: Memasukkan Rekaman Notifikasi ke tabel `notification`
+        Note right of Realtime: Service publish ke Redis pub/sub.<br/>Tiap worker API meneruskan ke<br/>socket user yang terhubung.
         Realtime-->>App: Mendorong Peringatan (Push Notification) ke Layar Pengguna & Teknisi
         
         API-->>AdminUI: Mengembalikan Respon Sukses

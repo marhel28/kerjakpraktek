@@ -1,3 +1,5 @@
+import asyncio
+
 from fastapi import FastAPI
 from fastapi.responses import ORJSONResponse
 from fastapi.middleware.cors import CORSMiddleware
@@ -31,6 +33,10 @@ from backend.data.public.mainbottombanner.route import router as bottomBanner
 from backend.data.public.promobanner.router import promo_router as router_promo
 from backend.user.pesan.route import router as pesan_routes
 from backend.user.pesan.ws_route import router as ws_chat_router
+from backend.user.notifications.model import Notification  # noqa: F401 — register tabel
+from backend.user.notifications.router import router as notification_router
+from backend.user.notifications.ws_route import router as ws_notification_router
+from backend.user.notifications.pubsub import start_subscriber, stop_subscriber
 from backend.data.public.portofolio.route import router as porto_route
 from backend.data.public.about.route import router as router_about
 from backend.data.public.addon.route import router as addon_router
@@ -62,8 +68,13 @@ async def lifespan(app: FastAPI):
     except Exception:
         print("⚠️  Celery worker not reachable — tasks will queue when worker starts.")
 
-    yield
-    print("\n🛑 Server is stopping...")
+    start_subscriber()
+
+    try:
+        yield
+    finally:
+        await stop_subscriber()
+        print("\n🛑 Server is stopping...")
 
 
 app = FastAPI(
@@ -121,6 +132,8 @@ app.include_router(bottomBanner)
 app.include_router(router_promo,tags=['promos'])
 app.include_router(pesan_routes)
 app.include_router(ws_chat_router)
+app.include_router(notification_router)
+app.include_router(ws_notification_router)
 app.include_router(porto_route)
 app.include_router(router_about)
 app.include_router(addon_router)

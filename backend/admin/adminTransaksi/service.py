@@ -126,21 +126,16 @@ class TransactionAdminService:
             await session.commit()
             await session.refresh(promo_ship)
             try:
-                from backend.db.supabse import SupabaseNotificationService
-                from backend.auth.model import UserMap
-                result_map = await session.execute(
-                    select(UserMap).where(UserMap.local_user_id == str(promo_trx.user_id))
+                from backend.user.notifications import notify_user
+
+                await notify_user(
+                    user_id=promo_trx.user_id,
+                    title="Pesanan Dikirim! 📦",
+                    content=f"Pesanan promo {order_id} telah dikirim dengan resi: {waybill_number}. Silakan cek berkala.",
+                    action_url=f"/dashboard/orders/{order_id}",
+                    notif_type="order",
+                    metadata={"order_id": order_id, "waybill": waybill_number},
                 )
-                user_map = result_map.scalar_one_or_none()
-                if user_map:
-                    await SupabaseNotificationService.send_notification(
-                        user_id=user_map.supabase_user_id,
-                        title="Pesanan Dikirim! 📦",
-                        content=f"Pesanan promo {order_id} telah dikirim dengan resi: {waybill_number}. Silakan cek berkala.",
-                        action_url=f"/dashboard/orders/{order_id}",
-                        notif_type="order",
-                        metadata={"order_id": order_id, "waybill": waybill_number},
-                    )
             except Exception as e:
                 print(f"Failed to send shipping notification: {e}")
             return promo_trx
@@ -177,27 +172,19 @@ class TransactionAdminService:
 
         # ===== SEND NOTIFICATION =====
         try:
-            from backend.db.supabse import SupabaseNotificationService
-            from backend.auth.model import UserMap
+            from backend.user.notifications import notify_user
 
-            # 1. Get Supabase User ID
-            result_map = await session.execute(
-                select(UserMap).where(UserMap.local_user_id == str(transaction.user_id))
+            title = "Pesanan Dikirim! 📦"
+            content = f"Pesanan {order_id} telah dikirim dengan resi: {waybill_number}. Silakan cek berkala."
+
+            await notify_user(
+                user_id=transaction.user_id,
+                title=title,
+                content=content,
+                action_url=f"/dashboard/orders/{order_id}",
+                notif_type="order",
+                metadata={"order_id": order_id, "waybill": waybill_number},
             )
-            user_map = result_map.scalar_one_or_none()
-            
-            if user_map:
-                title = "Pesanan Dikirim! 📦"
-                content = f"Pesanan {order_id} telah dikirim dengan resi: {waybill_number}. Silakan cek berkala."
-                
-                await SupabaseNotificationService.send_notification(
-                    user_id=user_map.supabase_user_id,
-                    title=title,
-                    content=content,
-                    action_url=f"/dashboard/orders/{order_id}",
-                    notif_type="order",
-                    metadata={"order_id": order_id, "waybill": waybill_number}
-                )
         except Exception as e:
             # Notif failed should not rollback the waybill update
             print(f"Failed to send shipping notification: {e}")
@@ -206,43 +193,21 @@ class TransactionAdminService:
 
     @staticmethod
     async def get_admin_notifications(session: AsyncSession, admin):
-        from backend.auth.model import UserMap
-        from backend.db.supabse import SupabaseNotificationService
-        
-        result_map = await session.execute(
-            select(UserMap).where(UserMap.local_user_id == str(admin.uuid))
-        )
-        user_map = result_map.scalar_one_or_none()
-        if not user_map or not user_map.supabase_user_id:
-            return []
-            
-        return await SupabaseNotificationService.get_notifications(user_map.supabase_user_id)
+        from backend.user.notifications import list_for_user
+
+        return await list_for_user(admin.uuid)
 
     @staticmethod
     async def mark_admin_notification_read(session: AsyncSession, admin, notification_id: int):
-        from backend.auth.model import UserMap
-        from backend.db.supabse import SupabaseNotificationService
-        
-        result_map = await session.execute(
-            select(UserMap).where(UserMap.local_user_id == str(admin.uuid))
-        )
-        user_map = result_map.scalar_one_or_none()
-        if not user_map or not user_map.supabase_user_id:
-            return False
-            
-        return await SupabaseNotificationService.mark_as_read(user_map.supabase_user_id, notification_id)
+        from backend.user.notifications import mark_read
+
+        result = await mark_read(admin.uuid, notification_id)
+        return result is not None
 
     @staticmethod
     async def mark_all_admin_notifications_read(session: AsyncSession, admin):
-        from backend.auth.model import UserMap
-        from backend.db.supabse import SupabaseNotificationService
-        
-        result_map = await session.execute(
-            select(UserMap).where(UserMap.local_user_id == str(admin.uuid))
-        )
-        user_map = result_map.scalar_one_or_none()
-        if not user_map or not user_map.supabase_user_id:
-            return False
-            
-        return await SupabaseNotificationService.mark_all_as_read(user_map.supabase_user_id)
+        from backend.user.notifications import mark_all_read
+
+        await mark_all_read(admin.uuid)
+        return True
 

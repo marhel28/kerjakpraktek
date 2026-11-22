@@ -1,5 +1,6 @@
 import { ref } from 'vue'
 import { useCookie, useRuntimeConfig } from '#imports'
+import { getBackendUserId } from '~/utils/session'
 
 // ── Module-level singleton state ─────────────────────────────────────
 // Semua pemanggil useChatSocket() berbagi satu koneksi + handler yang sama.
@@ -21,31 +22,6 @@ function clearReconnectTimer() {
     clearTimeout(reconnectTimer)
     reconnectTimer = null
   }
-}
-
-/**
- * Ambil backend User.uuid — BUKAN supabase id.
- * Backend WS (/ws/chat/{user_id}) memvalidasi path user_id === JWT user.uuid.
- * Sumber utama: cookie 'user_data' (UserRead JSON dari /api/login).
- * Fallback: decode payload JWT 'token' (tanpa verifikasi signature, hanya baca uuid).
- */
-function getBackendUserId(tokenValue: string | null | undefined): string {
-  try {
-    const raw = useCookie<any>('user_data').value as any
-    if (raw) {
-      const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw
-      if (parsed?.uuid) return String(parsed.uuid)
-    }
-  } catch { /* abaikan, lanjut fallback */ }
-
-  if (tokenValue) {
-    try {
-      const payload = JSON.parse(atob(tokenValue.split('.')[1] ?? ''))
-      const uuid = payload?.user?.uuid
-      if (uuid) return String(uuid)
-    } catch { /* token tidak bisa di-decode */ }
-  }
-  return ''
 }
 
 function getWsUrl(): string | null {

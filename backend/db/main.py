@@ -38,6 +38,7 @@ async def init_db():
         from backend.data.transaksi.model import Transaction
         from backend.data.activity.model import ActivityLog
         from backend.data.chatbot.model import ChatbotKnowledge, ChatbotFeedback  # noqa
+        from backend.user.notifications.model import Notification  # noqa: F401
         await conn.run_sync(SQLModel.metadata.create_all)
         
         # Self-healing migration for chatbot_feedback column

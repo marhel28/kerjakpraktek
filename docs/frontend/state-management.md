@@ -20,4 +20,4 @@ Menangani alur validasi matematis dan penerapan kupon promo (seperti *Cashback* 
 *(Diagram Arsitektur: Alur Validasi Promo di Sistem Pinia)*
 
 ### 3. `useNotificationStore`
-Modul ringan namun vital yang menampung aliran data konstan (*stream*) yang dikirimkan oleh arsitektur **Supabase Realtime**. Store ini bertugas membangunkan komponen UI (seperti munculnya *Toast/Snackbars*) ketika notifikasi baru (misalnya "Pembayaran Berhasil" atau "Teknisi Tiba") masuk ke sistem secara seketika.
+Modul ringan namun vital yang menampung aliran data konstan (*stream*) yang dikirimkan oleh WebSocket FastAPI (`useNotificationSocket`). Store ini bertugas membangunkan komponen UI (seperti munculnya *Toast/Snackbars*) ketika notifikasi baru (misalnya "Pembayaran Berhasil" atau "Teknisi Tiba") masuk ke sistem secara seketika.

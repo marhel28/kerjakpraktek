@@ -1,12 +1,8 @@
-export default defineNuxtPlugin(async () => {
+export default defineNuxtPlugin(() => {
   if (!import.meta.client) return
 
   const { initAfterLogin } = usePesanStore()
   const { init: initNotifications } = useNotificationStore()
-  const { setSupabaseSession } = useAuth()
-
-  // Tunggu session Supabase terestore dari cookies
-  await setSupabaseSession()
 
   // Inisialisasi sekali saja saat client mount
   initAfterLogin()

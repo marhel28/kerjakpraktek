@@ -60,26 +60,6 @@ export default defineEventHandler(async (event) => {
       })
     }
 
-    if (response.supabase?.access_token) {
-      setCookie(event, 'sb_access_token', response.supabase.access_token, {
-        maxAge: 60 * 60,
-        path: '/',
-        httpOnly: false,
-        secure: isProd,
-        sameSite: 'lax',
-      })
-    }
-
-    if (response.supabase?.refresh_token) {
-      setCookie(event, 'sb_refresh_token', response.supabase.refresh_token, {
-        maxAge: 60 * 60 * 24 * 7,
-        path: '/',
-        httpOnly: false,
-        secure: isProd,
-        sameSite: 'lax',
-      })
-    }
-
     // ── 3. ONE-SHOT: ambil unread count pakai token yang baru didapat
     //    Dilakukan server-side agar FE langsung punya angka badge
     //    tanpa harus fetch sendiri setelah login.
@@ -101,7 +81,6 @@ export default defineEventHandler(async (event) => {
       success: true,
       message: 'Login berhasil',
       user: response.user,
-      hasSupabase: !!response.supabase,
       initialUnread,   // ← FE langsung set ke store
     }
 

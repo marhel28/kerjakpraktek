@@ -1,50 +1,8 @@
 // composables/useAuth.ts
-import { useSupabaseClient } from '#imports'
-
 export const useAuth = () => {
   const token = useCookie('token')
   const refreshTokenCookie = useCookie('refresh_token')
   const userDataCookie = useCookie<any>('user_data')
-  const sbAccessToken = useCookie('sb_access_token')
-  const sbRefreshToken = useCookie('sb_refresh_token')
-  const supabaseUserId = useCookie('supabase_user') // 🆕 Cookie baru
-
-  // 🎯 Ambil Supabase User ID langsung dari cookie (NO DECODE!)
-  const getSupabaseUserId = (): string => {
-    const id = supabaseUserId.value
-    if (id) {
-      return id
-    }
-    return ''
-  }
-
-  const setSupabaseSession = async () => {
-    if (!sbAccessToken.value || !sbRefreshToken.value) return
-    try {
-      const supabase = useSupabaseClient()
-      const { data, error } = await supabase.auth.setSession({
-        access_token: sbAccessToken.value,
-        refresh_token: sbRefreshToken.value,
-      })
-      
-      if (error) {
-        return false
-      }
-      
-     
-      
-      // 🆕 Simpan user ID ke cookie
-      if (data.user?.id) {
-        supabaseUserId.value = data.user.id
-        console.log('💾 Saved supabase_user cookie:', data.user.id)
-      }
-      
-      return true
-    } catch (err) {
-      console.error('❌ Error:', err)
-      return false
-    }
-  }
 
   const refreshToken = async () => {
     try {
@@ -71,7 +29,6 @@ export const useAuth = () => {
     } catch {
       console.warn('Logout API ditolak')
     } finally {
-      // Putus WebSocket chat + reset state pesan agar tidak bocor ke akun berikutnya
       try {
         const { useChatSocket } = await import('~/composables/useChatSocket')
         useChatSocket().disconnect()
@@ -80,28 +37,20 @@ export const useAuth = () => {
         const { usePesanStore } = await import('~/stores/UsePesanStore')
         usePesanStore().reset()
       } catch { /* abaikan */ }
-      // Clear semua cookies
+      try {
+        const { useNotificationSocket } = await import('~/composables/useNotificationSocket')
+        useNotificationSocket().disconnect()
+      } catch { /* abaikan */ }
+
       token.value = null
       refreshTokenCookie.value = null
       userDataCookie.value = null
-      sbAccessToken.value = null
-      sbRefreshToken.value = null
-      supabaseUserId.value = null // 🆕 Clear juga
 
       if (import.meta.client) {
-        try {
-          const supabase = useSupabaseClient()
-          await supabase.auth.signOut()
-        } catch {}
         window.location.href = '/login'
       }
     }
   }
 
-  return {
-    getSupabaseUserId,
-    setSupabaseSession,
-    refreshToken,
-    logout,
-  }
+  return { refreshToken, logout }
 }
