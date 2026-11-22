@@ -86,6 +86,10 @@ async def _booking_response(
             payment_token = p.payment_token,
             payment_url   = p.payment_url,
             status        = p.status,
+            payment_method  = p.payment_method,
+            midtrans_status = p.midtrans_status,
+            paid_at         = p.paid_at,
+            expired_at      = p.expired_at,
         )
         for p in payments
     ]
@@ -530,6 +534,22 @@ async def create_payment(
     }
 
 
+@router.get(
+    "/services/payment/sync/{booking_uuid}",
+    tags=["Payment"],
+    summary="Sinkronisasi status payment booking langsung dari Midtrans",
+)
+async def sync_booking_payment(
+    booking_uuid: UUID,
+    request: Request,
+    session: AsyncSession = Depends(get_session),
+):
+    """Fallback bila webhook terlewat: tanya status ke Midtrans lalu terapkan."""
+    await _rate_limit(request, "payment-sync")
+    booking = await payment_svc.sync_booking_payments(booking_uuid, session)
+    return await _booking_response(booking, session)
+
+
 @router.post(
     "/services/payment/webhook",
     tags=["Payment"],
@@ -561,13 +581,15 @@ async def admin_list_bookings(
     status:    Optional[BookingStatus] = Query(None),
     date_from: Optional[date]          = Query(None),
     date_to:   Optional[date]          = Query(None),
+    search:    Optional[str]           = Query(None),
     page: int  = Query(1, ge=1),
     size: int  = Query(20, le=100),
     session: AsyncSession = Depends(get_session),
     _: User   = Depends(get_admin),
 ):
     result = await booking_svc.list_bookings(
-        session, status=status, date_from=date_from, date_to=date_to, page=page, size=size
+        session, status=status, date_from=date_from, date_to=date_to,
+        page=page, size=size, search=search,
     )
     items = [await _booking_response(b, session) for b in result["items"]]
     return {"status": "ok", "total": result["total"], "page": page, "size": size, "items": items}

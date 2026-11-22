@@ -317,6 +317,10 @@ class BookingPaymentInfo(BaseModel):
     payment_token: Optional[str]
     payment_url: Optional[str]
     status: str
+    payment_method: Optional[str] = None
+    midtrans_status: Optional[str] = None
+    paid_at: Optional[datetime] = None
+    expired_at: Optional[datetime] = None
 
 
 class TechnicianResponse(BaseModel):

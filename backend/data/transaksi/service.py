@@ -1399,7 +1399,7 @@ class TransactionService:
             from backend.config import Config
             midtrans = MidtransService(
             server_key=Config.MIDTRANS_SERVER_KEY,
-            is_production='false',
+            is_production=False,
         )
             payment_service = PaymentService(midtrans=midtrans)
 

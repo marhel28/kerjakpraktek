@@ -9,12 +9,13 @@ import hmac
 import json
 import logging
 import math
+import os
 import secrets
 import string
 from datetime import datetime, date, timezone, timedelta
 from typing import Optional, List, Dict, Any, Tuple
 from uuid import UUID
-from sqlalchemy import func
+from sqlalchemy import func, or_
 from sqlalchemy.orm import selectinload
 from sqlmodel import select
 from backend.data.stock.model import Stock
@@ -223,15 +224,16 @@ class MidtransService:
     """Wrapper Midtrans Snap API."""
 
     def __init__(self, server_key: str, is_production: bool = False):
-        self.server_key  = server_key
+        self.server_key    = server_key
+        self.is_production = bool(is_production)
         self.base_url    = (
             "https://app.midtrans.com/snap/v1"
-            if is_production
+            if self.is_production
             else "https://app.sandbox.midtrans.com/snap/v1"
         )
         self.notify_url_base = (
             "https://api.padjajaran.id"
-            if is_production
+            if self.is_production
             else "https://dev.padjajaran.id"
         )
 
@@ -242,6 +244,7 @@ class MidtransService:
         customer: Dict[str, str],
         item_details: List[Dict[str, Any]],
         expiry_minutes: int = 1440,
+        finish_url: Optional[str] = None,
     ) -> Dict[str, Any]:
         import base64
         auth = base64.b64encode(f"{self.server_key}:".encode()).decode()
@@ -258,9 +261,9 @@ class MidtransService:
                 "duration": expiry_minutes,
             },
             "callbacks": {
-                "finish":       f"{self.notify_url_base}/pembayaran/selesai",
-                "error":        f"{self.notify_url_base}/pembayaran/gagal",
-                "pending":      f"{self.notify_url_base}/pembayaran/pending",
+                "finish":       finish_url or f"{self.notify_url_base}/pembayaran/selesai",
+                "error":        finish_url or f"{self.notify_url_base}/pembayaran/gagal",
+                "pending":      finish_url or f"{self.notify_url_base}/pembayaran/pending",
             },
         }
 
@@ -281,6 +284,32 @@ class MidtransService:
         raw = f"{order_id}{status_code}{gross_amount}{self.server_key}"
         expected = hashlib.sha512(raw.encode()).hexdigest()
         return hmac.compare_digest(expected, signature_key)
+
+    async def get_transaction_status(self, order_id: str) -> Optional[Dict[str, Any]]:
+        """Ambil status transaksi langsung dari Midtrans untuk rekonsiliasi."""
+        import base64
+
+        base = "https://api.midtrans.com/v2" if self.is_production else "https://api.sandbox.midtrans.com/v2"
+        auth = base64.b64encode(f"{self.server_key}:".encode()).decode()
+        try:
+            async with httpx.AsyncClient(timeout=15.0) as client:
+                resp = await client.get(
+                    f"{base}/{order_id}/status",
+                    headers={"Authorization": f"Basic {auth}", "Accept": "application/json"},
+                )
+        except httpx.HTTPError as e:
+            logger.warning(f"Midtrans status request failed for {order_id}: {e}")
+            return None
+
+        if resp.status_code != 200:
+            # Transaksi Snap yang belum dibayar bisa balas 404 "Transaction doesn't exist".
+            logger.info(f"Midtrans status {order_id}: HTTP {resp.status_code}")
+            return None
+
+        data = resp.json()
+        if not data.get("transaction_status"):
+            return None
+        return data
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -703,7 +732,7 @@ class BookingService:
                     session=session,
                     title="Booking Baru! 📅",
                     content=f"Booking {booking.booking_number} ({s1['category']}) Rp{int(booking.total_price):,} menunggu konfirmasi.",
-                    action_url=f"/bookings/{booking.booking_number}",
+                    action_url=f"/jasa/booking?search={booking.booking_number}",
                     notif_type="booking",
                 )
             except Exception as e:
@@ -762,20 +791,35 @@ class BookingService:
         date_to: Optional[date] = None,
         page: int = 1,
         size: int = 20,
+        search: Optional[str] = None,
     ) -> Dict[str, Any]:
-        stmt = select(ServiceBooking).options(selectinload(ServiceBooking.technician))
-        if status:
-            stmt = stmt.where(ServiceBooking.status == status)
-        if date_from:
-            stmt = stmt.where(ServiceBooking.scheduled_date >= date_from)
-        if date_to:
-            stmt = stmt.where(ServiceBooking.scheduled_date <= date_to)
-        stmt = stmt.order_by(ServiceBooking.created_at.desc())
+        def apply_filters(stmt):
+            if status:
+                stmt = stmt.where(ServiceBooking.status == status)
+            if date_from:
+                stmt = stmt.where(ServiceBooking.scheduled_date >= date_from)
+            if date_to:
+                stmt = stmt.where(ServiceBooking.scheduled_date <= date_to)
+            if search and search.strip():
+                term = f"%{search.strip()}%"
+                stmt = stmt.where(
+                    or_(
+                        ServiceBooking.booking_number.ilike(term),
+                        ServiceBooking.contact_name.ilike(term),
+                        ServiceBooking.contact_phone.ilike(term),
+                    )
+                )
+            return stmt
 
-        all_r = await session.exec(stmt)
-        total = len(all_r.all())
+        count_stmt = apply_filters(select(func.count(ServiceBooking.uuid)))
+        total = (await session.exec(count_stmt)).one() or 0
 
-        stmt  = stmt.offset((page - 1) * size).limit(size)
+        stmt = (
+            apply_filters(select(ServiceBooking).options(selectinload(ServiceBooking.technician)))
+            .order_by(ServiceBooking.created_at.desc())
+            .offset((page - 1) * size)
+            .limit(size)
+        )
         items = (await session.exec(stmt)).all()
         return {"items": list(items), "total": total, "page": page, "size": size}
 
@@ -1377,7 +1421,16 @@ class PaymentService:
         if amount <= 0:
             raise HTTPException(400, "Amount pembayaran tidak valid")
 
-        order_id   = f"{booking.booking_number}-{req.payment_type.value}"
+        # Setiap percobaan memakai order_id unik agar Midtrans tidak menolak
+        # pembayaran ulang setelah transaksi lama kedaluwarsa.
+        order_id = (
+            f"{booking.booking_number}-{req.payment_type.value}"
+            f"-A{int(datetime.now(timezone.utc).timestamp())}"
+        )
+        app_url = os.getenv(
+            "APP_PUBLIC_URL", "https://marketplace-pi-sable.vercel.app"
+        ).rstrip("/")
+        finish_url = f"{app_url}/booking/status/{booking.booking_number}"
         type_label = (
             f"DP {booking.dp_percentage}%"
             if req.payment_type == PaymentType.DP
@@ -1405,6 +1458,7 @@ class PaymentService:
             gross_amount=amount,
             customer=customer,
             item_details=item_details,
+            finish_url=finish_url,
         )
 
         payment = ServicePayment(
@@ -1438,7 +1492,7 @@ class PaymentService:
                 session=session,
                 title=f"Pembayaran {type_label} Menunggu 💳",
                 content=f"Pembayaran {type_label} untuk {booking.booking_number} sebesar Rp{int(amount):,} menunggu pembayaran.",
-                action_url=f"/bookings/{booking.booking_number}",
+                action_url=f"/jasa/booking?search={booking.booking_number}",
                 notif_type="order",
             )
         except Exception as e:
@@ -1446,12 +1500,14 @@ class PaymentService:
 
         return payment
 
-    async def handle_service_webhook(
-    self,
-    payload,
-    session: AsyncSession,
-) -> Dict[str, str]:
-        if not self.midtrans.verify_signature(
+    async def _apply_payment_status(
+        self,
+        payload,
+        session: AsyncSession,
+        *,
+        verify_signature: bool = True,
+    ) -> Dict[str, str]:
+        if verify_signature and not self.midtrans.verify_signature(
             payload.order_id,
             payload.status_code,
             payload.gross_amount,
@@ -1578,7 +1634,7 @@ class PaymentService:
                             session=session,
                             title="Pembayaran Jasa Baru! 💰",
                             content=f"Pembayaran {payment_type_val} untuk {booking2.booking_number} sebesar Rp{int(payment.gross_amount):,} telah diterima.",
-                            action_url=f"/transaksi/{payload.order_id}",
+                            action_url=f"/jasa/booking?search={booking2.booking_number}",
                             notif_type="order",
                         )
                     except Exception as e:
@@ -1586,6 +1642,53 @@ class PaymentService:
 
         logger.info(f"Service webhook OK: {payload.order_id} → {new_status.value if hasattr(new_status, 'value') else new_status}")
         return {"status": "ok", "payment_status": new_status.value if hasattr(new_status, "value") else new_status}
+
+    async def handle_service_webhook(
+        self,
+        payload,
+        session: AsyncSession,
+    ) -> Dict[str, str]:
+        return await self._apply_payment_status(payload, session)
+
+    async def sync_booking_payments(
+        self,
+        booking_uuid: UUID,
+        session: AsyncSession,
+    ) -> ServiceBooking:
+        """Rekonsiliasi payment PENDING langsung dari Midtrans (fallback webhook)."""
+        booking = await BookingService().get_booking(booking_uuid, session)
+        res = await session.exec(
+            select(ServicePayment).where(
+                ServicePayment.booking_uuid == booking_uuid,
+                ServicePayment.status == PaymentStatus.PENDING.value,
+            )
+        )
+        payments = list(res.all())
+
+        for payment in payments:
+            data = await self.midtrans.get_transaction_status(payment.order_id)
+            if not data:
+                continue
+
+            payload = MidtransWebhookPayload(
+                order_id=payment.order_id,
+                gross_amount=str(data.get("gross_amount") or payment.gross_amount),
+                payment_type=data.get("payment_type") or "midtrans_snap",
+                transaction_id=str(data.get("transaction_id") or ""),
+                signature_key=str(data.get("signature_key") or ""),
+                status_code=str(data.get("status_code") or "200"),
+                transaction_status=str(data.get("transaction_status") or ""),
+                fraud_status=data.get("fraud_status"),
+                transaction_time=data.get("transaction_time"),
+            )
+            await self._apply_payment_status(payload, session, verify_signature=False)
+
+        refreshed = await session.exec(
+            select(ServiceBooking)
+            .where(ServiceBooking.uuid == booking_uuid)
+            .options(selectinload(ServiceBooking.technician))
+        )
+        return refreshed.first() or booking
 
 
 # ═══════════════════════════════════════════════════════════════════

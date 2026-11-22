@@ -379,6 +379,33 @@
               </div>
             </section>
 
+            <!-- Pembayaran -->
+            <section v-if="drawer.data.payments?.length">
+              <div class="flex items-center justify-between mb-4 ml-1">
+                <p class="text-[10px] font-bold tracking-widest uppercase text-gray-400">Pembayaran</p>
+                <button @click="syncPayment" :disabled="actionState.isSyncingPayment" class="px-3 py-1.5 text-[10px] font-black uppercase tracking-widest rounded-lg border border-indigo-200 text-indigo-600 hover:bg-indigo-50 transition disabled:opacity-40">
+                  {{ actionState.isSyncingPayment ? 'Memproses...' : 'Sinkronkan' }}
+                </button>
+              </div>
+              <div class="space-y-2">
+                <div v-for="pay in drawer.data.payments" :key="pay.uuid" class="flex items-center justify-between gap-3 p-3 bg-gray-50 border border-gray-100 rounded-xl">
+                  <div class="min-w-0">
+                    <p class="text-xs font-bold text-gray-800">{{ pay.payment_type === 'dp' ? 'DP' : 'Pelunasan' }}</p>
+                    <p class="text-[10px] font-mono text-gray-400 truncate">{{ pay.order_id }}</p>
+                    <p v-if="pay.paid_at" class="text-[10px] text-gray-400 mt-0.5">{{ formatDateShort(pay.paid_at) }} · {{ pay.payment_method || 'Midtrans' }}</p>
+                  </div>
+                  <div class="text-right shrink-0">
+                    <p class="text-sm font-black text-gray-900">{{ fmt(pay.gross_amount) }}</p>
+                    <span class="inline-block mt-1 text-[10px] font-black uppercase tracking-wider" :class="{
+                      'text-emerald-600': pay.status === 'success',
+                      'text-amber-600': pay.status === 'pending',
+                      'text-rose-600': ['failed','cancel','expire'].includes(pay.status)
+                    }">{{ pay.status }}</span>
+                  </div>
+                </div>
+              </div>
+            </section>
+
           </div>
 
           <!-- Drawer Footer -->
@@ -439,7 +466,7 @@
 
 <!-- ══════════════════════════════════════════════════════════ -->
 <script setup>
-import { ref, reactive, watch, computed, onMounted } from 'vue'
+import { ref, reactive, watch, computed, onMounted, onUnmounted } from 'vue'
 import { useRoute } from 'vue-router'
 import api from '@/service/api'
 
@@ -452,7 +479,7 @@ const isLoading = ref(true)
 const showAssign = ref(false)
 
 const filters = reactive({
-  search: '',
+  search: route.query.search || '',
   status: route.query.status || '',
   date_from: '',
   date_to: '',
@@ -472,6 +499,7 @@ const drawer = reactive({
 const actionState = reactive({
   isUpdatingStatus: false,
   isProcessingPayment: false,
+  isSyncingPayment: false,
   isAssigning: false,
   selectedTech: '',
   notes: '',
@@ -690,6 +718,26 @@ const processPayment = async (type) => {
   }
 }
 
+// ── Sync Payment ───────────────────────────────────────────
+const syncPayment = async () => {
+  if (!drawer.data?.uuid) return
+  actionState.isSyncingPayment = true
+  try {
+    const { data } = await api.get(`/services/payment/sync/${drawer.data.uuid}`)
+    if (data?.uuid) {
+      drawer.data = { ...data }
+      actionState.selectedStatus = drawer.data.status
+    }
+    showFeedback('ok', '✓ Status pembayaran disinkronkan')
+    fetchBookings()
+  } catch (e) {
+    const msg = e?.response?.data?.detail || 'Gagal menyinkronkan pembayaran.'
+    showFeedback('err', `✗ ${msg}`)
+  } finally {
+    actionState.isSyncingPayment = false
+  }
+}
+
 // ── Helpers ────────────────────────────────────────────────
 const fmt = (n) =>
   new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 })
@@ -719,4 +767,24 @@ onMounted(() => {
   fetchBookings()
   fetchTechnicians()
 })
+
+// Segarkan detail saat drawer terbuka agar status pembayaran tidak basi.
+let drawerTimer = null
+watch(() => drawer.isOpen, (open) => {
+  clearInterval(drawerTimer)
+  drawerTimer = null
+  if (!open) return
+  drawerTimer = setInterval(async () => {
+    const uuid = drawer.data?.uuid
+    if (!uuid) return
+    try {
+      const { data } = await api.get(`/services/booking/${uuid}`)
+      if (data?.uuid) {
+        drawer.data = { ...data }
+        actionState.selectedStatus = data.status
+      }
+    } catch (_) { /* interval berikutnya akan mencoba lagi */ }
+  }, 15_000)
+})
+onUnmounted(() => clearInterval(drawerTimer))
 </script>
